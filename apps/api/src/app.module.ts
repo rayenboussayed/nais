@@ -5,6 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env';
 import { StandardSchemaValidationPipe } from '@nestjs/common';
 
+import { AiMessagesModule } from './ai-messages/ai-messages.module';
 import { LanguagesModule } from './languages/languages.module';
 import { DrizzleModule } from './database/drizzle.module';
 import { SeedModule } from './database/seed.module';
@@ -23,6 +24,7 @@ import { AllExceptionsFilter } from './http/all-exceptions.filter';
     SeedModule,
     HealthModule,
     LanguagesModule,
+    AiMessagesModule,
   ],
   providers: [
     {

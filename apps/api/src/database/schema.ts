@@ -1,3 +1,5 @@
+import type { AiMessage as AiMessageWire } from '@trainslator/shared';
+
 import {
   boolean,
   foreignKey,
@@ -97,7 +99,7 @@ export const aiMessages = pgTable(
     /** Final text returned by the model; null until it answers or on failure. */
     response: text('response'),
     /** Token/cost accounting as reported by the provider (jsonb). */
-    usage: jsonb('usage').$type<Record<string, unknown>>(),
+    usage: jsonb('usage').$type<AiMessageWire['usage']>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
