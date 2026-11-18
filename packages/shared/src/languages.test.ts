@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  createLanguageSchema,
-  languageSchema,
-  updateLanguageSchema,
-} from './languages';
+import { createLanguageSchema, languageSchema, updateLanguageSchema } from './languages';
 
 describe('createLanguageSchema', () => {
   it('parses a full valid input and defaults isSource', () => {
@@ -74,10 +70,12 @@ describe('updateLanguageSchema', () => {
   });
 
   it('accepts a single string field patch', () => {
-    expect(updateLanguageSchema.parse({
-      id: '123e4567-e89b-42d3-a456-426655440000',
-      name: 'German',
-    }).name).toBe('German');
+    expect(
+      updateLanguageSchema.parse({
+        id: '123e4567-e89b-42d3-a456-426655440000',
+        name: 'German',
+      }).name,
+    ).toBe('German');
   });
 
   it('rejects undefined-only patches', () => {

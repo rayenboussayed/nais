@@ -22,7 +22,10 @@ describe('translateRequestSchema', () => {
   it('rejects empty and oversized text', () => {
     expect(() => translateRequestSchema.parse({ text: '   ', targetLanguage: 'fr' })).toThrow();
     expect(() =>
-      translateRequestSchema.parse({ text: 'a'.repeat(MAX_TRANSLATION_TEXT_LENGTH + 1), targetLanguage: 'fr' }),
+      translateRequestSchema.parse({
+        text: 'a'.repeat(MAX_TRANSLATION_TEXT_LENGTH + 1),
+        targetLanguage: 'fr',
+      }),
     ).toThrow();
   });
 
@@ -67,7 +70,11 @@ describe('translation rows', () => {
     });
     expect(parsed.key).toBe('greeting');
     expect(() =>
-      createTranslationSchema.parse({ namespace: 'static', languageId: row.languageId, text: 'Bonjour' }),
+      createTranslationSchema.parse({
+        namespace: 'static',
+        languageId: row.languageId,
+        text: 'Bonjour',
+      }),
     ).toThrow();
   });
 
@@ -88,9 +95,7 @@ describe('translation rows', () => {
   });
 
   it('updateTranslationSchema rejects a patch with no fields besides id', () => {
-    expect(() =>
-      updateTranslationSchema.parse({ id: row.id }),
-    ).toThrow();
+    expect(() => updateTranslationSchema.parse({ id: row.id })).toThrow();
   });
 
   it('updateTranslationSchema accepts a text-only patch', () => {
@@ -135,7 +140,9 @@ describe('ws envelopes', () => {
   });
 
   it('wsTranslationErrorEventSchema requires a message', () => {
-    expect(wsTranslationErrorEventSchema.parse({ requestId, message: 'boom' }).message).toBe('boom');
+    expect(wsTranslationErrorEventSchema.parse({ requestId, message: 'boom' }).message).toBe(
+      'boom',
+    );
     expect(() => wsTranslationErrorEventSchema.parse({ requestId })).toThrow();
   });
 });

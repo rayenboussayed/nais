@@ -35,9 +35,12 @@ export const updateLanguageSchema = z
   })
   // A null value (e.g. clearing parentId) counts as a provided field; an explicit
   // undefined does not.
-  .refine((value) => Object.entries(value).some(([key, val]) => key !== 'id' && val !== undefined), {
-    message: 'Provide at least one field besides id',
-  });
+  .refine(
+    (value) => Object.entries(value).some(([key, val]) => key !== 'id' && val !== undefined),
+    {
+      message: 'Provide at least one field besides id',
+    },
+  );
 
 export type Language = z.infer<typeof languageSchema>;
 export type CreateLanguageInput = z.infer<typeof createLanguageSchema>;

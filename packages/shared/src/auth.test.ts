@@ -14,6 +14,8 @@ describe('loginRequestSchema', () => {
   });
 
   it('rejects overlong passwords', () => {
-    expect(() => loginRequestSchema.parse({ username: 'admin', password: 'x'.repeat(513) })).toThrow();
+    expect(() =>
+      loginRequestSchema.parse({ username: 'admin', password: 'x'.repeat(513) }),
+    ).toThrow();
   });
 });
