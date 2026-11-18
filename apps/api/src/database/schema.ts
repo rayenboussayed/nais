@@ -13,6 +13,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+import { isNull } from 'drizzle-orm';
 
 /**
  * Drizzle schema for the translation service. This file is the single source
@@ -74,7 +75,8 @@ export const translations = pgTable(
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
-    uniqueIndex('translations_language_key_unique').on(table.languageId, table.key),
+    // Partial: a soft-deleted row stops occupying the slot; the next write re-creates it.
+    uniqueIndex('translations_language_key_unique').on(table.languageId, table.key).where(isNull(table.deletedAt)),
     index('translations_language_namespace_created_idx').on(
       table.languageId,
       table.namespace,

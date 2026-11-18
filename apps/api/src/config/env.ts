@@ -38,6 +38,8 @@ const envSchema = z
     DATABASE_URL: pgConnectionStringSchema,
     /** pg-boss gets its own connection string; defaults to DATABASE_URL when unset. */
     PG_BOSS_URL: pgConnectionStringSchema.optional(),
+    /** Milliseconds a model call may take before it is abandoned; retried once. */
+    OLLAMA_TIMEOUT_MS: z.coerce.number().int().min(100).default(60_000),
     OLLAMA_BASE_URL: z.url().default('http://localhost:11434'),
     OLLAMA_TEXT_MODEL: z.string().trim().min(1).default('bonsai-2:2b'),
     BASIC_AUTH_USERNAME: z.string().trim().min(1).default('admin'),
@@ -50,9 +52,6 @@ const envSchema = z
       .optional(),
     /** Extra allowed browser origins for WS/HTTP, comma separated; same-origin when empty. */
     CORS_ORIGINS: z.string().trim().optional(),
-    LOG_TEXT: z
-      .stringbool({ truthy: ['true', '1', 'on', 'yes'], falsy: ['false', '0', 'off', 'no'] })
-      .default(false),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;

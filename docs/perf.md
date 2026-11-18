@@ -8,7 +8,7 @@ Reproduce: boot a scratch cluster, run `npm run db:migrate && npm run db:seed`, 
 
 ```sql
 EXPLAIN (ANALYZE, BUFFERS) SELECT text FROM translations
-WHERE language_id = '<uuid>' AND key = 'bench-15000';
+WHERE language_id = '<uuid>' AND key = 'bench-1000' AND deleted_at IS NULL;
 ```
 
 ```
@@ -18,6 +18,10 @@ Index Scan using translations_language_key_unique on translations  (cost=0.41..8
 Planning Time: 0.263 ms
 Execution Time: 0.040 ms
 ```
+
+`translations_language_key_unique` is a partial index (`WHERE deleted_at IS NULL`),
+so the lookup must include the soft-delete predicate to use it; the service
+does exactly that.
 
 `translations_language_key_unique` serves the lookup; no heap visits needed for the text column at this row width.
 

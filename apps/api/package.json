@@ -15,12 +15,16 @@
     "db:seed": "node bin/db-seed.mjs"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.93",
+    "@nestjs/ai": "^0.0.2",
     "@nestjs/common": "^12.5.1",
     "@nestjs/config": "^12.1.1",
     "@nestjs/core": "^12.5.1",
     "@nestjs/platform-fastify": "^12.5.1",
+    "@nestjs/resilience": "^0.0.3",
     "@nestjs/terminus": "^12.2.0",
     "@trainslator/shared": "^0.1.0",
+    "ai": "^7.0.177",
     "drizzle-orm": "^1.0.0-rc.5",
     "fastify": "^5.12.8",
     "pg": "^8.23.1",

@@ -13,7 +13,6 @@ describe('validateEnv', () => {
     expect(env.PORT).toBe(3000);
     expect(env.DATABASE_URL).toContain('localhost');
     expect(env.OLLAMA_TEXT_MODEL).toBe('bonsai-2:2b');
-    expect(env.LOG_TEXT).toBe(false);
   });
 
   it('requires DATABASE_URL in every environment (even development)', () => {

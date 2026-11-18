@@ -154,7 +154,7 @@ describe('database layer (throwaway PostgreSQL 17)', () => {
 
     const explained = await rawRows<QueryResultRow>(
       db,
-      sql`EXPLAIN (ANALYZE, BUFFERS) SELECT text FROM translations WHERE language_id = ${row.id} AND key = 'bench-1000'`,
+      sql`EXPLAIN (ANALYZE, BUFFERS) SELECT text FROM translations WHERE language_id = ${row.id} AND key = 'bench-1000' AND deleted_at IS NULL`,
     );
     const plan = explained.map((r) => Object.values(r).join('\n')).join('\n');
     expect(plan).toContain('translations_language_key_unique');

@@ -1,0 +1,45 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "db2bfeb3-9ffc-4442-9939-357bdb17ea81",
+  "prevIds": [
+    "626829c8-4d39-4ef3-9d46-f6603884448e"
+  ],
+  "footprints": [
+    {
+      "statementType": "recreate_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "translations",
+        "translations_language_key_unique"
+      ],
+      "writes": [
+        "s|idx|public.translations_language_key_unique",
+        "n|idx|public.translations_language_key_unique",
+        "e|idx|public.translations_language_key_unique",
+        "n|rel|public.translations_language_key_unique"
+      ],
+      "reads": [
+        "n|tbl|public.translations",
+        "n|sch|public",
+        "n|col|public.translations.language_id",
+        "n|col|public.translations.key"
+      ],
+      "sharedWrites": [
+        "e|uniqueness|public.translations.key.language_id"
+      ],
+      "sqlHash": "25cc7d29abc97e94"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "indexes\u0000[\"public\",\"translations_language_key_unique\"]",
+      "set": {
+        "where": "(\"deleted_at\" is null)"
+      }
+    }
+  ]
+}
