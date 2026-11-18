@@ -9,7 +9,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build -w packages/shared && npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write \"**/*.{ts,mts,mjs,tsx,css,md,json,yml,yaml}\"",
@@ -24,7 +24,7 @@
     "test:perf": "vitest bench",
     "knip": "knip",
     "auth:hash": "node scripts/scrypt-hash.mjs",
-    "check": "npm run typecheck && npm run lint && npm run build && npm run test && npm run knip && npm run format:check",
+    "check": "npm run build && npm run typecheck && npm run lint && npm run test && npm run knip && npm run format:check",
     "db:generate": "npm run db:generate --workspace=@trainslator/api",
     "db:migrate": "npm run db:migrate --workspace=@trainslator/api",
     "db:seed": "npm run db:seed --workspace=@trainslator/api",

@@ -24,15 +24,23 @@ export const createLanguageSchema = z.object({
   isSource: z.boolean().default(false),
 });
 
-export const updateLanguageSchema = z
-  .object({
-    id: z.uuid(),
-    name: z.string().trim().min(1).max(255).optional(),
-    nativeName: z.string().trim().min(1).max(255).optional(),
-    iso6391: iso6391Schema.optional(),
-    dir: languageDirSchema.optional(),
-    isSource: z.boolean().optional(),
-  })
+const updateLanguageBaseSchema = z.object({
+  name: z.string().trim().min(1).max(255).optional(),
+  nativeName: z.string().trim().min(1).max(255).optional(),
+  iso6391: iso6391Schema.optional(),
+  dir: languageDirSchema.optional(),
+  isSource: z.boolean().optional(),
+});
+
+/** Body of the REST PATCH endpoint; `id` comes from the route. */
+export const updateLanguageBodySchema = updateLanguageBaseSchema.refine(
+  (value) => Object.values(value).some((field) => field !== undefined),
+  { message: 'Provide at least one field' },
+);
+export type UpdateLanguageBodyInput = z.infer<typeof updateLanguageBodySchema>;
+
+export const updateLanguageSchema = updateLanguageBaseSchema
+  .extend({ id: z.uuid() })
   // A null value (e.g. clearing parentId) counts as a provided field; an explicit
   // undefined does not.
   .refine(

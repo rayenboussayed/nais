@@ -11,8 +11,7 @@ vi.mock('node:fs', async (importOriginal) => {
   const original = await importOriginal<typeof import('node:fs')>();
   return {
     ...original,
-    readdirSync: () =>
-      [{ name: '99', isDirectory: () => true }] as unknown as Dirent[],
+    readdirSync: () => [{ name: '99', isDirectory: () => true }] as unknown as Dirent[],
     existsSync: () => false,
   };
 });

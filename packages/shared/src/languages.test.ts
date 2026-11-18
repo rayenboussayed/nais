@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { createLanguageSchema, languageSchema, updateLanguageSchema } from './languages';
+import {
+  createLanguageSchema,
+  languageSchema,
+  updateLanguageBodySchema,
+  updateLanguageSchema,
+} from './languages';
 
 describe('createLanguageSchema', () => {
   it('parses a full valid input and defaults isSource', () => {
@@ -50,6 +55,21 @@ describe('createLanguageSchema', () => {
         dir: 'ltr',
       }).name,
     ).toBe('English');
+  });
+});
+
+describe('updateLanguageBodySchema', () => {
+  it('rejects an empty patch', () => {
+    expect(() => updateLanguageBodySchema.parse({})).toThrow();
+  });
+
+  it('accepts a single defined field and rejects undefined-only', () => {
+    expect(updateLanguageBodySchema.parse({ isSource: true }).isSource).toBe(true);
+    expect(() => updateLanguageBodySchema.parse({ isSource: undefined })).toThrow();
+  });
+
+  it('accepts an iso-only patch', () => {
+    expect(updateLanguageBodySchema.parse({ iso6391: 'de' }).iso6391).toBe('de');
   });
 });
 
