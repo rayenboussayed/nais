@@ -2,20 +2,29 @@ import { describe, expect, it } from 'vitest';
 
 import { validateEnv } from './env';
 
-const baseEnv = { NODE_ENV: 'development' } as NodeJS.ProcessEnv;
+const baseEnv = {
+  NODE_ENV: 'development',
+  DATABASE_URL: 'postgresql://trainslator:change-me@localhost:5432/trainslator',
+} as NodeJS.ProcessEnv;
 
 describe('validateEnv', () => {
   it('applies development defaults', () => {
     const env = validateEnv(baseEnv);
     expect(env.PORT).toBe(3000);
-    expect(env.DATABASE_URL).toContain('postgresql://');
+    expect(env.DATABASE_URL).toContain('localhost');
     expect(env.OLLAMA_TEXT_MODEL).toBe('bonsai-2:2b');
     expect(env.LOG_TEXT).toBe(false);
   });
 
-  it('keeps development defaults when NODE_ENV is unset', () => {
-    expect(validateEnv({}).NODE_ENV).toBe('development');
-    expect(validateEnv({}).DATABASE_URL).toContain('localhost');
+  it('requires DATABASE_URL in every environment (even development)', () => {
+    expect(() => validateEnv({ NODE_ENV: 'development' })).toThrow(/DATABASE_URL/);
+    expect(() => validateEnv({})).toThrow(/DATABASE_URL/);
+  });
+
+  it('defaults NODE_ENV to development when unset', () => {
+    expect(validateEnv({ DATABASE_URL: 'postgresql://u:p@db:5432/x' }).NODE_ENV).toBe(
+      'development',
+    );
   });
 
   it('coerces PORT from the environment string', () => {
@@ -64,7 +73,8 @@ describe('validateEnv', () => {
         NODE_ENV: 'production',
         DATABASE_URL: 'postgresql://u:p@db:5432/trainslator',
         BASIC_AUTH_PASSWORD_HASH: 'scrypt$16384$8$1$aaaa$bbbb',
-        SESSION_SECRET: 'not-hex-but-long-enough-to-trick-a-length-check-000000000000000000000000000000000000',
+        SESSION_SECRET:
+          'not-hex-but-long-enough-to-trick-a-length-check-000000000000000000000000000000000000',
       }),
     ).toThrow(/SESSION_SECRET/);
   });
@@ -91,5 +101,24 @@ describe('validateEnv', () => {
 
   it('rejects an invalid DATABASE_URL', () => {
     expect(() => validateEnv({ ...baseEnv, DATABASE_URL: 'not a url' })).toThrow(/DATABASE_URL/);
+    expect(() => validateEnv({ ...baseEnv, DATABASE_URL: 'postgresql://' })).toThrow(
+      /DATABASE_URL/,
+    );
+  });
+
+  it('accepts a unix-socket DSN (pg accepts it, WHATWG would not)', () => {
+    const env = validateEnv({
+      ...baseEnv,
+      DATABASE_URL: 'postgresql://postgres@/dbname?host=%2Ftmp%2Fsocketdir&port=55432',
+    });
+    expect(env.DATABASE_URL).toContain('host=%2Ftmp%2Fsocketdir');
+  });
+
+  it('accepts a libpq key=value DSN', () => {
+    const env = validateEnv({
+      ...baseEnv,
+      DATABASE_URL: 'host=/tmp/socketdir port=55432 dbname=x',
+    });
+    expect(env.DATABASE_URL).toContain('host=');
   });
 });

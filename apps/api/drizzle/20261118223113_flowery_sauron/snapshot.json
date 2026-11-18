@@ -1,0 +1,901 @@
+{
+  "type": "base",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "626829c8-4d39-4ef3-9d46-f6603884448e",
+  "prevIds": ["00000000-0000-0000-0000-000000000000"],
+  "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "ai_message_status"],
+      "writes": [
+        "s|enum|public.ai_message_status",
+        "n|enum|public.ai_message_status",
+        "e|enum|public.ai_message_status",
+        "n|type|public.ai_message_status"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "language_dir"],
+      "writes": [
+        "s|enum|public.language_dir",
+        "n|enum|public.language_dir",
+        "e|enum|public.language_dir",
+        "n|type|public.language_dir"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "translation_namespace"],
+      "writes": [
+        "s|enum|public.translation_namespace",
+        "n|enum|public.translation_namespace",
+        "e|enum|public.translation_namespace",
+        "n|type|public.translation_namespace"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "ai_message_prompts"],
+      "writes": [
+        "s|tbl|public.ai_message_prompts",
+        "n|tbl|public.ai_message_prompts",
+        "e|tbl|public.ai_message_prompts",
+        "n|rel|public.ai_message_prompts",
+        "n|type|public.ai_message_prompts",
+        "n|rel|public.ai_message_prompts_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "ai_messages"],
+      "writes": [
+        "s|tbl|public.ai_messages",
+        "n|tbl|public.ai_messages",
+        "e|tbl|public.ai_messages",
+        "n|rel|public.ai_messages",
+        "n|type|public.ai_messages",
+        "n|rel|public.ai_messages_pkey"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.ai_message_status"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "languages"],
+      "writes": [
+        "s|tbl|public.languages",
+        "n|tbl|public.languages",
+        "e|tbl|public.languages",
+        "n|rel|public.languages",
+        "n|type|public.languages",
+        "n|rel|public.languages_pkey"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.language_dir"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "translations"],
+      "writes": [
+        "s|tbl|public.translations",
+        "n|tbl|public.translations",
+        "e|tbl|public.translations",
+        "n|rel|public.translations",
+        "n|type|public.translations",
+        "n|rel|public.translations_pkey"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.translation_namespace"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ai_message_prompts",
+        "ai_message_prompts_message_idx"
+      ],
+      "writes": [
+        "s|idx|public.ai_message_prompts_message_idx",
+        "n|idx|public.ai_message_prompts_message_idx",
+        "e|idx|public.ai_message_prompts_message_idx",
+        "n|rel|public.ai_message_prompts_message_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ai_message_prompts",
+        "n|sch|public",
+        "n|col|public.ai_message_prompts.message_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "ai_messages", "ai_messages_created_idx"],
+      "writes": [
+        "s|idx|public.ai_messages_created_idx",
+        "n|idx|public.ai_messages_created_idx",
+        "e|idx|public.ai_messages_created_idx",
+        "n|rel|public.ai_messages_created_idx"
+      ],
+      "reads": ["n|tbl|public.ai_messages", "n|sch|public", "n|col|public.ai_messages.created_at"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "languages", "languages_iso639_1_unique"],
+      "writes": [
+        "s|idx|public.languages_iso639_1_unique",
+        "n|idx|public.languages_iso639_1_unique",
+        "e|idx|public.languages_iso639_1_unique",
+        "n|rel|public.languages_iso639_1_unique"
+      ],
+      "reads": ["n|tbl|public.languages", "n|sch|public", "n|col|public.languages.iso639_1"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "translations", "translations_language_key_unique"],
+      "writes": [
+        "s|idx|public.translations_language_key_unique",
+        "n|idx|public.translations_language_key_unique",
+        "e|idx|public.translations_language_key_unique",
+        "n|rel|public.translations_language_key_unique"
+      ],
+      "reads": [
+        "n|tbl|public.translations",
+        "n|sch|public",
+        "n|col|public.translations.language_id",
+        "n|col|public.translations.key"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "translations",
+        "translations_language_namespace_created_idx"
+      ],
+      "writes": [
+        "s|idx|public.translations_language_namespace_created_idx",
+        "n|idx|public.translations_language_namespace_created_idx",
+        "e|idx|public.translations_language_namespace_created_idx",
+        "n|rel|public.translations_language_namespace_created_idx"
+      ],
+      "reads": [
+        "n|tbl|public.translations",
+        "n|sch|public",
+        "n|col|public.translations.language_id",
+        "n|col|public.translations.namespace",
+        "n|col|public.translations.created_at"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "ai_message_prompts"],
+      "writes": [
+        "s|fk|public.ai_message_prompts.ai_message_prompts_message_id_ai_messages_id_fkey",
+        "n|fk|public.ai_message_prompts.ai_message_prompts_message_id_ai_messages_id_fkey",
+        "e|fk|public.ai_message_prompts.ai_message_prompts_message_id_ai_messages_id_fkey",
+        "n|con|public.ai_message_prompts.ai_message_prompts_message_id_ai_messages_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.ai_message_prompts",
+        "n|sch|public",
+        "n|tbl|public.ai_messages",
+        "n|sch|public",
+        "n|col|public.ai_message_prompts.message_id",
+        "n|col|public.ai_messages.id",
+        "e|uniqueness|public.ai_messages.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "translations"],
+      "writes": [
+        "s|fk|public.translations.translations_language_id_languages_id_fkey",
+        "n|fk|public.translations.translations_language_id_languages_id_fkey",
+        "e|fk|public.translations.translations_language_id_languages_id_fkey",
+        "n|con|public.translations.translations_language_id_languages_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.translations",
+        "n|sch|public",
+        "n|tbl|public.languages",
+        "n|sch|public",
+        "n|col|public.translations.language_id",
+        "n|col|public.languages.id",
+        "e|uniqueness|public.languages.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "translations"],
+      "writes": [
+        "s|fk|public.translations.translations_parent_fk",
+        "n|fk|public.translations.translations_parent_fk",
+        "e|fk|public.translations.translations_parent_fk",
+        "n|con|public.translations.translations_parent_fk"
+      ],
+      "reads": [
+        "n|tbl|public.translations",
+        "n|sch|public",
+        "n|tbl|public.translations",
+        "n|sch|public",
+        "n|col|public.translations.parent_id",
+        "n|col|public.translations.id",
+        "e|uniqueness|public.translations.id"
+      ]
+    }
+  ],
+  "ddl": [
+    {
+      "schema": "public",
+      "name": "ai_message_prompts",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "ai_messages",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "languages",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "translations",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "ai_message_status",
+      "values": ["pending", "processing", "completed", "failed"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "language_dir",
+      "values": ["ltr", "rtl"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "translation_namespace",
+      "values": ["static", "dynamic"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "table": "ai_message_prompts",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_message_prompts",
+      "name": "message_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_message_prompts",
+      "name": "role",
+      "type": "varchar(10)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_message_prompts",
+      "name": "prompt",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_message_prompts",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_messages",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_messages",
+      "name": "provider",
+      "type": "varchar(50)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'ollama'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_messages",
+      "name": "model",
+      "type": "varchar(50)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_messages",
+      "name": "status",
+      "type": "ai_message_status",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'pending'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_messages",
+      "name": "response",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_messages",
+      "name": "usage",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_messages",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_messages",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_messages",
+      "name": "deleted_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "languages",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "languages",
+      "name": "name",
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "languages",
+      "name": "native_name",
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "languages",
+      "name": "iso639_1",
+      "type": "varchar(2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "languages",
+      "name": "dir",
+      "type": "language_dir",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "languages",
+      "name": "is_source",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "languages",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "languages",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "languages",
+      "name": "deleted_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "language_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "namespace",
+      "type": "translation_namespace",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'dynamic'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "key",
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "text",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "parent_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "metadata",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "deleted_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "ai_message_prompts",
+      "name": "ai_message_prompts_message_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "message_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "ai_messages",
+      "name": "ai_messages_created_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "languages",
+      "name": "languages_iso639_1_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "iso639_1",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "translations_language_key_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "language_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "key",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "translations_language_namespace_created_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "language_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "namespace",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "ai_message_prompts",
+      "name": "ai_message_prompts_message_id_ai_messages_id_fkey",
+      "nameExplicit": false,
+      "columns": ["message_id"],
+      "schemaTo": "public",
+      "tableTo": "ai_messages",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "translations_language_id_languages_id_fkey",
+      "nameExplicit": false,
+      "columns": ["language_id"],
+      "schemaTo": "public",
+      "tableTo": "languages",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "translations_parent_fk",
+      "nameExplicit": true,
+      "columns": ["parent_id"],
+      "schemaTo": "public",
+      "tableTo": "translations",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "ai_message_prompts",
+      "name": "ai_message_prompts_pkey",
+      "columns": ["id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "ai_messages",
+      "name": "ai_messages_pkey",
+      "columns": ["id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "languages",
+      "name": "languages_pkey",
+      "columns": ["id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "translations",
+      "name": "translations_pkey",
+      "columns": ["id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    }
+  ]
+}

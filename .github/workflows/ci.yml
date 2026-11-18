@@ -20,7 +20,11 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm run test:cov
       - run: npm run build
+      - run: npm run test:cov
+      - name: drizzle migration drift check
+        run: npm run db:generate --workspace=@trainslator/api
+      - name: ensure generated migrations are committed
+        run: git diff --exit-code -- apps/api/drizzle
       - run: npm run knip
       - run: npm audit --omit=dev --audit-level=high

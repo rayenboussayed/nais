@@ -1,4 +1,27 @@
 import { z } from 'zod';
+import { parse as parsePgConnectionString } from 'pg-connection-string';
+
+/**
+ * Validates DATABASE_URL against the two shapes accepted by the pg driver: a
+ * `postgresql://` URL with a host (or a unix-socket `host` query parameter)
+ * or a libpq key=value DSN. WHATWG URL validation would reject the socket
+ * form, so the check mirrors the driver instead.
+ */
+const pgConnectionStringSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine((value) => {
+    if (/^postgres(ql)?:\/\//i.test(value)) {
+      try {
+        const parsed = parsePgConnectionString(value);
+        return Boolean(parsed.host) && Boolean(parsed.database);
+      } catch {
+        return false;
+      }
+    }
+    return /host=/i.test(value);
+  }, 'Expected a PostgreSQL connection string (postgresql://... or libpq key=value)');
 
 /**
  * Environment schema for the whole service. Parsed once at boot by
@@ -11,17 +34,20 @@ const envSchema = z
     /** `development` enables nothing unsafe by itself; logging stays minimal in all modes. */
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
-    /** No dev default here: validateEnv injects the local one outside production. */
-    DATABASE_URL: z.url(),
+    /** Required everywhere; no silent default — a wrong-host connection is worse than a boot error. */
+    DATABASE_URL: pgConnectionStringSchema,
     /** pg-boss gets its own connection string; defaults to DATABASE_URL when unset. */
-    PG_BOSS_URL: z.url().optional(),
+    PG_BOSS_URL: pgConnectionStringSchema.optional(),
     OLLAMA_BASE_URL: z.url().default('http://localhost:11434'),
     OLLAMA_TEXT_MODEL: z.string().trim().min(1).default('bonsai-2:2b'),
     BASIC_AUTH_USERNAME: z.string().trim().min(1).default('admin'),
     /** scrypt hash, format `scrypt$N$r$p$saltHex$hashHex`; required in production. */
     BASIC_AUTH_PASSWORD_HASH: z.string().trim().min(1).optional(),
     /** 64+ random hex chars; required in production. Used to sign session cookies. */
-    SESSION_SECRET: z.string().regex(/^[0-9a-f]{64}$/, 'Expected 64 lowercase hex chars (openssl rand -hex 32)').optional(),
+    SESSION_SECRET: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/, 'Expected 64 lowercase hex chars (openssl rand -hex 32)')
+      .optional(),
     /** Extra allowed browser origins for WS/HTTP, comma separated; same-origin when empty. */
     CORS_ORIGINS: z.string().trim().optional(),
     LOG_TEXT: z
@@ -36,7 +62,9 @@ const envSchema = z
         path: ['BASIC_AUTH_PASSWORD_HASH'],
         message: 'Required in production (generate with `npm run auth:hash`)',
       });
-    } else if (!/^scrypt\$\d+\$\d+\$\d+\$[0-9a-f]+\$[0-9a-f]+$/.test(env.BASIC_AUTH_PASSWORD_HASH)) {
+    } else if (
+      !/^scrypt\$\d+\$\d+\$\d+\$[0-9a-f]+\$[0-9a-f]+$/.test(env.BASIC_AUTH_PASSWORD_HASH)
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['BASIC_AUTH_PASSWORD_HASH'],
@@ -63,15 +91,8 @@ export type Env = z.infer<typeof envSchema>;
  * @returns the parsed environment
  * @throws Error with a semicolon-separated list of issues when invalid; callers fail the boot on it
  */
-/** Local development database seed; only used outside production and never logged. */
-const DEV_DATABASE_URL = 'postgresql://trainslator:change-me@localhost:5432/trainslator';
-
 export function validateEnv(raw: NodeJS.ProcessEnv): Env {
-  const withDefaults = { ...raw };
-  if ((raw.NODE_ENV ?? 'development') !== 'production' && !raw.DATABASE_URL) {
-    withDefaults.DATABASE_URL = DEV_DATABASE_URL;
-  }
-  const result = envSchema.safeParse(withDefaults);
+  const result = envSchema.safeParse({ ...raw });
   if (!result.success) {
     const details = result.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
