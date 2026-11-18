@@ -7,6 +7,7 @@ import { StandardSchemaValidationPipe } from '@nestjs/common';
 
 import { AiMessagesModule } from './ai-messages/ai-messages.module';
 import { LanguagesModule } from './languages/languages.module';
+import { TranslationsModule } from './translations/translations.module';
 import { DrizzleModule } from './database/drizzle.module';
 import { SeedModule } from './database/seed.module';
 import { HealthModule } from './health/health.module';
@@ -25,6 +26,7 @@ import { AllExceptionsFilter } from './http/all-exceptions.filter';
     HealthModule,
     LanguagesModule,
     AiMessagesModule,
+    TranslationsModule,
   ],
   providers: [
     {

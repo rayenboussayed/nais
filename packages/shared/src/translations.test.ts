@@ -6,6 +6,7 @@ import {
   translateRequestSchema,
   translateResponseSchema,
   translationSchema,
+  updateTranslationBodySchema,
   updateTranslationSchema,
   wsTranslationErrorEventSchema,
   wsTranslationEventSchema,
@@ -100,6 +101,12 @@ describe('translation rows', () => {
 
   it('updateTranslationSchema accepts a text-only patch', () => {
     expect(updateTranslationSchema.parse({ id: row.id, text: 'updated' }).text).toBe('updated');
+  });
+
+  it('updateTranslationBodySchema accepts a single field and rejects empty patches', () => {
+    expect(updateTranslationBodySchema.parse({ text: 'hi' }).text).toBe('hi');
+    expect(() => updateTranslationBodySchema.parse({})).toThrow();
+    expect(() => updateTranslationBodySchema.parse({ text: undefined })).toThrow();
   });
 
   it('updateTranslationSchema rejects undefined-only patches', () => {

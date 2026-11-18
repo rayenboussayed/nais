@@ -51,6 +51,7 @@ export const createTranslationSchema = z.discriminatedUnion('namespace', [
     languageId: z.uuid(),
     text: textSchema,
     key: z.string().trim().min(1).max(255),
+    parentId: z.uuid().optional(),
   }),
   z.object({
     namespace: z.literal('dynamic'),
@@ -59,15 +60,23 @@ export const createTranslationSchema = z.discriminatedUnion('namespace', [
   }),
 ]);
 
-export const updateTranslationSchema = z
-  .object({
-    id: z.uuid(),
-    languageId: z.uuid().optional(),
-    namespace: translationNamespaceSchema.optional(),
-    text: textSchema.optional(),
-    key: z.string().trim().min(1).max(255).optional(),
-    parentId: z.uuid().nullable().optional(),
-  })
+const updateTranslationBaseSchema = z.object({
+  languageId: z.uuid().optional(),
+  namespace: translationNamespaceSchema.optional(),
+  text: textSchema.optional(),
+  key: z.string().trim().min(1).max(255).optional(),
+  parentId: z.uuid().nullable().optional(),
+});
+
+/** Body of the REST PATCH endpoint; `id` comes from the route. */
+export const updateTranslationBodySchema = updateTranslationBaseSchema.refine(
+  (value) => Object.values(value).some((field) => field !== undefined),
+  { message: 'Provide at least one field' },
+);
+export type UpdateTranslationBodyInput = z.infer<typeof updateTranslationBodySchema>;
+
+export const updateTranslationSchema = updateTranslationBaseSchema
+  .extend({ id: z.uuid() })
   // A null value (e.g. clearing parentId) counts as a provided field; an explicit
   // undefined does not.
   .refine(
