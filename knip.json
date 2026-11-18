@@ -1,6 +1,9 @@
 {
   "workspaces": {
     ".": {},
+    "apps/api": {
+      "entry": ["src/main.ts"]
+    },
     "packages/shared": {}
   }
 }
