@@ -1,1 +1,13 @@
 .agent-swarm/
+node_modules/
+dist/
+coverage/
+profiles/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.log
+test-results/
+playwright-report/
+.husky/_/

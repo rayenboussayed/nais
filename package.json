@@ -1,0 +1,55 @@
+{
+  "name": "trainslator",
+  "version": "0.1.0",
+  "description": "Standalone AI translation service (NestJS + Ollama + PostgreSQL)",
+  "private": true,
+  "license": "UNLICENSED",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write \"**/*.{ts,mts,mjs,tsx,css,md,json,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,mts,mjs,tsx,css,md,json,yml,yaml}\"",
+    "test": "vitest run --passWithNoTests",
+    "test:mem": "vitest run --config vitest.memory.config.mts",
+    "test:prof": "vitest run --config vitest.profile.config.mts",
+    "test:cov": "vitest run --coverage --passWithNoTests",
+    "test:cov:changed": "vitest run --changed --coverage --coverage.thresholds.perFile=true --coverage.thresholds.lines=95 --coverage.thresholds.functions=95 --coverage.thresholds.branches=95 --coverage.thresholds.statements=95 --passWithNoTests",
+    "test:watch": "vitest",
+    "test:e2e": "vitest run --config vitest.config.e2e.mts",
+    "test:perf": "vitest bench",
+    "knip": "knip",
+    "auth:hash": "node scripts/scrypt-hash.mjs",
+    "check": "npm run typecheck && npm run lint && npm run build && npm run test && npm run knip && npm run format:check",
+    "db:generate": "npm run db:generate --workspace=@trainslator/api",
+    "db:migrate": "npm run db:migrate --workspace=@trainslator/api",
+    "db:seed": "npm run db:seed --workspace=@trainslator/api",
+    "prepare": "husky"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  },
+  "overrides": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "^5.1.0",
+    "eslint": "^10.3.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.6.0",
+    "husky": "^9.1.7",
+    "knip": "^6.14.2",
+    "prettier": "^3.8.3",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.59.2",
+    "vitest": "^5.1.1"
+  }
+}
