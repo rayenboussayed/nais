@@ -4,6 +4,7 @@
     "apps/api": {
       "entry": ["src/main.ts"]
     },
+    "apps/web": {},
     "packages/shared": {}
   }
 }

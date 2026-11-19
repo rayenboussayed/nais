@@ -12,6 +12,7 @@ export default defineConfig({
       'packages/shared/src/**/*.test.ts',
       'packages/shared/test/**/*.spec.ts',
       'apps/**/src/**/*.spec.ts',
+      'apps/**/src/**/*.test.ts',
       'apps/**/test/**/*.spec.ts',
     ],
     passWithNoTests: true,
