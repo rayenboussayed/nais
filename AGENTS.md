@@ -68,6 +68,13 @@ native Standard Schema.
     are lazy singletons cached by effective model id; the first request pays
     the model download (verified: all six dedicated pipelines download and run in this repo). Tests stub `PipelineLoader` — the registry, cache round-trip and
     audit trail are covered without network.
+18. **ESM split: the API is ESM, the shared package is CJS.** apps/api is
+    `type: module` (NestJS 12 emits ESM from NodeNext source); packages/shared
+    stays `type: commonjs` because CJS transpilation is the safest default for
+    a dual-consumer package — ESM importers interop fine (Node's cjs-module-
+    lexer detects `exports.foo =` assignments; verified live). Any new shared
+    export automatically works under both consumers.
+
 14. **onnxruntime-node ships native binaries in the package (548 MB).** Its
     postinstall only prunes; this repo's npm install-scripts policy is left
     intact (`npm install-scripts ls` shows it as pending, and the runtime
