@@ -15,7 +15,8 @@ import { LanguagesModule } from './languages/languages.module';
 import { TranslationsModule } from './translations/translations.module';
 import { TranslateModule } from './translate/translate.module';
 import { skipHealthProbe } from './config/throttle';
-import { TranslateQueueModule } from './queue/translate-queue.module';
+import { AiTaskQueueModule } from './queue/ai-task-queue.module';
+import { AiModule } from './ai/ai.module';
 import { DrizzleModule } from './database/drizzle.module';
 import { SeedModule } from './database/seed.module';
 import { HealthModule } from './health/health.module';
@@ -36,7 +37,8 @@ import { AllExceptionsFilter } from './http/all-exceptions.filter';
     AiMessagesModule,
     TranslationsModule,
     TranslateModule,
-    TranslateQueueModule,
+    AiTaskQueueModule,
+    AiModule,
     AuthModule,
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],

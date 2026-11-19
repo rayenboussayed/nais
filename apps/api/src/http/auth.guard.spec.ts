@@ -80,6 +80,12 @@ describe('HttpAuthGuard', () => {
     ).rejects.toThrow('Unauthorized');
   });
 
+  it('returns false for a context without getType (hostile host)', async () => {
+    const guard = new HttpAuthGuard(configStub());
+    const hostile = {} as unknown as ExecutionContext;
+    await expect(guard.canActivate(hostile)).rejects.toThrow();
+  });
+
   it('passes websocket contexts through without credentials', async () => {
     const guard = new HttpAuthGuard(configStub());
     await expect(guard.canActivate(wsContext())).resolves.toBe(true);

@@ -116,11 +116,6 @@ export const wsTranslateAckSchema = z.object({
   retryAfterMs: z.number().int().nonnegative().optional(),
 });
 
-/** Payload of the `translate` pg-boss job: the WS message plus the originating socket id. */
-export const wsTranslateJobSchema = wsTranslateMessageSchema.extend({
-  socketId: z.string().optional(),
-});
-
 /** Server-to-client event emitted when an async translation fails. */
 export const wsTranslationErrorEventSchema = z.object({
   requestId: z.uuid(),
@@ -136,4 +131,3 @@ export type WsTranslateMessage = z.infer<typeof wsTranslateMessageSchema>;
 export type WsTranslationEvent = z.infer<typeof wsTranslationEventSchema>;
 export type WsTranslationErrorEvent = z.infer<typeof wsTranslationErrorEventSchema>;
 export type WsTranslateAck = z.infer<typeof wsTranslateAckSchema>;
-export type WsTranslateJob = z.infer<typeof wsTranslateJobSchema>;

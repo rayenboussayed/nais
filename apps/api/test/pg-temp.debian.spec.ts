@@ -18,14 +18,14 @@ describe('resolvePgBin without injection', () => {
 describe('startTempCluster failure path', () => {
   const originalTimeout = process.env.PG_TEST_TIMEOUT_MS;
 
-  it('throws when postgres never becomes ready within the timeout', () => {
+  it('throws when postgres never becomes ready within the timeout', { timeout: 30_000 }, () => {
     // A real cluster starts but the probe never answers; no port is opened.
     expect(() => startTempCluster('trainslator_fail_test', () => false, 50)).toThrow(
       /did not start/,
     );
   });
 
-  it('honors PG_TEST_TIMEOUT_MS when no explicit timeout is passed', () => {
+  it('honors PG_TEST_TIMEOUT_MS when no explicit timeout is passed', { timeout: 30_000 }, () => {
     process.env.PG_TEST_TIMEOUT_MS = '50';
     try {
       expect(() => startTempCluster('trainslator_env_timeout_test', () => false)).toThrow(

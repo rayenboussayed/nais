@@ -35,7 +35,9 @@ describe('keysetWhere', () => {
     expect(() =>
       keysetWhere(column, id, 'desc', '2026-11-18T00:00:00.000000+00:00', undefined),
     ).toThrow(/both lastCreatedAt and lastId/);
-    expect(() => keysetWhere(column, id, 'desc', undefined, 'id')).toThrow(/both lastCreatedAt and lastId/);
+    expect(() => keysetWhere(column, id, 'desc', undefined, 'id')).toThrow(
+      /both lastCreatedAt and lastId/,
+    );
   });
 
   it('emits ascending and descending comparators when the cursor is complete', () => {

@@ -21,11 +21,11 @@ describe('database bins (child process)', () => {
 
   beforeAll(() => {
     if (hasBuild) cluster = startTempCluster('trainslator_cli_test');
-  });
+  }, 90_000);
 
   afterAll(() => cluster?.destroy());
 
-  it('db:migrate and db:seed run cleanly and idempotently', () => {
+  it('db:migrate and db:seed run cleanly and idempotently', { timeout: 60_000 }, () => {
     if (!cluster) {
       throw new Error('dist missing: run `npm run build` first');
     }

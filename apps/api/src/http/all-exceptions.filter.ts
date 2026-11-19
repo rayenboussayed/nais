@@ -58,7 +58,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (typeof response === 'string') return response;
     const message = (response as Record<string, unknown>).message;
     if (typeof message === 'string') return message;
-    if (Array.isArray(message) && message.every((part): part is string => typeof part === 'string')) {
+    if (
+      Array.isArray(message) &&
+      message.every((part): part is string => typeof part === 'string')
+    ) {
       return message;
     }
     return fallback;

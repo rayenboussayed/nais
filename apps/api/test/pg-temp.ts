@@ -125,11 +125,17 @@ export function startTempCluster(
   }
 
   function destroy() {
-    // -w: wait for the postmaster to actually stop before we remove the
-    // cluster directory; otherwise the rm races the shutdown and leaks data.
-    execFileSync(join(pgBin, 'pg_ctl'), ['-D', dataDir, '-m', 'immediate', '-w', 'stop'], {
-      stdio: 'ignore',
-    });
+    try {
+      // -w: wait for the postmaster to actually stop before we remove the
+      // cluster directory; otherwise the rm races the shutdown and leaks data.
+      execFileSync(
+        join(pgBin, 'pg_ctl'),
+        ['-D', dataDir, '-m', 'immediate', '-w', '-t', '10', 'stop'],
+        { stdio: 'ignore', timeout: 12_000 },
+      );
+    } catch {
+      // The cluster may never have started; removal below is still required.
+    }
     rmSync(socketDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 

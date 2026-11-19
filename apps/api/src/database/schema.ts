@@ -101,8 +101,12 @@ export const aiMessages = pgTable(
   'ai_messages',
   {
     id: uuid('id').defaultRandom().primaryKey(),
+    /** Which AI task produced this call; 'translate' predates the general service. */
+    task: varchar('task', { length: 64 }).notNull().default('translate'),
     provider: varchar('provider', { length: 50 }).notNull().default('ollama'),
     model: varchar('model', { length: 50 }).notNull(),
+    /** Serialized task input (text/context/question…); text payloads live in the prompts rows too. */
+    payload: jsonb('payload').$type<Record<string, unknown>>(),
     status: aiMessageStatusEnum('status').notNull().default('pending'),
     /** Final text returned by the model; null until it answers or on failure. */
     response: text('response'),
@@ -112,8 +116,32 @@ export const aiMessages = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
+  (table) => [index('ai_messages_created_at_id_idx').on(table.createdAt, table.id)],
+);
+
+/**
+ * Model-output cache for the general AI pipeline: one row per
+ * (task, model, input hash). Soft-delete keeps the slot reusable.
+ */
+export const aiCache = pgTable(
+  'ai_cache',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    task: varchar('task', { length: 64 }).notNull(),
+    model: varchar('model', { length: 255 }).notNull(),
+    /** sha512 base64url of the NFC-normalized canonical input JSON. */
+    key: varchar('key', { length: 255 }).notNull(),
+    /** Task-shaped result object (validated by the caller against the task's result schema). */
+    result: jsonb('result').$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
   (table) => [
-    index('ai_messages_created_at_id_idx').on(table.createdAt, table.id),
+    uniqueIndex('ai_cache_task_model_key_unique')
+      .on(table.task, table.model, table.key)
+      .where(isNull(table.deletedAt)),
+    index('ai_cache_task_created_at_idx').on(table.task, table.createdAt),
   ],
 );
 
@@ -132,6 +160,8 @@ export const aiMessagePrompts = pgTable(
   (table) => [index('ai_message_prompts_message_idx').on(table.messageId)],
 );
 
+export type AiCache = typeof aiCache.$inferSelect;
+export type NewAiCache = typeof aiCache.$inferInsert;
 export type Language = typeof languages.$inferSelect;
 export type NewLanguage = typeof languages.$inferInsert;
 export type Translation = typeof translations.$inferSelect;

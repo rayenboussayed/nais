@@ -56,6 +56,15 @@ const envSchema = z
     CORS_ORIGINS: z.string().trim().optional(),
     /** Default rate limit per minute per client IP, applied globally. */
     THROTTLE_LIMIT: z.coerce.number().int().min(1).default(100),
+    /** Directory used by transformers.js for its model cache; defaults to the library default. */
+    HF_CACHE_DIR: z.string().trim().min(1).optional(),
+    /** Per-task dedicated-model overrides; unset keeps the registry defaults (see src/ai/tasks.ts). */
+    AI_SENTIMENT_MODEL: z.string().trim().min(1).optional(),
+    AI_SUMMARIZE_MODEL: z.string().trim().min(1).optional(),
+    AI_QUESTION_ANSWERING_MODEL: z.string().trim().min(1).optional(),
+    AI_TOKEN_CLASSIFICATION_MODEL: z.string().trim().min(1).optional(),
+    AI_ZERO_SHOT_CLASSIFICATION_MODEL: z.string().trim().min(1).optional(),
+    AI_FEATURE_EXTRACTION_MODEL: z.string().trim().min(1).optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;

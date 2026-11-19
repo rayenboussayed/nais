@@ -52,6 +52,7 @@ describe('database layer (throwaway PostgreSQL 17)', () => {
       sql`select table_name from information_schema.tables where table_schema = 'public' order by 1`,
     );
     expect(rows.map((row) => row.table_name)).toEqual([
+      'ai_cache',
       'ai_message_prompts',
       'ai_messages',
       'languages',

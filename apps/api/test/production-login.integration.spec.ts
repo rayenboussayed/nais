@@ -51,7 +51,7 @@ describe('production login (integration)', () => {
     });
     app.setGlobalPrefix(API_GLOBAL_PREFIX);
     await app.init();
-  });
+  }, 60_000);
 
   afterEach(async () => {
     await app.close();

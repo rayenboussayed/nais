@@ -54,7 +54,10 @@ describe('validateEnv', () => {
 
   it('requires SESSION_SECRET in every environment, including development', () => {
     expect(() =>
-      validateEnv({ NODE_ENV: 'development', DATABASE_URL: 'postgresql://u:p@db:5432/trainslator' }),
+      validateEnv({
+        NODE_ENV: 'development',
+        DATABASE_URL: 'postgresql://u:p@db:5432/trainslator',
+      }),
     ).toThrow(/SESSION_SECRET/);
     expect(() =>
       validateEnv({

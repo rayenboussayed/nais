@@ -90,7 +90,9 @@ export class TranslateService implements OnModuleInit {
         this.logger.warn(`reaped ${rows.length} stale processing AI message(s)`);
       }
     } catch (error) {
-      this.logger.error(`stale processing reaper skipped: ${error instanceof Error ? error.name : 'unknown error'}`);
+      this.logger.error(
+        `stale processing reaper skipped: ${error instanceof Error ? error.name : 'unknown error'}`,
+      );
     }
   }
 

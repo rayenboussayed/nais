@@ -59,7 +59,9 @@ describe('changedFields', () => {
     const patch = { nested: { c: [1, 2, { z: 'w', x: 'y' }], b: 2, a: 1 } };
     expect(changedFields(beforeObj, patch)).toEqual({});
 
-    expect(changedFields(beforeObj, { nested: { a: 1, b: 2, c: [1, 2, { z: 'W', x: 'y' }] } })).toEqual({
+    expect(
+      changedFields(beforeObj, { nested: { a: 1, b: 2, c: [1, 2, { z: 'W', x: 'y' }] } }),
+    ).toEqual({
       nested: { a: 1, b: 2, c: [1, 2, { z: 'W', x: 'y' }] },
     });
   });

@@ -11,11 +11,13 @@ function makeGateway() {
   const languages = { findByIso: vi.fn() };
   const pgBoss = { scheduleJob: vi.fn() };
   const config = { get: () => undefined };
+  const ai = { peekCache: vi.fn(), run: vi.fn(), modelFor: vi.fn(), listTasks: vi.fn() };
   const gateway = new TranslateGateway(
     translations as never,
     languages as never,
     pgBoss as never,
     config as never,
+    ai as never,
   );
   return gateway;
 }

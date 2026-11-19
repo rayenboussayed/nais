@@ -127,7 +127,10 @@ describe('translateText', () => {
     translateText('hello', 'fr', { onDone: vi.fn(), onError: error });
     await vi.waitFor(() => expect(emitted).toHaveLength(1));
 
-    emitServerEvent('translation-error', { requestId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', message: 'boom' });
+    emitServerEvent('translation-error', {
+      requestId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      message: 'boom',
+    });
     expect(error).not.toHaveBeenCalled();
   });
 

@@ -34,7 +34,10 @@ export async function authenticateHeaders(
       // Always run the KDF (against the real hash, or the dummy when the
       // password is unconfigured or the name differs) so the response time
       // does not reveal whether the username exists.
-      const passwordOk = await verifyScryptPassword(passwordHash ?? DUMMY_SCRYPT_HASH, candidatePassword);
+      const passwordOk = await verifyScryptPassword(
+        passwordHash ?? DUMMY_SCRYPT_HASH,
+        candidatePassword,
+      );
       if (Boolean(passwordHash) && candidateName === username && passwordOk) {
         return { username: candidateName };
       }

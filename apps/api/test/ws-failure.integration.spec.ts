@@ -89,11 +89,12 @@ describe('ws gateway with a failing backend', () => {
       .overrideProvider(LanguagesService)
       .useValue({ findByIso: () => Promise.reject('a string, not an error') })
       .compile();
-    const otherApp = moduleRef.createNestApplication<NestFastifyApplication>(
-      new FastifyAdapter(),
-      { logger: false },
+    const otherApp = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
+      logger: false,
+    });
+    otherApp.useWebSocketAdapter(
+      new (await import('@nestjs/platform-socket.io')).IoAdapter(otherApp),
     );
-    otherApp.useWebSocketAdapter(new (await import('@nestjs/platform-socket.io')).IoAdapter(otherApp));
     otherApp.setGlobalPrefix(API_GLOBAL_PREFIX);
     await otherApp.init();
     await otherApp.listen(0, '127.0.0.1');

@@ -155,7 +155,6 @@ export function TranslationsAdmin() {
     }
   }
 
-
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -163,13 +162,19 @@ export function TranslationsAdmin() {
         <div className="row">
           <AdminSearch
             value={q}
-            onChange={(value) => { reset(); setQ(value); }}
+            onChange={(value) => {
+              reset();
+              setQ(value);
+            }}
             placeholder="Search key or text…"
             ariaLabel="Search translations"
           />
           <select
             value={languageId}
-            onChange={(event) => { reset(); setLanguageId(event.target.value); }}
+            onChange={(event) => {
+              reset();
+              setLanguageId(event.target.value);
+            }}
             aria-label="Filter by language"
           >
             <option value="">All languages</option>
@@ -181,7 +186,10 @@ export function TranslationsAdmin() {
           </select>
           <select
             value={namespace}
-            onChange={(event) => { reset(); setNamespace(event.target.value); }}
+            onChange={(event) => {
+              reset();
+              setNamespace(event.target.value);
+            }}
             aria-label="Filter by namespace"
           >
             <option value="">All namespaces</option>

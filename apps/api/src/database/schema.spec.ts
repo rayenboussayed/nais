@@ -48,14 +48,14 @@ describe('drizzle schema invariants', () => {
   });
 
   it('ai_messages, translations and languages have the (created_at, id) keyset index', () => {
-    expect(
-      getTableConfig(aiMessages).indexes.map((index) => index.config.name),
-    ).toContain('ai_messages_created_at_id_idx');
-    expect(
-      getTableConfig(translations).indexes.map((index) => index.config.name),
-    ).toContain('translations_created_at_id_idx');
-    expect(
-      getTableConfig(languages).indexes.map((index) => index.config.name),
-    ).toContain('languages_created_at_id_idx');
+    expect(getTableConfig(aiMessages).indexes.map((index) => index.config.name)).toContain(
+      'ai_messages_created_at_id_idx',
+    );
+    expect(getTableConfig(translations).indexes.map((index) => index.config.name)).toContain(
+      'translations_created_at_id_idx',
+    );
+    expect(getTableConfig(languages).indexes.map((index) => index.config.name)).toContain(
+      'languages_created_at_id_idx',
+    );
   });
 });

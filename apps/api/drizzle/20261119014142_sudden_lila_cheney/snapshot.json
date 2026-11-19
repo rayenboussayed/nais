@@ -3,39 +3,23 @@
   "version": "9",
   "dialect": "postgres",
   "id": "a25bac84-138c-41d1-84f2-404d716f6431",
-  "prevIds": [
-    "b02fb0f4-3205-497f-ab8b-9ab2eb9cf5df"
-  ],
+  "prevIds": ["b02fb0f4-3205-497f-ab8b-9ab2eb9cf5df"],
   "footprints": [
     {
       "statementType": "drop_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "ai_messages",
-        "ai_messages_created_idx"
-      ],
+      "statementTarget": ["index", "public", "ai_messages", "ai_messages_created_idx"],
       "writes": [
         "s|idx|public.ai_messages_created_idx",
         "n|idx|public.ai_messages_created_idx",
         "e|idx|public.ai_messages_created_idx",
         "n|rel|public.ai_messages_created_idx"
       ],
-      "reads": [
-        "e|tbl|public.ai_messages",
-        "n|sch|public",
-        "e|col|public.ai_messages.created_at"
-      ],
+      "reads": ["e|tbl|public.ai_messages", "n|sch|public", "e|col|public.ai_messages.created_at"],
       "sharedWrites": []
     },
     {
       "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "ai_messages",
-        "ai_messages_created_at_id_idx"
-      ],
+      "statementTarget": ["index", "public", "ai_messages", "ai_messages_created_at_id_idx"],
       "writes": [
         "s|idx|public.ai_messages_created_at_id_idx",
         "n|idx|public.ai_messages_created_at_id_idx",
@@ -51,12 +35,7 @@
     },
     {
       "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "languages",
-        "languages_created_at_id_idx"
-      ],
+      "statementTarget": ["index", "public", "languages", "languages_created_at_id_idx"],
       "writes": [
         "s|idx|public.languages_created_at_id_idx",
         "n|idx|public.languages_created_at_id_idx",
@@ -72,12 +51,7 @@
     },
     {
       "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "translations",
-        "translations_created_at_id_idx"
-      ],
+      "statementTarget": ["index", "public", "translations", "translations_created_at_id_idx"],
       "writes": [
         "s|idx|public.translations_created_at_id_idx",
         "n|idx|public.translations_created_at_id_idx",

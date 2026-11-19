@@ -16,6 +16,11 @@ export default defineConfig({
       'apps/**/test/**/*.spec.ts',
     ],
     passWithNoTests: true,
+    // The integration specs each create a throwaway PostgreSQL cluster and boot
+    // the full Nest app; under parallel workers that exceeds hook timeouts on
+    // busy machines. Serial files keep the gate deterministic everywhere
+    // (CI runner included). Wall time is higher but bounded.
+    fileParallelism: false,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json-summary'],

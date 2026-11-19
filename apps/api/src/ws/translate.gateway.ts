@@ -12,11 +12,21 @@ import { ConfigService } from '@nestjs/config';
 import type { Server, Socket } from 'socket.io';
 
 import type {
+  AiTask,
+  AiTaskJob,
+  WsAiAck,
+  WsAiErrorEvent,
+  WsAiResultEvent,
   WsTranslateAck,
   WsTranslationErrorEvent,
   WsTranslationEvent,
 } from '@trainslator/shared';
-import { wsTranslateMessageSchema, wsTranslateJobSchema } from '@trainslator/shared';
+import {
+  aiTaskJobSchema,
+  aiRequestSchemas,
+  wsAiMessageSchema,
+  wsTranslateMessageSchema,
+} from '@trainslator/shared';
 import { PgBossService } from '@wavezync/nestjs-pgboss';
 
 import type { Env } from '../config/env';
@@ -24,20 +34,22 @@ import { authenticateHeaders, firstHeader } from '../auth/authenticate';
 import { isOriginAllowed, parseAllowedOrigins, buildGatewayOptions } from '../auth/origin';
 import { RateLimiter } from '../common/rate-limit';
 import { translationKeyFor } from '../common/key';
+import { AiService } from '../ai/ai.service';
 import { LanguagesService } from '../languages/languages.service';
 import { TranslationsService } from '../translations/translations.service';
-
-/** The single translation queue. GPU-bound work is serialized with batchSize 1. */
-export const TRANSLATE_QUEUE = 'translate';
+import { AI_TASK_QUEUE } from '../queue/ai-task-queue.constants';
 
 /** Gateway options; import time constant derived from the environment. */
 const gatewayOptions = buildGatewayOptions(process.env.CORS_ORIGINS);
 
+type OutboundEvent = 'translation' | 'translation-error' | 'ai-result' | 'ai-error';
+
 /**
- * socket.io gateway for the async translation flow. Clients emit `translate`
- * and receive one of three answers: an immediate `ack` carrying the cached
- * text (200), an `ack` accepting the request (202; result arrives via the
- * `translation` event), or an `ack` signaling rate limiting (429).
+ * socket.io gateway for the async AI flow. Clients emit `translate` (legacy,
+ * catalogue-backed; unchanged contract) or `ai` (task + input) and receive an
+ * immediate `ack`: cached inline (200), accepted for the queue (202, result
+ * arrives via the `translation` / `ai-result` event), 400 invalid message,
+ * 404 unknown language/task, 429 rate limited, or 500 on backend failure.
  * Auth is enforced in the handshake middleware for every connection.
  */
 @WebSocketGateway(gatewayOptions)
@@ -54,6 +66,7 @@ export class TranslateGateway implements OnGatewayInit {
     private readonly languages: LanguagesService,
     private readonly pgBoss: PgBossService,
     private readonly config: ConfigService<Env, true>,
+    private readonly ai: AiService,
   ) {}
 
   /**
@@ -67,7 +80,10 @@ export class TranslateGateway implements OnGatewayInit {
       void (async () => {
         // Per-IP bucket when the peer is known; the union falls back to a
         // process-wide bucket so an address-less transport cannot flood freely.
-        const address = typeof socket.handshake.address === 'string' && socket.handshake.address ? socket.handshake.address : '*';
+        const address =
+          typeof socket.handshake.address === 'string' && socket.handshake.address
+            ? socket.handshake.address
+            : '*';
         if (!this.connectLimiter.hit(address)) {
           next(new Error('too many connections'));
           return;
@@ -93,20 +109,18 @@ export class TranslateGateway implements OnGatewayInit {
     });
   }
 
-  /** Emits an event to one connected client; used by the translation worker. */
+  /** Emits an event to one connected client; used by the ai-task worker. */
   emitTo(
     socketId: string,
-    event: 'translation' | 'translation-error',
-    payload: WsTranslationEvent | WsTranslationErrorEvent,
+    event: OutboundEvent,
+    payload: WsTranslationEvent | WsTranslationErrorEvent | WsAiResultEvent | WsAiErrorEvent,
   ): void {
     this.server.to(socketId).emit(event, payload);
   }
 
   /**
-   * Handles a `translate` message: schema validation is free; every accepted
-   * frame costs one rate-limit token; cache hit -> immediate answer; cache
-   * miss -> enqueued for the pg-boss worker; over-limit -> 429. Any backend
-   * failure answers 500 (structured, never silently dropped).
+   * Handles a `translate` message with the legacy acknowledgement contract.
+   * Validation is free; every accepted frame costs one token.
    */
   @SubscribeMessage('translate')
   async translate(
@@ -120,10 +134,7 @@ export class TranslateGateway implements OnGatewayInit {
     }
     const message = parsed.data;
     try {
-      // The handshake middleware always sets socket.data.username. Rate limit
-      // BEFORE any database work so floods of valid-but-unknown language codes
-      // cannot burn the catalogue query.
-      const identity = client.data.username as string;
+      const identity = this.identityOf(client);
       if (!this.limiter.hit(identity)) {
         return ack({
           statusCode: 429,
@@ -150,16 +161,133 @@ export class TranslateGateway implements OnGatewayInit {
         });
       }
 
-      const job = wsTranslateJobSchema.parse({ ...message, socketId: client.id });
-      // retryLimit 0: a poison job should fail, not call the model up to 3 times.
-      await this.pgBoss.scheduleJob(TRANSLATE_QUEUE, job, { retryLimit: 0 });
+      await this.enqueue(
+        'translate',
+        { text: message.text, targetLanguage: message.targetLanguage },
+        message.requestId,
+        client.id,
+      );
 
       return ack({ statusCode: 202, requestId: message.requestId, data: null });
     } catch (error) {
-      // Class name only: upstream error messages can embed DSNs or URLs.
-      this.logger.error(`translate handler failed: ${error instanceof Error ? error.name : 'unknown error'}`);
+      this.logger.error(
+        `translate handler failed: ${error instanceof Error ? error.name : 'unknown error'}`,
+      );
       return ack({ statusCode: 500, requestId: message.requestId, data: null });
     }
+  }
+
+  /**
+   * Handles an `ai` message: `{ task, input, requestId }`. The task's input
+   * schema applies; cache hits answer inline with the result (200), misses go
+   * to the shared `ai-task` queue and are delivered as `ai-result`.
+   */
+  @SubscribeMessage('ai')
+  async onAiMessage(
+    @MessageBody() data: unknown,
+    @ConnectedSocket() client: Socket,
+    @Ack() ack: (response: WsAiAck) => Promise<void> | void,
+  ): Promise<void> {
+    const parsed = wsAiMessageSchema.safeParse(data);
+    if (!parsed.success) {
+      return ack({ statusCode: 400, requestId: null, cached: null, result: null });
+    }
+    const message = parsed.data;
+    const task = message.task;
+    try {
+      const identity = this.identityOf(client);
+      if (!this.limiter.hit(identity)) {
+        return ack({
+          statusCode: 429,
+          requestId: message.requestId,
+          cached: null,
+          result: null,
+          retryAfterMs: 60_000,
+        });
+      }
+
+      // Per-task input validation; translate also needs the catalogue peek.
+      const inputParse = aiRequestSchemas[task].safeParse(message.input);
+      if (!inputParse.success) {
+        return ack({
+          statusCode: 400,
+          requestId: message.requestId,
+          cached: null,
+          result: null,
+        });
+      }
+      const input = inputParse.data as Record<string, unknown>;
+
+      if (task === 'translate') {
+        const translateInput = input as { text: string; targetLanguage: string };
+        const language = await this.languages.findByIso(translateInput.targetLanguage);
+        if (!language) {
+          return ack({
+            statusCode: 404,
+            requestId: message.requestId,
+            cached: null,
+            result: null,
+          });
+        }
+        const cached = await this.translations.findByLanguageAndKey(
+          language.id,
+          translationKeyFor(translateInput.text),
+        );
+        if (cached) {
+          return ack({
+            statusCode: 200,
+            requestId: message.requestId,
+            cached: true,
+            result: { text: cached.text, cached: true },
+          });
+        }
+      } else {
+        const peek = await this.ai.peekCache(task, input);
+        if (peek) {
+          return ack({
+            statusCode: 200,
+            requestId: message.requestId,
+            cached: true,
+            result: peek,
+          });
+        }
+      }
+
+      await this.enqueue(task, input, message.requestId, client.id);
+
+      return ack({
+        statusCode: 202,
+        requestId: message.requestId,
+        cached: null,
+        result: null,
+      });
+    } catch (error) {
+      this.logger.error(
+        `ai handler failed: ${error instanceof Error ? error.name : 'unknown error'}`,
+      );
+      return ack({
+        statusCode: 500,
+        requestId: message.requestId,
+        cached: null,
+        result: null,
+      });
+    }
+  }
+
+  /** The handshake middleware always sets socket.data.username. */
+  private identityOf(client: Socket): string {
+    return client.data.username as string;
+  }
+
+  private async enqueue(
+    task: AiTask,
+    input: Record<string, unknown>,
+    requestId: string,
+    socketId: string,
+  ): Promise<void> {
+    const job: AiTaskJob = aiTaskJobSchema.parse({ task, input, requestId, socketId });
+    // retryLimit 0: a poison job should fail, not call the model up to 3 times.
+    await this.pgBoss.scheduleJob(AI_TASK_QUEUE, job, { retryLimit: 0 });
   }
 }
 

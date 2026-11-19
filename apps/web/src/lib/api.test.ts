@@ -38,6 +38,23 @@ describe('apiFetch', () => {
     expect(body.items).toEqual([1, 2]);
   });
 
+  it('falls back to the status text when the error body is a JSON scalar', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('42', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'content-type': 'application/json' },
+          }),
+      ),
+    );
+    const error = await apiFetch('/api/health').catch((cause: unknown) => cause);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).message).toBe('Service Unavailable');
+  });
+
   it('falls back to the status text when the error body is not JSON', async () => {
     vi.stubGlobal(
       'fetch',
