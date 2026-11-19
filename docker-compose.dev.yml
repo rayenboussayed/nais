@@ -14,12 +14,15 @@ services:
     volumes:
       - .:/repo
       - /repo/node_modules
+      - hf-cache:/hf-cache
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-trainslator}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-trainslator}
       PG_BOSS_URL: postgresql://${POSTGRES_USER:-trainslator}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-trainslator}
       OLLAMA_BASE_URL: http://ollama:11434
       PORT: 3000
+      # Dedicated ONNX pipelines are cached in a shared volume (shared with prod image layout)
+      HF_CACHE_DIR: /hf-cache
       # Required by validateEnv even in development
       BASIC_AUTH_USERNAME: ${BASIC_AUTH_USERNAME:-admin}
       BASIC_AUTH_PASSWORD_HASH: ${BASIC_AUTH_PASSWORD_HASH:?Set BASIC_AUTH_PASSWORD_HASH in .env}
@@ -58,3 +61,6 @@ services:
     depends_on:
       api:
         condition: service_healthy
+
+volumes:
+  hf-cache:

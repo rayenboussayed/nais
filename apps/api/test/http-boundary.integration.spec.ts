@@ -181,8 +181,25 @@ describe('HTTP boundary (integration, throwaway cluster)', () => {
     expect(body.openapi.startsWith('3')).toBe(true);
     expect(body.info.title).toBe('trainslator');
     expect(Object.keys(body.paths)).toEqual(
-      expect.arrayContaining(['/api/translate', '/api/languages']),
+      expect.arrayContaining([
+        '/api/translate',
+        '/api/languages',
+        '/api/ai/tasks',
+        '/api/ai/sentiment',
+        '/api/ai/summarize',
+        '/api/ai/question-answering',
+        '/api/ai/token-classification',
+        '/api/ai/zero-shot-classification',
+        '/api/ai/feature-extraction',
+        '/api/ai/translate',
+      ]),
     );
+
+    // The general AI routes carry their zod-derived schemas into the document.
+    const ai = body.paths['/api/ai/sentiment'] as {
+      post: { requestBody?: { content: { 'application/json': { schema: { required?: string[]; properties?: Record<string, unknown> } } } } };
+    };
+    expect(ai.post.requestBody?.content['application/json'].schema.required).toEqual(['text']);
 
     const html = await app.inject({
       method: 'GET',

@@ -33,3 +33,7 @@ npm-debug.log*
 # OS junk
 .DS_Store
 Thumbs.db
+
+# Model and tool caches (never bake into the image)
+**/.cache
+hf-cache
