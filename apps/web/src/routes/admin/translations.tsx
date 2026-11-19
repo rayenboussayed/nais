@@ -14,6 +14,7 @@ import { Route as adminRoute } from '../admin';
 import { apiFetch, ApiError, toQueryString } from '../../lib/api';
 import { useLanguages } from '../../lib/languages';
 import { formatTimestamp, useCursorStack } from '../../lib/admin';
+import { AdminSearch, Modal, Pagination } from '../../components/AdminBits';
 
 export const Route = createRoute({
   getParentRoute: () => adminRoute,
@@ -154,28 +155,21 @@ export function TranslationsAdmin() {
     }
   }
 
-  const updateFilter =
-    (setter: (value: string) => void) => (event: { target: { value: string } }) => {
-      reset();
-      setter(event.target.value);
-    };
 
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h1 style={{ margin: 0, fontSize: '1.25rem' }}>Translations</h1>
         <div className="row">
-          <input
-            type="search"
-            placeholder="Search key or text…"
+          <AdminSearch
             value={q}
-            onChange={updateFilter(setQ)}
-            aria-label="Search translations"
-            style={{ width: 220 }}
+            onChange={(value) => { reset(); setQ(value); }}
+            placeholder="Search key or text…"
+            ariaLabel="Search translations"
           />
           <select
             value={languageId}
-            onChange={updateFilter(setLanguageId)}
+            onChange={(event) => { reset(); setLanguageId(event.target.value); }}
             aria-label="Filter by language"
           >
             <option value="">All languages</option>
@@ -187,7 +181,7 @@ export function TranslationsAdmin() {
           </select>
           <select
             value={namespace}
-            onChange={updateFilter(setNamespace)}
+            onChange={(event) => { reset(); setNamespace(event.target.value); }}
             aria-label="Filter by namespace"
           >
             <option value="">All namespaces</option>
@@ -260,104 +254,73 @@ export function TranslationsAdmin() {
         </table>
       </div>
 
-      <div className="pagination">
-        {isFetching && <span className="muted">Loading…</span>}
-        <button
-          type="button"
-          className="button button-ghost button-small"
-          onClick={back}
-          disabled={!canBack}
-        >
-          Newer
-        </button>
-        <button
-          type="button"
-          className="button button-ghost button-small"
-          onClick={() => data?.next && next(data.next)}
-          disabled={!data?.next}
-        >
-          Older
-        </button>
-      </div>
+      <Pagination
+        isFetching={isFetching}
+        canBack={canBack}
+        hasNext={Boolean(data?.next)}
+        onBack={back}
+        onNext={() => data?.next && next(data.next)}
+      />
 
       {editing && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <form className="modal stack" onSubmit={submit}>
-            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>
-              {editing.mode === 'create' ? 'New translation' : 'Edit translation'}
-            </h2>
-
-            {formError && (
-              <div className="error-box" role="alert">
-                {formError}
-              </div>
-            )}
-
-            <div className="form-grid">
-              <div>
-                <label htmlFor="edit-language">Language</label>
-                <select
-                  id="edit-language"
-                  value={draft.languageId}
-                  onChange={(event) => setDraft({ ...draft, languageId: event.target.value })}
-                >
-                  {languages.map((language: Language) => (
-                    <option key={language.id} value={language.id}>
-                      {language.iso6391} — {language.nativeName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="edit-namespace">Namespace</label>
-                <select
-                  id="edit-namespace"
-                  value={draft.namespace}
-                  onChange={(event) =>
-                    setDraft({ ...draft, namespace: event.target.value as 'dynamic' | 'static' })
-                  }
-                >
-                  <option value="dynamic">dynamic (key derived from text)</option>
-                  <option value="static">static (human-authored key)</option>
-                </select>
-              </div>
-              {draft.namespace === 'static' && (
-                <div className="full">
-                  <label htmlFor="edit-key">Key</label>
-                  <input
-                    id="edit-key"
-                    type="text"
-                    value={draft.key}
-                    onChange={(event) => setDraft({ ...draft, key: event.target.value })}
-                    placeholder="e.g. home.title"
-                  />
-                </div>
-              )}
+        <Modal
+          title={editing.mode === 'create' ? 'New translation' : 'Edit translation'}
+          formError={formError}
+          busy={busy}
+          onClose={() => setEditing(null)}
+          onSubmit={submit}
+        >
+          <div className="form-grid">
+            <div>
+              <label htmlFor="edit-language">Language</label>
+              <select
+                id="edit-language"
+                value={draft.languageId}
+                onChange={(event) => setDraft({ ...draft, languageId: event.target.value })}
+              >
+                {languages.map((language: Language) => (
+                  <option key={language.id} value={language.id}>
+                    {language.iso6391} — {language.nativeName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="edit-namespace">Namespace</label>
+              <select
+                id="edit-namespace"
+                value={draft.namespace}
+                onChange={(event) =>
+                  setDraft({ ...draft, namespace: event.target.value as 'dynamic' | 'static' })
+                }
+              >
+                <option value="dynamic">dynamic (key derived from text)</option>
+                <option value="static">static (human-authored key)</option>
+              </select>
+            </div>
+            {draft.namespace === 'static' && (
               <div className="full">
-                <label htmlFor="edit-text">Text</label>
-                <textarea
-                  id="edit-text"
-                  rows={5}
-                  value={draft.text}
-                  onChange={(event) => setDraft({ ...draft, text: event.target.value })}
+                <label htmlFor="edit-key">Key</label>
+                <input
+                  id="edit-key"
+                  type="text"
+                  value={draft.key}
+                  onChange={(event) => setDraft({ ...draft, key: event.target.value })}
+                  placeholder="e.g. home.title"
                 />
               </div>
+            )}
+            <div className="full">
+              <label htmlFor="edit-text">Text</label>
+              <textarea
+                id="edit-text"
+                rows={5}
+                value={draft.text}
+                onChange={(event) => setDraft({ ...draft, text: event.target.value })}
+              />
             </div>
-
-            <div className="row" style={{ justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                className="button button-ghost"
-                onClick={() => setEditing(null)}
-              >
-                Cancel
-              </button>
-              <button type="submit" className="button" disabled={busy}>
-                {busy ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-          </form>
-        </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

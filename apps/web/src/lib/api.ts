@@ -62,7 +62,6 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   return (await response.json()) as T;
 }
 
-
 /** Builds a query string from pagination/search parameters, skipping empties. */
 export function toQueryString(
   params: Record<string, string | number | boolean | undefined>,

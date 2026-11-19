@@ -7,6 +7,7 @@ import type { AiMessage, AiMessagePrompt, KeysetList } from '@trainslator/shared
 import { Route as adminRoute } from '../admin';
 import { apiFetch, toQueryString } from '../../lib/api';
 import { formatTimestamp, useCursorStack } from '../../lib/admin';
+import { AdminSearch, Pagination } from '../../components/AdminBits';
 
 export const Route = createRoute({
   getParentRoute: () => adminRoute,
@@ -98,16 +99,14 @@ function AiMessagesAdmin() {
     <div className="stack">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h1 style={{ margin: 0, fontSize: '1.25rem' }}>AI messages</h1>
-        <input
-          type="search"
-          placeholder="Search model, provider, response…"
+        <AdminSearch
           value={q}
-          onChange={(event) => {
+          onChange={(value) => {
             reset();
-            setQ(event.target.value);
+            setQ(value);
           }}
-          aria-label="Search AI messages"
-          style={{ width: 280 }}
+          placeholder="Search model, provider, response…"
+          ariaLabel="Search AI messages"
         />
       </div>
 
@@ -182,25 +181,13 @@ function AiMessagesAdmin() {
         </div>
       ))}
 
-      <div className="pagination">
-        {isFetching && <span className="muted">Loading…</span>}
-        <button
-          type="button"
-          className="button button-ghost button-small"
-          onClick={back}
-          disabled={!canBack}
-        >
-          Newer
-        </button>
-        <button
-          type="button"
-          className="button button-ghost button-small"
-          onClick={() => data?.next && next(data.next)}
-          disabled={!data?.next}
-        >
-          Older
-        </button>
-      </div>
+      <Pagination
+        isFetching={isFetching}
+        canBack={canBack}
+        hasNext={Boolean(data?.next)}
+        onBack={back}
+        onNext={() => data?.next && next(data.next)}
+      />
     </div>
   );
 }

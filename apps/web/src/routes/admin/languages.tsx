@@ -12,6 +12,7 @@ import {
 import { Route as adminRoute } from '../admin';
 import { apiFetch, ApiError, toQueryString } from '../../lib/api';
 import { formatTimestamp, useCursorStack } from '../../lib/admin';
+import { AdminSearch, Modal, Pagination } from '../../components/AdminBits';
 
 export const Route = createRoute({
   getParentRoute: () => adminRoute,
@@ -23,7 +24,15 @@ const PAGE_SIZE = 50;
 
 type Editing = { mode: 'create' } | { mode: 'edit'; row: Language } | null;
 
-function LanguagesAdmin() {
+const emptyDraft = {
+  name: '',
+  nativeName: '',
+  iso6391: '',
+  dir: 'ltr' as 'ltr' | 'rtl',
+  isSource: false,
+};
+
+export function LanguagesAdmin() {
   const queryClient = useQueryClient();
   const { current, canBack, next, back, reset } = useCursorStack();
 
@@ -31,14 +40,7 @@ function LanguagesAdmin() {
   const [editing, setEditing] = useState<Editing>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const [draft, setDraft] = useState({
-    name: '',
-    nativeName: '',
-    iso6391: '',
-    dir: 'ltr' as 'ltr' | 'rtl',
-    isSource: false,
-  });
+  const [draft, setDraft] = useState(emptyDraft);
 
   const params = {
     pageSize: String(PAGE_SIZE),
@@ -55,7 +57,7 @@ function LanguagesAdmin() {
   const rows = data?.items ?? [];
 
   function openCreate() {
-    setDraft({ name: '', nativeName: '', iso6391: '', dir: 'ltr', isSource: false });
+    setDraft(emptyDraft);
     setFormError(null);
     setEditing({ mode: 'create' });
   }
@@ -136,16 +138,14 @@ function LanguagesAdmin() {
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h1 style={{ margin: 0, fontSize: '1.25rem' }}>Languages</h1>
         <div className="row">
-          <input
-            type="search"
-            placeholder="Search name…"
+          <AdminSearch
             value={q}
-            onChange={(event) => {
+            onChange={(value) => {
               reset();
-              setQ(event.target.value);
+              setQ(value);
             }}
-            aria-label="Search languages"
-            style={{ width: 220 }}
+            placeholder="Search name…"
+            ariaLabel="Search languages"
           />
           <button type="button" className="button" onClick={openCreate}>
             New language
@@ -206,112 +206,81 @@ function LanguagesAdmin() {
         </table>
       </div>
 
-      <div className="pagination">
-        {isFetching && <span className="muted">Loading…</span>}
-        <button
-          type="button"
-          className="button button-ghost button-small"
-          onClick={back}
-          disabled={!canBack}
-        >
-          Newer
-        </button>
-        <button
-          type="button"
-          className="button button-ghost button-small"
-          onClick={() => data?.next && next(data.next)}
-          disabled={!data?.next}
-        >
-          Older
-        </button>
-      </div>
+      <Pagination
+        isFetching={isFetching}
+        canBack={canBack}
+        hasNext={Boolean(data?.next)}
+        onBack={back}
+        onNext={() => data?.next && next(data.next)}
+      />
 
       {editing && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <form className="modal stack" onSubmit={submit}>
-            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>
-              {editing.mode === 'create' ? 'New language' : `Edit ${editing.row.nativeName}`}
-            </h2>
-
-            {formError && (
-              <div className="error-box" role="alert">
-                {formError}
-              </div>
-            )}
-
-            <div className="form-grid">
-              <div>
-                <label htmlFor="edit-name">Name</label>
-                <input
-                  id="edit-name"
-                  type="text"
-                  value={draft.name}
-                  onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                />
-              </div>
-              <div>
-                <label htmlFor="edit-native">Native name</label>
-                <input
-                  id="edit-native"
-                  type="text"
-                  dir={draft.dir}
-                  value={draft.nativeName}
-                  onChange={(event) => setDraft({ ...draft, nativeName: event.target.value })}
-                />
-              </div>
-              <div>
-                <label htmlFor="edit-iso">ISO 639-1</label>
-                <input
-                  id="edit-iso"
-                  type="text"
-                  maxLength={2}
-                  placeholder="en"
-                  value={draft.iso6391}
-                  onChange={(event) =>
-                    setDraft({ ...draft, iso6391: event.target.value.toLowerCase() })
-                  }
-                />
-              </div>
-              <div>
-                <label htmlFor="edit-dir">Direction</label>
-                <select
-                  id="edit-dir"
-                  value={draft.dir}
-                  onChange={(event) =>
-                    setDraft({ ...draft, dir: event.target.value as 'ltr' | 'rtl' })
-                  }
-                >
-                  <option value="ltr">ltr</option>
-                  <option value="rtl">rtl</option>
-                </select>
-              </div>
-              <div className="full">
-                <label className="checkbox-line" htmlFor="edit-isSource">
-                  <input
-                    id="edit-isSource"
-                    type="checkbox"
-                    checked={draft.isSource}
-                    onChange={(event) => setDraft({ ...draft, isSource: event.target.checked })}
-                  />
-                  Source language (used as the translation source)
-                </label>
-              </div>
+        <Modal
+          title={editing.mode === 'create' ? 'New language' : `Edit ${editing.row.nativeName}`}
+          formError={formError}
+          busy={busy}
+          onClose={() => setEditing(null)}
+          onSubmit={submit}
+        >
+          <div className="form-grid">
+            <div>
+              <label htmlFor="edit-name">Name</label>
+              <input
+                id="edit-name"
+                type="text"
+                value={draft.name}
+                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+              />
             </div>
-
-            <div className="row" style={{ justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                className="button button-ghost"
-                onClick={() => setEditing(null)}
+            <div>
+              <label htmlFor="edit-native">Native name</label>
+              <input
+                id="edit-native"
+                type="text"
+                dir={draft.dir}
+                value={draft.nativeName}
+                onChange={(event) => setDraft({ ...draft, nativeName: event.target.value })}
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-iso">ISO 639-1</label>
+              <input
+                id="edit-iso"
+                type="text"
+                maxLength={2}
+                placeholder="en"
+                value={draft.iso6391}
+                onChange={(event) =>
+                  setDraft({ ...draft, iso6391: event.target.value.toLowerCase() })
+                }
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-dir">Direction</label>
+              <select
+                id="edit-dir"
+                value={draft.dir}
+                onChange={(event) =>
+                  setDraft({ ...draft, dir: event.target.value as 'ltr' | 'rtl' })
+                }
               >
-                Cancel
-              </button>
-              <button type="submit" className="button" disabled={busy}>
-                {busy ? 'Saving…' : 'Save'}
-              </button>
+                <option value="ltr">ltr</option>
+                <option value="rtl">rtl</option>
+              </select>
             </div>
-          </form>
-        </div>
+            <div className="full">
+              <label className="checkbox-line" htmlFor="edit-isSource">
+                <input
+                  id="edit-isSource"
+                  type="checkbox"
+                  checked={draft.isSource}
+                  onChange={(event) => setDraft({ ...draft, isSource: event.target.checked })}
+                />
+                Source language (used as the translation source)
+              </label>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
