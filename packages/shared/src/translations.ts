@@ -98,6 +98,29 @@ export const wsTranslationEventSchema = z.object({
   cached: z.boolean(),
 });
 
+/** Server ack for the `translate` message: receipt, not the result (that comes via `translation`). */
+export const wsTranslateAckSchema = z.object({
+  statusCode: z.union([
+    z.literal(200),
+    z.literal(202),
+    z.literal(400),
+    z.literal(404),
+    z.literal(429),
+    z.literal(500),
+  ]),
+  /** Correlation id from the request; null when the client sent an unparseable message. */
+  requestId: z.union([z.uuid(), z.null()]),
+  /** The translation on cache hit (200); null otherwise. */
+  data: z.string().nullable(),
+  /** Present only on 429: how long to wait before retrying, in milliseconds. */
+  retryAfterMs: z.number().int().nonnegative().optional(),
+});
+
+/** Payload of the `translate` pg-boss job: the WS message plus the originating socket id. */
+export const wsTranslateJobSchema = wsTranslateMessageSchema.extend({
+  socketId: z.string().optional(),
+});
+
 /** Server-to-client event emitted when an async translation fails. */
 export const wsTranslationErrorEventSchema = z.object({
   requestId: z.uuid(),
@@ -112,3 +135,5 @@ export type UpdateTranslationInput = z.infer<typeof updateTranslationSchema>;
 export type WsTranslateMessage = z.infer<typeof wsTranslateMessageSchema>;
 export type WsTranslationEvent = z.infer<typeof wsTranslationEventSchema>;
 export type WsTranslationErrorEvent = z.infer<typeof wsTranslationErrorEventSchema>;
+export type WsTranslateAck = z.infer<typeof wsTranslateAckSchema>;
+export type WsTranslateJob = z.infer<typeof wsTranslateJobSchema>;

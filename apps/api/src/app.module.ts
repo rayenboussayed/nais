@@ -9,6 +9,7 @@ import { AiMessagesModule } from './ai-messages/ai-messages.module';
 import { LanguagesModule } from './languages/languages.module';
 import { TranslationsModule } from './translations/translations.module';
 import { TranslateModule } from './translate/translate.module';
+import { TranslateQueueModule } from './queue/translate-queue.module';
 import { DrizzleModule } from './database/drizzle.module';
 import { SeedModule } from './database/seed.module';
 import { HealthModule } from './health/health.module';
@@ -29,6 +30,7 @@ import { AllExceptionsFilter } from './http/all-exceptions.filter';
     AiMessagesModule,
     TranslationsModule,
     TranslateModule,
+    TranslateQueueModule,
   ],
   providers: [
     {

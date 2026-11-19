@@ -22,7 +22,12 @@ import { aiMessages, aiMessagePrompts, languages, translations } from '../databa
 
 import { Inflight } from '../common/inflight';
 import { translationKeyFor } from '../common/key';
-import { TRANSLATE_HUMAN_PROMPT, buildHumanPrompt, buildSystemPrompt, stripEnclosingQuotes } from './prompts';
+import {
+  TRANSLATE_HUMAN_PROMPT,
+  buildHumanPrompt,
+  buildSystemPrompt,
+  stripEnclosingQuotes,
+} from './prompts';
 import type { Env } from '../config/env';
 
 /** Result of a translate call, internal shape before mapping to the shared contract. */
@@ -109,7 +114,9 @@ export class TranslateService implements OnModuleInit {
   async translate(input: TranslateRequest): Promise<TranslateResponse> {
     const language = await this.findLanguage(input.targetLanguage);
     const key = translationKeyFor(input.text);
-    return this.inflight.run(`${language.id}:${key}`, () => this.lockedTranslate(language, key, input.text));
+    return this.inflight.run(`${language.id}:${key}`, () =>
+      this.lockedTranslate(language, key, input.text),
+    );
   }
 
   private async findLanguage(iso: string) {

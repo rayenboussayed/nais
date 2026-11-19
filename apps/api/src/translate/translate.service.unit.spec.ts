@@ -22,7 +22,10 @@ function mockSelectFactory(results: Array<Array<Record<string, unknown>>>) {
 }
 
 function configStub(overrides: Record<string, unknown> = {}) {
-  const base: Record<string, unknown> = { OLLAMA_TEXT_MODEL: 'bonsai-2:2b', OLLAMA_TIMEOUT_MS: 60_000 };
+  const base: Record<string, unknown> = {
+    OLLAMA_TEXT_MODEL: 'bonsai-2:2b',
+    OLLAMA_TIMEOUT_MS: 60_000,
+  };
   return {
     get: (key: string) => ({ ...base, ...overrides })[key],
   } as unknown as ConfigService<Env, true>;
@@ -32,7 +35,13 @@ function aiStub() {
   return {
     generateText: vi.fn(async () => ({
       text: '[fr] bonjour',
-      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, cachedInputTokens: 0, reasoningTokens: 0 },
+      usage: {
+        inputTokens: 1,
+        outputTokens: 1,
+        totalTokens: 2,
+        cachedInputTokens: 0,
+        reasoningTokens: 0,
+      },
     })),
   };
 }
@@ -84,13 +93,57 @@ function buildDb({
   } as unknown as Database;
 }
 
+describe('TranslateService.onModuleInit (stale processing reaper)', () => {
+  function buildReaperDb(returning: unknown, updateError?: unknown) {
+    return {
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            returning: async () => {
+              if (updateError) throw updateError;
+              return returning;
+            },
+          }),
+        }),
+      }),
+    } as unknown as Database;
+  }
+
+  it('logs and resolves when stale rows are reaped', async () => {
+    const service = new TranslateService(
+      buildReaperDb([{ id: 'a' }, { id: 'b' }]),
+      aiStub() as unknown as AiService,
+      configStub(),
+    );
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+  });
+
+  it('swallows and logs a failing reaper without taking the boot down', async () => {
+    const service = new TranslateService(
+      buildReaperDb(undefined, new Error('permission denied')),
+      aiStub() as unknown as AiService,
+      configStub(),
+    );
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+  });
+
+  it('resolves quietly when nothing stale exists', async () => {
+    const service = new TranslateService(
+      buildReaperDb([]),
+      aiStub() as unknown as AiService,
+      configStub(),
+    );
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+  });
+});
+
 describe('TranslateService (stubbed database and model)', () => {
   it('still reports the timeout even when the failure audit also fails', async () => {
     // The catch-all path updates aiMessages to 'failed' on error; if that
     // write itself fails, it is swallowed (audit is best-effort) and the
     // caller still gets the mapped error.
     const db = {
-      ...(buildDb({ languageRow: language, auditReturning: [{ id: 'msg-1' }] })),
+      ...buildDb({ languageRow: language, auditReturning: [{ id: 'msg-1' }] }),
       update: () => ({
         set: () => ({
           where: () => Promise.reject(new Error('update failed')),
@@ -104,17 +157,17 @@ describe('TranslateService (stubbed database and model)', () => {
     } as unknown as AiService;
 
     const service = new TranslateService(db, aiHanging, configStub());
-    await expect(service.translate({ ...request })).rejects.toThrow(
-      'Translation timed out',
-    );
+    await expect(service.translate({ ...request })).rejects.toThrow('Translation timed out');
   });
 
   it('aligns the audit response with the catalogue text when a race is lost', async () => {
     const auditSets: Array<Record<string, unknown>> = [];
     const db = {
-      ...buildDb(
-        { languageRow: language, finalRow: { text: '[fr] winner from catalogue' }, auditReturning: [{ id: 'msg-1' }] },
-      ),
+      ...buildDb({
+        languageRow: language,
+        finalRow: { text: '[fr] winner from catalogue' },
+        auditReturning: [{ id: 'msg-1' }],
+      }),
       update: () => ({
         set: (value: Record<string, unknown>) => {
           auditSets.push(value);
@@ -129,9 +182,7 @@ describe('TranslateService (stubbed database and model)', () => {
     const result = await service.translate({ ...request });
 
     expect(result.text).toBe('[fr] winner from catalogue');
-    expect(
-      auditSets.some((value) => value.response === '[fr] winner from catalogue'),
-    ).toBe(true);
+    expect(auditSets.some((value) => value.response === '[fr] winner from catalogue')).toBe(true);
   });
 
   it('throws when the audit insert yields no row', async () => {
@@ -145,11 +196,7 @@ describe('TranslateService (stubbed database and model)', () => {
 
   it('returns the generated text even when the catalogue re-read finds nothing', async () => {
     const db = buildDb({ languageRow: language, auditReturning: [{ id: 'msg-1' }] });
-    const service = new TranslateService(
-      db,
-      aiStub() as unknown as AiService,
-      configStub(),
-    );
+    const service = new TranslateService(db, aiStub() as unknown as AiService, configStub());
 
     const result = await service.translate({ ...request });
     expect(result.text).toBe('[fr] bonjour');

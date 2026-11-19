@@ -67,9 +67,7 @@ describe('TranslationsService failure paths (stubbed database)', () => {
 
   it('update maps pg unique violations to ConflictException', async () => {
     const unique = { cause: { code: '23505' } };
-    const service = new TranslationsService(
-      databaseReturning([{ id: 'x' }], undefined, unique),
-    );
+    const service = new TranslationsService(databaseReturning([{ id: 'x' }], undefined, unique));
     await expect(
       service.update('123e4567-e89b-42d3-a456-426655440000', { key: 'other' }),
     ).rejects.toThrow(/key already exists/);
@@ -83,9 +81,7 @@ describe('TranslationsService failure paths (stubbed database)', () => {
   });
 
   it('update rethrows non-unique pg errors', async () => {
-    const service = new TranslationsService(
-      databaseReturning([], undefined, new Error('boom')),
-    );
+    const service = new TranslationsService(databaseReturning([], undefined, new Error('boom')));
     await expect(
       service.update('123e4567-e89b-42d3-a456-426655440000', { text: 'after' }),
     ).rejects.toThrow('boom');

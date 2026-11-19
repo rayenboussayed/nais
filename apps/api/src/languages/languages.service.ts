@@ -91,6 +91,20 @@ export class LanguagesService {
   }
 
   /**
+   * @param iso6391 - one of the seeded ISO 639-1 codes
+   * @returns the language row or null when missing/soft-deleted
+   */
+  async findByIso(iso6391: string): Promise<Language | null> {
+    const rows = await this.db
+      .select()
+      .from(languages)
+      .where(and(eq(languages.iso6391, iso6391), isNull(languages.deletedAt)))
+      .limit(1);
+    const row = rows[0];
+    return row ? rowToLanguage(row) : null;
+  }
+
+  /**
    * @param id - uuid of the language row
    * @throws NotFoundException when missing or soft-deleted
    */

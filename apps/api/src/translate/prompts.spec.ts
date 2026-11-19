@@ -9,7 +9,10 @@ import {
 
 describe('buildSystemPrompt', () => {
   it('substitutes every TARGET_LANGUAGE occurrence and leaves none behind', () => {
-    const rendered = buildSystemPrompt('French', 'native {TARGET_LANGUAGE} speaker, asks {TARGET_LANGUAGE}');
+    const rendered = buildSystemPrompt(
+      'French',
+      'native {TARGET_LANGUAGE} speaker, asks {TARGET_LANGUAGE}',
+    );
     expect(rendered).toBe('native French speaker, asks French');
   });
 

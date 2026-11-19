@@ -3,18 +3,11 @@
   "version": "9",
   "dialect": "postgres",
   "id": "db2bfeb3-9ffc-4442-9939-357bdb17ea81",
-  "prevIds": [
-    "626829c8-4d39-4ef3-9d46-f6603884448e"
-  ],
+  "prevIds": ["626829c8-4d39-4ef3-9d46-f6603884448e"],
   "footprints": [
     {
       "statementType": "recreate_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "translations",
-        "translations_language_key_unique"
-      ],
+      "statementTarget": ["index", "public", "translations", "translations_language_key_unique"],
       "writes": [
         "s|idx|public.translations_language_key_unique",
         "n|idx|public.translations_language_key_unique",
@@ -27,9 +20,7 @@
         "n|col|public.translations.language_id",
         "n|col|public.translations.key"
       ],
-      "sharedWrites": [
-        "e|uniqueness|public.translations.key.language_id"
-      ],
+      "sharedWrites": ["e|uniqueness|public.translations.key.language_id"],
       "sqlHash": "25cc7d29abc97e94"
     }
   ],

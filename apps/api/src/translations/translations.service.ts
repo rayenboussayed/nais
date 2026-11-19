@@ -77,7 +77,8 @@ export class TranslationsService {
     );
     if (cursor) conditions.push(cursor);
 
-    const orderColumn = orderBy === 'asc' ? asc(translations.createdAt) : desc(translations.createdAt);
+    const orderColumn =
+      orderBy === 'asc' ? asc(translations.createdAt) : desc(translations.createdAt);
     const orderId = orderBy === 'asc' ? asc(translations.id) : desc(translations.id);
 
     const rows = await this.db
@@ -96,9 +97,7 @@ export class TranslationsService {
     return {
       items: page.map(rowToTranslation),
       next:
-        hasMore && lastRow
-          ? { lastId: lastRow.id, lastCreatedAt: lastRow.createdAtCursor }
-          : null,
+        hasMore && lastRow ? { lastId: lastRow.id, lastCreatedAt: lastRow.createdAtCursor } : null,
     };
   }
 

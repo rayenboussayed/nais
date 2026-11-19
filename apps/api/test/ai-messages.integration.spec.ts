@@ -47,7 +47,11 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
         usage: null,
       },
     ]);
-    const [first] = await db.select({ id: schema.aiMessages.id }).from(schema.aiMessages).orderBy(schema.aiMessages.createdAt).limit(1);
+    const [first] = await db
+      .select({ id: schema.aiMessages.id })
+      .from(schema.aiMessages)
+      .orderBy(schema.aiMessages.createdAt)
+      .limit(1);
     if (!first) throw new Error('seed returned no message');
     await db.insert(schema.aiMessagePrompts).values([
       { messageId: first.id, role: 'system', prompt: 'You are a translator.' },
@@ -129,7 +133,10 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
     expect(one.statusCode).toBe(200);
     expect((one.json() as { status: string }).status).toBe('completed');
 
-    const prompts = await app.inject({ method: 'GET', url: `/api/ai-messages/${withResponse.id}/prompts` });
+    const prompts = await app.inject({
+      method: 'GET',
+      url: `/api/ai-messages/${withResponse.id}/prompts`,
+    });
     expect(prompts.statusCode).toBe(200);
     const promptBodies = (prompts.json() as Array<{ role: string }>).map((prompt) => prompt.role);
     expect(promptBodies).toEqual(['system', 'human']);
@@ -162,7 +169,10 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
     const goneAgain = await app.inject({ method: 'DELETE', url: `/api/ai-messages/${target.id}` });
     expect(goneAgain.statusCode).toBe(404);
 
-    const onlyDeleted = await app.inject({ method: 'GET', url: '/api/ai-messages?onlyDeleted=true' });
+    const onlyDeleted = await app.inject({
+      method: 'GET',
+      url: '/api/ai-messages?onlyDeleted=true',
+    });
     const rows = (onlyDeleted.json() as { items: Array<{ id: string }> }).items;
     expect(rows.some((row) => row.id === target.id)).toBe(true);
   });

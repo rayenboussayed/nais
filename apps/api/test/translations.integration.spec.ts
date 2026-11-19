@@ -32,7 +32,11 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
     await seedLanguages(db);
 
     const lookUp = async (iso: string) => {
-      const rows = await db.select({ id: schema.languages.id }).from(schema.languages).where(eq(schema.languages.iso6391, iso)).limit(1);
+      const rows = await db
+        .select({ id: schema.languages.id })
+        .from(schema.languages)
+        .where(eq(schema.languages.iso6391, iso))
+        .limit(1);
       const row = rows[0];
       if (!row) throw new Error(`seed did not insert ${iso}`);
       return row.id;
@@ -43,7 +47,12 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
     await db.insert(schema.translations).values([
       { languageId: frenchId, namespace: 'static', key: 'home.title', text: 'Accueil' },
       { languageId: englishId, namespace: 'static', key: 'home.title', text: 'Home' },
-      { languageId: frenchId, namespace: 'dynamic', key: translationKeyFor('hello'), text: 'bonjour' },
+      {
+        languageId: frenchId,
+        namespace: 'dynamic',
+        key: translationKeyFor('hello'),
+        text: 'bonjour',
+      },
     ]);
     await pool.end();
   }, 60_000);
@@ -79,7 +88,10 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
     const all = await app.inject({ method: 'GET', url: '/api/translations' });
     expect((all.json() as { items: unknown[] }).items.length).toBeGreaterThanOrEqual(3);
 
-    const french = await app.inject({ method: 'GET', url: `/api/translations?languageId=${frenchId}` });
+    const french = await app.inject({
+      method: 'GET',
+      url: `/api/translations?languageId=${frenchId}`,
+    });
     expect((french.json() as { items: unknown[] }).items.length).toBeGreaterThanOrEqual(2);
 
     const frenchStatic = await app.inject({
@@ -171,7 +183,10 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
   });
 
   it('PATCH updates, 400 on no-op, 404 on missing, 409 on key collision', async () => {
-    const all = await app.inject({ method: 'GET', url: `/api/translations?languageId=${frenchId}&namespace=static` });
+    const all = await app.inject({
+      method: 'GET',
+      url: `/api/translations?languageId=${frenchId}&namespace=static`,
+    });
     const items = (all.json() as { items: Array<{ id: string; key: string }> }).items;
     const target = items.find((item) => item.key === 'home.title');
     if (!target) throw new Error('seeded row not found');

@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  Param,
-  ParseUUIDPipe,
-  Query,
-} from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 
 import type { AiMessage, AiMessagePrompt, KeysetList, Pagination } from '@trainslator/shared';
 import { paginationSchema } from '@trainslator/shared';

@@ -17,10 +17,7 @@ import type {
   Translation,
   UpdateTranslationBodyInput,
 } from '@trainslator/shared';
-import {
-  createTranslationSchema,
-  updateTranslationBodySchema,
-} from '@trainslator/shared';
+import { createTranslationSchema, updateTranslationBodySchema } from '@trainslator/shared';
 
 import type { TranslationsListQuery } from '../common/list-query';
 import { translationsListQuerySchema } from '../common/list-query';

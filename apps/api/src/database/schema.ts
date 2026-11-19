@@ -76,7 +76,9 @@ export const translations = pgTable(
   },
   (table) => [
     // Partial: a soft-deleted row stops occupying the slot; the next write re-creates it.
-    uniqueIndex('translations_language_key_unique').on(table.languageId, table.key).where(isNull(table.deletedAt)),
+    uniqueIndex('translations_language_key_unique')
+      .on(table.languageId, table.key)
+      .where(isNull(table.deletedAt)),
     index('translations_language_namespace_created_idx').on(
       table.languageId,
       table.namespace,

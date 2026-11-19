@@ -37,7 +37,9 @@ export async function startOllamaStub(initial: StubBehavior = {}): Promise<Ollam
       const answer = () => {
         if (behavior.status && behavior.status !== 200) {
           res.writeHead(behavior.status, { 'content-type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'stubbed upstream failure', type: 'api_error' } }));
+          res.end(
+            JSON.stringify({ error: { message: 'stubbed upstream failure', type: 'api_error' } }),
+          );
           return;
         }
         const completion = behavior.completion ?? '[fr] bonjour';
@@ -77,7 +79,10 @@ export async function startOllamaStub(initial: StubBehavior = {}): Promise<Ollam
   return {
     url: `http://127.0.0.1:${port}`,
     hitCount: () => hits,
-    close: () => new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+    close: () =>
+      new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      ),
     setBehavior(next) {
       behavior = { ...behavior, ...next };
     },

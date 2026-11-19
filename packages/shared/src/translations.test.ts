@@ -8,6 +8,7 @@ import {
   translationSchema,
   updateTranslationBodySchema,
   updateTranslationSchema,
+  wsTranslateAckSchema,
   wsTranslationErrorEventSchema,
   wsTranslationEventSchema,
   wsTranslateMessageSchema,
@@ -144,6 +145,45 @@ describe('ws envelopes', () => {
     const parsed = wsTranslationEventSchema.parse({ requestId, text: 'Hallo', cached: false });
     expect(parsed.text).toBe('Hallo');
     expect(() => wsTranslationEventSchema.parse({ requestId, text: 'Hallo' })).toThrow();
+  });
+
+  it('answers a structurally invalid ack-shaped payload with a validation error', () => {
+    expect(() =>
+      wsTranslateAckSchema.parse({
+        statusCode: 201,
+        requestId: '123e4567-e89b-42d3-a456-426655440000',
+        data: null,
+      }),
+    ).toThrow();
+  });
+
+  it('parses a 400 ack with a null requestId and keeps a valid one when present', () => {
+    const garbage = wsTranslateAckSchema.parse({ statusCode: 400, requestId: null, data: null });
+    expect(garbage.requestId).toBeNull();
+
+    const kept = wsTranslateAckSchema.parse({
+      statusCode: 400,
+      requestId: '123e4567-e89b-42d3-a456-426655440000',
+      data: null,
+    });
+    expect(kept.requestId).toBe('123e4567-e89b-42d3-a456-426655440000');
+  });
+
+  it('parses a 429 ack with retryAfterMs and a 500 ack', () => {
+    const limited = wsTranslateAckSchema.parse({
+      statusCode: 429,
+      requestId: '123e4567-e89b-42d3-a456-426655440000',
+      data: null,
+      retryAfterMs: 60_000,
+    });
+    expect(limited.retryAfterMs).toBe(60_000);
+
+    const failed = wsTranslateAckSchema.parse({
+      statusCode: 500,
+      requestId: '123e4567-e89b-42d3-a456-426655440000',
+      data: null,
+    });
+    expect(failed.statusCode).toBe(500);
   });
 
   it('wsTranslationErrorEventSchema requires a message', () => {

@@ -1,17 +1,8 @@
-import {
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, getTableColumns, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
-import type {
-  AiMessage,
-  AiMessagePrompt,
-  KeysetList,
-  Pagination,
-} from '@trainslator/shared';
+import type { AiMessage, AiMessagePrompt, KeysetList, Pagination } from '@trainslator/shared';
 
 import { DRIZZLE } from '../database/drizzle.module';
 import type { Database } from '../database/drizzle.module';
@@ -77,7 +68,10 @@ export class AiMessagesService {
     const orderId = orderBy === 'asc' ? asc(aiMessages.id) : desc(aiMessages.id);
 
     const rows = await this.db
-      .select({ ...getTableColumns(aiMessages), createdAtCursor: timestamptzCursor(aiMessages.createdAt) })
+      .select({
+        ...getTableColumns(aiMessages),
+        createdAtCursor: timestamptzCursor(aiMessages.createdAt),
+      })
       .from(aiMessages)
       .where(and(...conditions))
       .orderBy(orderColumn, orderId)
@@ -89,9 +83,7 @@ export class AiMessagesService {
     return {
       items: page.map(rowToAiMessage),
       next:
-        hasMore && lastRow
-          ? { lastId: lastRow.id, lastCreatedAt: lastRow.createdAtCursor }
-          : null,
+        hasMore && lastRow ? { lastId: lastRow.id, lastCreatedAt: lastRow.createdAtCursor } : null,
     };
   }
 
