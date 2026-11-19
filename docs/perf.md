@@ -54,3 +54,11 @@ On an empty table the planner prefers a seq scan + sort; `ai_messages_created_id
 ## Seeding
 
 184-row upsert in two multi-row statements (<100ms observed); INSERT ... ON CONFLICT with `source` set semantics verified by integration tests (idempotent across runs).
+
+## Microbenchmarks
+
+`npm run test:perf` runs the `vitest bench` suite (apps/api/bench/common.bench.ts):
+translation-key hashing, LIKE escaping, keyset cursor building, changed-fields,
+inflight dedup and the rate limiter. The recorded baseline lives in
+`docs/perf-baseline.json` (refresh with
+`npx vitest bench --reporter=json --outputFile=docs/perf-baseline.json`).
