@@ -12,13 +12,15 @@ const LOCAL_ORIGIN = 'http://127.0.0.1:3000';
 /** Captures the two hooks registered by registerHttpGuards: [origin, docs-auth]. */
 function setup(corsOrigins?: string) {
   const config = {
-    get: (key: string) =>
-      key === 'CORS_ORIGINS' ? corsOrigins : TEST_BASIC_AUTH_ENV[key],
+    get: (key: string) => (key === 'CORS_ORIGINS' ? corsOrigins : TEST_BASIC_AUTH_ENV[key]),
   } as unknown as ConfigService<Env, true>;
 
   const hooks: Array<(request: FastifyRequest, reply: FastifyReply) => Promise<void>> = [];
   const fastify = {
-    addHook: (_name: string, fn: (request: FastifyRequest, reply: FastifyReply) => Promise<void>) => {
+    addHook: (
+      _name: string,
+      fn: (request: FastifyRequest, reply: FastifyReply) => Promise<void>,
+    ) => {
       hooks.push(fn);
     },
   } as unknown as FastifyInstance;
@@ -71,7 +73,10 @@ describe('registerHttpGuards origin backstop', () => {
     const { originHook } = setup();
     const { reply, state } = makeReply();
     await originHook(
-      requestFor('POST', '/api/translate', { host: '127.0.0.1:3000', origin: 'https://evil.example.com' }),
+      requestFor('POST', '/api/translate', {
+        host: '127.0.0.1:3000',
+        origin: 'https://evil.example.com',
+      }),
       reply,
     );
     expect(state.status).toBe(403);
@@ -92,7 +97,10 @@ describe('registerHttpGuards origin backstop', () => {
     const { originHook } = setup();
     const { reply, state } = makeReply();
     await originHook(
-      requestFor('GET', '/api/translate', { host: '127.0.0.1:3000', origin: 'https://evil.example.com' }),
+      requestFor('GET', '/api/translate', {
+        host: '127.0.0.1:3000',
+        origin: 'https://evil.example.com',
+      }),
       reply,
     );
     expect(state.body).toBeUndefined();
@@ -102,7 +110,10 @@ describe('registerHttpGuards origin backstop', () => {
     const { originHook } = setup();
     const { reply, state } = makeReply();
     await originHook(
-      requestFor('POST', '/api/translate', { host: '127.0.0.1:3000', origin: ['https://evil.example.com'] }),
+      requestFor('POST', '/api/translate', {
+        host: '127.0.0.1:3000',
+        origin: ['https://evil.example.com'],
+      }),
       reply,
     );
     expect(state.status).toBe(403);
@@ -112,7 +123,10 @@ describe('registerHttpGuards origin backstop', () => {
     const { originHook } = setup();
     const { reply, state } = makeReply();
     await originHook(
-      requestFor('POST', '/api/translate', { host: '127.0.0.1:3000', origin: [LOCAL_ORIGIN, 'https://evil.example.com'] }),
+      requestFor('POST', '/api/translate', {
+        host: '127.0.0.1:3000',
+        origin: [LOCAL_ORIGIN, 'https://evil.example.com'],
+      }),
       reply,
     );
     expect(state.body).toBeUndefined();
@@ -122,7 +136,10 @@ describe('registerHttpGuards origin backstop', () => {
     const { originHook } = setup('https://admin.example.com');
     const { reply, state } = makeReply();
     await originHook(
-      requestFor('POST', '/api/translate', { host: '127.0.0.1:3000', origin: 'https://admin.example.com' }),
+      requestFor('POST', '/api/translate', {
+        host: '127.0.0.1:3000',
+        origin: 'https://admin.example.com',
+      }),
       reply,
     );
     expect(state.body).toBeUndefined();

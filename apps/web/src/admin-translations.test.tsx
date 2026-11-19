@@ -55,8 +55,10 @@ describe('TranslationsAdmin', () => {
     vi.mocked(apiFetch).mockReset();
     vi.mocked(apiFetch).mockImplementation(async (url) => {
       const path = typeof url === 'string' ? url : String(url);
-      if (path.startsWith('/api/languages')) return { items: languages, next: null } as KeysetList<Language>;
-      if (path.startsWith('/api/translations')) return { items: translations, next: null } as KeysetList<Translation>;
+      if (path.startsWith('/api/languages'))
+        return { items: languages, next: null } as KeysetList<Language>;
+      if (path.startsWith('/api/translations'))
+        return { items: translations, next: null } as KeysetList<Translation>;
       throw new Error(`unexpected url in test: ${path}`);
     });
   });

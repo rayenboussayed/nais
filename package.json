@@ -21,7 +21,7 @@
     "test:cov:changed": "vitest run --changed --coverage --coverage.thresholds.perFile=true --coverage.thresholds.lines=95 --coverage.thresholds.functions=95 --coverage.thresholds.branches=95 --coverage.thresholds.statements=95 --passWithNoTests",
     "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.config.e2e.mts",
-    "test:perf": "vitest bench",
+    "test:perf": "vitest bench --reporter=verbose",
     "knip": "knip",
     "auth:hash": "node scripts/scrypt-hash.mjs",
     "check": "npm run build && npm run typecheck && npm run lint && npm run test && npm run knip && npm run format:check",

@@ -15,7 +15,7 @@ function getSocket(): Socket {
   return socket;
 }
 
-export interface TranslateResult {
+interface TranslateResult {
   text: string;
   cached: boolean;
 }
@@ -79,38 +79,42 @@ export function translateText(
   client.on('translation', onTranslation);
   client.on('translation-error', onTranslationError);
 
-  client.timeout(10_000).emit(
-    'translate',
-    { text, targetLanguage, requestId },
-    (emitError: Error | null, ack?: WsTranslateAck) => {
-      if (emitError) {
-        error('Could not reach the translation service.');
-        return;
-      }
-      if (!ack) {
-        error('No answer from the translation service.');
-        return;
-      }
-      switch (ack.statusCode) {
-        case 200:
-          done({ text: ack.data ?? '', cached: true });
+  client
+    .timeout(10_000)
+    .emit(
+      'translate',
+      { text, targetLanguage, requestId },
+      (emitError: Error | null, ack?: WsTranslateAck) => {
+        if (emitError) {
+          error('Could not reach the translation service.');
           return;
-        case 202:
-          return; // the `translation` event will land later
-        case 429:
-          error(`Rate limit reached. Retry in ${Math.ceil((ack.retryAfterMs ?? 60_000) / 1000)}s.`);
+        }
+        if (!ack) {
+          error('No answer from the translation service.');
           return;
-        case 400:
-          error('The request was invalid.');
-          return;
-        case 404:
-          error('That language is not supported.');
-          return;
-        default:
-          error('The translation failed. Please try again.');
-      }
-    },
-  );
+        }
+        switch (ack.statusCode) {
+          case 200:
+            done({ text: ack.data ?? '', cached: true });
+            return;
+          case 202:
+            return; // the `translation` event will land later
+          case 429:
+            error(
+              `Rate limit reached. Retry in ${Math.ceil((ack.retryAfterMs ?? 60_000) / 1000)}s.`,
+            );
+            return;
+          case 400:
+            error('The request was invalid.');
+            return;
+          case 404:
+            error('That language is not supported.');
+            return;
+          default:
+            error('The translation failed. Please try again.');
+        }
+      },
+    );
 
   return { requestId };
 }

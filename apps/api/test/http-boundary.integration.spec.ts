@@ -94,7 +94,9 @@ describe('HTTP boundary (integration, throwaway cluster)', () => {
     });
     expect(logout.statusCode).toBe(204);
     const logoutCookieHeader = logout.headers['set-cookie'];
-    const logoutCookie = Array.isArray(logoutCookieHeader) ? logoutCookieHeader[0] : logoutCookieHeader;
+    const logoutCookie = Array.isArray(logoutCookieHeader)
+      ? logoutCookieHeader[0]
+      : logoutCookieHeader;
     expect(logoutCookie).toContain('Max-Age=0');
   });
 
@@ -171,10 +173,16 @@ describe('HTTP boundary (integration, throwaway cluster)', () => {
       headers: basicAuthHeaders(),
     });
     expect(spec.statusCode).toBe(200);
-    const body = spec.json() as { openapi: string; paths: Record<string, unknown>; info: { title: string } };
+    const body = spec.json() as {
+      openapi: string;
+      paths: Record<string, unknown>;
+      info: { title: string };
+    };
     expect(body.openapi.startsWith('3')).toBe(true);
     expect(body.info.title).toBe('trainslator');
-    expect(Object.keys(body.paths)).toEqual(expect.arrayContaining(['/api/translate', '/api/languages']));
+    expect(Object.keys(body.paths)).toEqual(
+      expect.arrayContaining(['/api/translate', '/api/languages']),
+    );
 
     const html = await app.inject({
       method: 'GET',

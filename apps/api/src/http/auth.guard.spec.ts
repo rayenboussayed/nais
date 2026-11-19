@@ -52,9 +52,7 @@ describe('HttpAuthGuard', () => {
 
   it('accepts a valid basic auth header', async () => {
     const guard = new HttpAuthGuard(configStub());
-    await expect(
-      guard.canActivate(httpContext(basicAuthHeaders())),
-    ).resolves.toBe(true);
+    await expect(guard.canActivate(httpContext(basicAuthHeaders()))).resolves.toBe(true);
   });
 
   it('accepts a valid session cookie', async () => {

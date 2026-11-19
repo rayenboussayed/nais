@@ -62,13 +62,11 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   return (await response.json()) as T;
 }
 
-export interface KeysetCursor {
-  lastId: string;
-  lastCreatedAt: string;
-}
 
 /** Builds a query string from pagination/search parameters, skipping empties. */
-export function toQueryString(params: Record<string, string | number | boolean | undefined>): string {
+export function toQueryString(
+  params: Record<string, string | number | boolean | undefined>,
+): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === '') continue;

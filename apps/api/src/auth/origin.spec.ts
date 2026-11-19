@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { isOriginAllowed, parseAllowedOrigins, buildGatewayCors, buildGatewayOptions } from './origin';
+import {
+  isOriginAllowed,
+  parseAllowedOrigins,
+  buildGatewayCors,
+  buildGatewayOptions,
+} from './origin';
 
 describe('buildGatewayCors', () => {
   it('returns undefined when no allowlist is configured', () => {

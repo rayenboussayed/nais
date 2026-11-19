@@ -16,7 +16,14 @@ vi.mock('../lib/api', async (importOriginal) => {
 
 vi.mock('../lib/translate-socket', () => ({
   translateText: vi.fn(
-    (text: string, targetLanguage: string, callbacks: { onDone: (r: { text: string; cached: boolean }) => void; onError: (m: string) => void }) => {
+    (
+      text: string,
+      targetLanguage: string,
+      callbacks: {
+        onDone: (r: { text: string; cached: boolean }) => void;
+        onError: (m: string) => void;
+      },
+    ) => {
       const result = `translated(${targetLanguage}): ${text}`;
       callbacks.onDone({ text: result, cached: false });
       return { requestId: '123e4567-e89b-42d3-a456-426655440000' };

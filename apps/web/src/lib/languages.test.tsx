@@ -81,9 +81,7 @@ describe('useLanguages', () => {
       items: [languages[1] as Language],
       next: null,
     };
-    vi.mocked(apiFetch)
-      .mockResolvedValueOnce(page1)
-      .mockResolvedValueOnce(page2);
+    vi.mocked(apiFetch).mockResolvedValueOnce(page1).mockResolvedValueOnce(page2);
 
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: 0 } },

@@ -9,7 +9,7 @@ export interface CursorStack {
   reset: () => void;
 }
 
-export interface KeysetCursor {
+interface KeysetCursor {
   lastId: string;
   lastCreatedAt: string;
 }

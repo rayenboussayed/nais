@@ -14,13 +14,22 @@ function AdminLayout() {
   return (
     <div className="stack">
       <nav className="admin-nav" aria-label="Admin sections">
-        <Link to="/admin/translations" className={pathname.startsWith('/admin/translations') ? 'active' : ''}>
+        <Link
+          to="/admin/translations"
+          className={pathname.startsWith('/admin/translations') ? 'active' : ''}
+        >
           Translations
         </Link>
-        <Link to="/admin/languages" className={pathname.startsWith('/admin/languages') ? 'active' : ''}>
+        <Link
+          to="/admin/languages"
+          className={pathname.startsWith('/admin/languages') ? 'active' : ''}
+        >
           Languages
         </Link>
-        <Link to="/admin/ai-messages" className={pathname.startsWith('/admin/ai-messages') ? 'active' : ''}>
+        <Link
+          to="/admin/ai-messages"
+          className={pathname.startsWith('/admin/ai-messages') ? 'active' : ''}
+        >
           AI messages
         </Link>
       </nav>

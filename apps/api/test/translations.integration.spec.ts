@@ -83,11 +83,20 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
   });
 
   async function createTranslation(body: Record<string, unknown>) {
-    return app.inject({ headers: basicAuthHeaders(), method: 'POST', url: '/api/translations', payload: body });
+    return app.inject({
+      headers: basicAuthHeaders(),
+      method: 'POST',
+      url: '/api/translations',
+      payload: body,
+    });
   }
 
   it('lists across languages and filters by languageId and namespace', async () => {
-    const all = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: '/api/translations' });
+    const all = await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'GET',
+      url: '/api/translations',
+    });
     expect((all.json() as { items: unknown[] }).items.length).toBeGreaterThanOrEqual(3);
 
     const french = await app.inject({
@@ -122,7 +131,11 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
       'pageSize=0',
       'pageSize=101',
     ]) {
-      const response = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: `/api/translations?${query}` });
+      const response = await app.inject({
+        headers: basicAuthHeaders(),
+        method: 'GET',
+        url: `/api/translations?${query}`,
+      });
       expect(response.statusCode, query).toBe(400);
     }
   });
@@ -282,10 +295,18 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
     });
     const id = (created.json() as { id: string }).id;
 
-    const deleted = await app.inject({ headers: basicAuthHeaders(), method: 'DELETE', url: `/api/translations/${id}` });
+    const deleted = await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'DELETE',
+      url: `/api/translations/${id}`,
+    });
     expect(deleted.statusCode).toBe(204);
 
-    const gone = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: `/api/translations/${id}` });
+    const gone = await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'GET',
+      url: `/api/translations/${id}`,
+    });
     expect(gone.statusCode).toBe(404);
 
     const onlyDeleted = await app.inject({
@@ -296,7 +317,11 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
     const rows = (onlyDeleted.json() as { items: Array<{ id: string }> }).items;
     expect(rows.some((row) => row.id === id)).toBe(true);
 
-    const goneAgain = await app.inject({ headers: basicAuthHeaders(), method: 'DELETE', url: `/api/translations/${id}` });
+    const goneAgain = await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'DELETE',
+      url: `/api/translations/${id}`,
+    });
     expect(goneAgain.statusCode).toBe(404);
   });
 });

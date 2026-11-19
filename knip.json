@@ -1,6 +1,8 @@
 {
   "workspaces": {
-    ".": {},
+    ".": {
+      "entry": ["scripts/ollama-smoke.mjs"]
+    },
     "apps/api": {
       "entry": ["src/main.ts"]
     },

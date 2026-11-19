@@ -5,7 +5,7 @@ import type { KeysetList, Language } from '@trainslator/shared';
 import { apiFetch } from './api';
 
 /** Language catalogue row as returned by the API (ISO 639-1, name, nativeName, dir). */
-export type LanguageRow = Language;
+type LanguageRow = Language;
 
 /**
  * All languages, fetched once per session. The seeded catalogue is a fixed

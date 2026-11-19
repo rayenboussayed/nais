@@ -69,9 +69,7 @@ describe('AuthController.login', () => {
 
   it('rejects when no password hash is configured', async () => {
     const { reply } = replyStub();
-    const controller = new AuthController(
-      configStub({ BASIC_AUTH_PASSWORD_HASH: undefined }),
-    );
+    const controller = new AuthController(configStub({ BASIC_AUTH_PASSWORD_HASH: undefined }));
 
     await expect(
       controller.login({ username: 'admin', password: 'whatever' }, '203.0.113.11', reply),

@@ -43,7 +43,10 @@ function PromptsList({ messageId }: { messageId: string }) {
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <span className="badge">{prompt.role}</span>
           </div>
-          <pre className="result-area mono" style={{ minHeight: 0, maxHeight: 180, overflow: 'auto' }}>
+          <pre
+            className="result-area mono"
+            style={{ minHeight: 0, maxHeight: 180, overflow: 'auto' }}
+          >
             {prompt.prompt}
           </pre>
         </li>
@@ -144,10 +147,18 @@ function AiMessagesAdmin() {
                 <td className="muted">{formatTimestamp(row.createdAt)}</td>
                 <td>
                   <div className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
-                    <button type="button" className="button button-ghost button-small" onClick={() => toggleExpanded(row.id)}>
+                    <button
+                      type="button"
+                      className="button button-ghost button-small"
+                      onClick={() => toggleExpanded(row.id)}
+                    >
                       {expanded.has(row.id) ? 'Hide' : 'Prompts'}
                     </button>
-                    <button type="button" className="button button-danger button-small" onClick={() => remove(row)}>
+                    <button
+                      type="button"
+                      className="button button-danger button-small"
+                      onClick={() => remove(row)}
+                    >
                       Delete
                     </button>
                   </div>
@@ -173,7 +184,12 @@ function AiMessagesAdmin() {
 
       <div className="pagination">
         {isFetching && <span className="muted">Loading…</span>}
-        <button type="button" className="button button-ghost button-small" onClick={back} disabled={!canBack}>
+        <button
+          type="button"
+          className="button button-ghost button-small"
+          onClick={back}
+          disabled={!canBack}
+        >
           Newer
         </button>
         <button

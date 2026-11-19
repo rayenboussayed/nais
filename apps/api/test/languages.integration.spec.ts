@@ -53,11 +53,20 @@ describe('languages REST (integration, throwaway PostgreSQL)', () => {
   });
 
   async function createLanguage(body: Record<string, unknown>) {
-    return app.inject({ headers: basicAuthHeaders(), method: 'POST', url: '/api/languages', payload: body });
+    return app.inject({
+      headers: basicAuthHeaders(),
+      method: 'POST',
+      url: '/api/languages',
+      payload: body,
+    });
   }
 
   it('lists the seeded catalogue with default pagination', async () => {
-    const response = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: '/api/languages' });
+    const response = await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'GET',
+      url: '/api/languages',
+    });
     expect(response.statusCode).toBe(200);
     const body = response.json() as { items: Array<{ iso6391: string }>; next: unknown };
     expect(body.items).toHaveLength(20);
@@ -72,22 +81,38 @@ describe('languages REST (integration, throwaway PostgreSQL)', () => {
       'orderBy=',
       'lastId=not-a-uuid',
     ]) {
-      const response = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: `/api/languages?${query}` });
+      const response = await app.inject({
+        headers: basicAuthHeaders(),
+        method: 'GET',
+        url: `/api/languages?${query}`,
+      });
       expect(response.statusCode, query).toBe(400);
     }
   });
 
   it('finds Arabic via q and treats LIKE wildcards literally', async () => {
-    const hit = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: '/api/languages?q=arabic' });
+    const hit = await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'GET',
+      url: '/api/languages?q=arabic',
+    });
     expect(hit.statusCode).toBe(200);
     const hitBody = hit.json() as { items: Array<{ iso6391: string }> };
     expect(hitBody.items.some((item) => item.iso6391 === 'ar')).toBe(true);
 
-    const percent = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: '/api/languages?q=%25' });
+    const percent = await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'GET',
+      url: '/api/languages?q=%25',
+    });
     expect(percent.statusCode).toBe(200);
     expect((percent.json() as { items: unknown[] }).items).toHaveLength(0);
 
-    const underscore = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: '/api/languages?q=_' });
+    const underscore = await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'GET',
+      url: '/api/languages?q=_',
+    });
     expect(underscore.statusCode).toBe(200);
     expect((underscore.json() as { items: unknown[] }).items).toHaveLength(0);
   });
@@ -103,7 +128,11 @@ describe('languages REST (integration, throwaway PostgreSQL)', () => {
     const createdBody = created.json() as { id: string; iso6391: string };
     expect(createdBody.iso6391).toBe('tz');
 
-    const fetched = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: `/api/languages/${createdBody.id}` });
+    const fetched = await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'GET',
+      url: `/api/languages/${createdBody.id}`,
+    });
     expect(fetched.statusCode).toBe(200);
 
     const duplicated = await createLanguage({
@@ -131,10 +160,18 @@ describe('languages REST (integration, throwaway PostgreSQL)', () => {
     });
     expect(nothingChanged.statusCode).toBe(400);
 
-    const deleted = await app.inject({ headers: basicAuthHeaders(), method: 'DELETE', url: `/api/languages/${createdBody.id}` });
+    const deleted = await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'DELETE',
+      url: `/api/languages/${createdBody.id}`,
+    });
     expect(deleted.statusCode).toBe(204);
 
-    const gone = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: `/api/languages/${createdBody.id}` });
+    const gone = await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'GET',
+      url: `/api/languages/${createdBody.id}`,
+    });
     expect(gone.statusCode).toBe(404);
 
     const goneAgain = await app.inject({
@@ -188,9 +225,17 @@ describe('languages REST (integration, throwaway PostgreSQL)', () => {
       dir: 'ltr',
     });
     const id = (created.json() as { id: string }).id;
-    await app.inject({ headers: basicAuthHeaders(), method: 'DELETE', url: `/api/languages/${id}` });
+    await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'DELETE',
+      url: `/api/languages/${id}`,
+    });
 
-    const visible = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: '/api/languages?q=gonebutSeen' });
+    const visible = await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'GET',
+      url: '/api/languages?q=gonebutSeen',
+    });
     expect((visible.json() as { items: unknown[] }).items).toHaveLength(0);
 
     const deletedOnly = await app.inject({

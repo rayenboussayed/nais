@@ -154,10 +154,11 @@ export function TranslationsAdmin() {
     }
   }
 
-  const updateFilter = (setter: (value: string) => void) => (event: { target: { value: string } }) => {
-    reset();
-    setter(event.target.value);
-  };
+  const updateFilter =
+    (setter: (value: string) => void) => (event: { target: { value: string } }) => {
+      reset();
+      setter(event.target.value);
+    };
 
   return (
     <div className="stack">
@@ -172,7 +173,11 @@ export function TranslationsAdmin() {
             aria-label="Search translations"
             style={{ width: 220 }}
           />
-          <select value={languageId} onChange={updateFilter(setLanguageId)} aria-label="Filter by language">
+          <select
+            value={languageId}
+            onChange={updateFilter(setLanguageId)}
+            aria-label="Filter by language"
+          >
             <option value="">All languages</option>
             {languages.map((language: Language) => (
               <option key={language.id} value={language.id}>
@@ -180,7 +185,11 @@ export function TranslationsAdmin() {
               </option>
             ))}
           </select>
-          <select value={namespace} onChange={updateFilter(setNamespace)} aria-label="Filter by namespace">
+          <select
+            value={namespace}
+            onChange={updateFilter(setNamespace)}
+            aria-label="Filter by namespace"
+          >
             <option value="">All namespaces</option>
             <option value="static">static</option>
             <option value="dynamic">dynamic</option>
@@ -222,10 +231,18 @@ export function TranslationsAdmin() {
                 <td className="muted">{formatTimestamp(row.updatedAt)}</td>
                 <td>
                   <div className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
-                    <button type="button" className="button button-ghost button-small" onClick={() => openEdit(row)}>
+                    <button
+                      type="button"
+                      className="button button-ghost button-small"
+                      onClick={() => openEdit(row)}
+                    >
                       Edit
                     </button>
-                    <button type="button" className="button button-danger button-small" onClick={() => remove(row)}>
+                    <button
+                      type="button"
+                      className="button button-danger button-small"
+                      onClick={() => remove(row)}
+                    >
                       Delete
                     </button>
                   </div>
@@ -245,7 +262,12 @@ export function TranslationsAdmin() {
 
       <div className="pagination">
         {isFetching && <span className="muted">Loading…</span>}
-        <button type="button" className="button button-ghost button-small" onClick={back} disabled={!canBack}>
+        <button
+          type="button"
+          className="button button-ghost button-small"
+          onClick={back}
+          disabled={!canBack}
+        >
           Newer
         </button>
         <button
@@ -291,7 +313,9 @@ export function TranslationsAdmin() {
                 <select
                   id="edit-namespace"
                   value={draft.namespace}
-                  onChange={(event) => setDraft({ ...draft, namespace: event.target.value as 'dynamic' | 'static' })}
+                  onChange={(event) =>
+                    setDraft({ ...draft, namespace: event.target.value as 'dynamic' | 'static' })
+                  }
                 >
                   <option value="dynamic">dynamic (key derived from text)</option>
                   <option value="static">static (human-authored key)</option>
@@ -321,7 +345,11 @@ export function TranslationsAdmin() {
             </div>
 
             <div className="row" style={{ justifyContent: 'flex-end' }}>
-              <button type="button" className="button button-ghost" onClick={() => setEditing(null)}>
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => setEditing(null)}
+              >
                 Cancel
               </button>
               <button type="submit" className="button" disabled={busy}>

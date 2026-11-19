@@ -177,10 +177,18 @@ function LanguagesAdmin() {
                 <td className="muted">{formatTimestamp(row.updatedAt)}</td>
                 <td>
                   <div className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
-                    <button type="button" className="button button-ghost button-small" onClick={() => openEdit(row)}>
+                    <button
+                      type="button"
+                      className="button button-ghost button-small"
+                      onClick={() => openEdit(row)}
+                    >
                       Edit
                     </button>
-                    <button type="button" className="button button-danger button-small" onClick={() => remove(row)}>
+                    <button
+                      type="button"
+                      className="button button-danger button-small"
+                      onClick={() => remove(row)}
+                    >
                       Delete
                     </button>
                   </div>
@@ -200,7 +208,12 @@ function LanguagesAdmin() {
 
       <div className="pagination">
         {isFetching && <span className="muted">Loading…</span>}
-        <button type="button" className="button button-ghost button-small" onClick={back} disabled={!canBack}>
+        <button
+          type="button"
+          className="button button-ghost button-small"
+          onClick={back}
+          disabled={!canBack}
+        >
           Newer
         </button>
         <button
@@ -254,7 +267,9 @@ function LanguagesAdmin() {
                   maxLength={2}
                   placeholder="en"
                   value={draft.iso6391}
-                  onChange={(event) => setDraft({ ...draft, iso6391: event.target.value.toLowerCase() })}
+                  onChange={(event) =>
+                    setDraft({ ...draft, iso6391: event.target.value.toLowerCase() })
+                  }
                 />
               </div>
               <div>
@@ -262,7 +277,9 @@ function LanguagesAdmin() {
                 <select
                   id="edit-dir"
                   value={draft.dir}
-                  onChange={(event) => setDraft({ ...draft, dir: event.target.value as 'ltr' | 'rtl' })}
+                  onChange={(event) =>
+                    setDraft({ ...draft, dir: event.target.value as 'ltr' | 'rtl' })
+                  }
                 >
                   <option value="ltr">ltr</option>
                   <option value="rtl">rtl</option>
@@ -282,7 +299,11 @@ function LanguagesAdmin() {
             </div>
 
             <div className="row" style={{ justifyContent: 'flex-end' }}>
-              <button type="button" className="button button-ghost" onClick={() => setEditing(null)}>
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => setEditing(null)}
+              >
                 Cancel
               </button>
               <button type="submit" className="button" disabled={busy}>

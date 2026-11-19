@@ -14,7 +14,11 @@ const listeners = new Map<string, Set<(payload: never) => void>>();
 vi.mock('socket.io-client', () => {
   const socket = {
     timeout: () => socket,
-    emit: (event: string, data: unknown, ack?: (error: Error | null, response?: WsTranslateAck) => void) => {
+    emit: (
+      event: string,
+      data: unknown,
+      ack?: (error: Error | null, response?: WsTranslateAck) => void,
+    ) => {
       emitted.push({ event, data });
       if (ack) {
         queueMicrotask(() => ack(state.ackError, state.ackPayload));
@@ -94,7 +98,11 @@ describe('translateText', () => {
     translateText('hello', 'fr', { onDone: done, onError: vi.fn() });
     await vi.waitFor(() => expect(emitted).toHaveLength(1));
 
-    emitServerEvent('translation', { requestId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', text: 'x', cached: false });
+    emitServerEvent('translation', {
+      requestId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      text: 'x',
+      cached: false,
+    });
     expect(done).not.toHaveBeenCalled();
   });
 
@@ -117,9 +125,7 @@ describe('translateText', () => {
     const error = vi.fn();
 
     translateText('hello', 'fr', { onDone: vi.fn(), onError: error });
-    await vi.waitFor(() =>
-      expect(error).toHaveBeenCalledWith('Rate limit reached. Retry in 30s.'),
-    );
+    await vi.waitFor(() => expect(error).toHaveBeenCalledWith('Rate limit reached. Retry in 30s.'));
   });
 
   it('maps 400, 404 and 500 acks to constant messages', async () => {

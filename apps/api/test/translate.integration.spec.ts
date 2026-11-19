@@ -204,7 +204,11 @@ describe('translate pipeline (integration, throwaway PostgreSQL + stubbed Ollama
       await pool.end();
     }
 
-    const deleted = await app.inject({ headers: basicAuthHeaders(), method: 'DELETE', url: `/api/translations/${deletedId}` });
+    const deleted = await app.inject({
+      headers: basicAuthHeaders(),
+      method: 'DELETE',
+      url: `/api/translations/${deletedId}`,
+    });
     expect(deleted.statusCode).toBe(204);
 
     const second = await translate('resurrect this text');

@@ -131,7 +131,9 @@ export function Playground() {
           )}
           <div className="result-area" dir={targetDir} aria-live="polite">
             {busy && <span className="muted">Translating…</span>}
-            {!busy && result === null && <span className="muted">The translation will appear here.</span>}
+            {!busy && result === null && (
+              <span className="muted">The translation will appear here.</span>
+            )}
             {!busy && result !== null && result}
           </div>
         </section>
@@ -140,7 +142,11 @@ export function Playground() {
       <section className="panel stack" aria-label="History">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <h2 style={{ margin: 0, fontSize: '1rem' }}>Session history</h2>
-          <button type="button" className="button button-ghost button-small" onClick={() => setHistory([])}>
+          <button
+            type="button"
+            className="button button-ghost button-small"
+            onClick={() => setHistory([])}
+          >
             Clear
           </button>
         </div>
