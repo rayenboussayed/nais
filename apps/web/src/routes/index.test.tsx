@@ -85,7 +85,7 @@ describe('Playground', () => {
       expect(screen.queryByText('Français (fr)')).toBeTruthy();
     });
 
-    fireEvent.change(screen.getByLabelText('Source text'), { target: { value: 'hello world' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Source text' }), { target: { value: 'hello world' } });
     fireEvent.click(screen.getByRole('button', { name: 'Translate' }));
 
     await waitFor(() => {

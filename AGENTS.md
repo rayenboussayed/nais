@@ -46,17 +46,17 @@ native Standard Schema.
    level, so they require their own hook (`registerHttpGuards`).
 9. **Observed on real hardware/network:** GitHub SSH (port 22) is intermittently
    reachable; commits must be made locally and retried.
-11. **A global `APP_GUARD` throttler crashes on WS frames.** `@nestjs/throttler`
+10. **A global `APP_GUARD` throttler crashes on WS frames.** `@nestjs/throttler`
     runs on WebSocket contexts too and dies on malformed payloads (reading
     `.header` of a null data frame). `skipHealthProbe`
     (apps/api/src/config/throttle.ts) skips non-http contexts; the WS gateway
     enforces its own identity-keyed limiter. Caught by an integration test that
     emitted `translate` with a literal `null` payload.
-12. **New indexes change planner output order.** After adding a composite
+11. **New indexes change planner output order.** After adding a composite
     `(created_at, id)` index, a seed that ordered by `created_at` alone returned
     a different row (identical timestamps + index scan). Address rows by a
     unique column (or full tie-break key) in fixtures.
-10. **Tests run against real databases:** integration specs create a throwaway
+12. **Tests run against real databases:** integration specs create a throwaway
     PostgreSQL cluster in /tmp (unix sockets), apply `drizzle/` migrations,
     and seed. Never point tests at a developer or shared database.
 

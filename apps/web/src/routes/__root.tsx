@@ -25,6 +25,9 @@ function RootComponent() {
             <Link to="/" activeProps={{ className: 'active' }}>
               Playground
             </Link>
+            <Link to="/studio" activeProps={{ className: 'active' }}>
+              Studio
+            </Link>
             <Link to="/admin" activeProps={{ className: 'active' }}>
               Admin
             </Link>

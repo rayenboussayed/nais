@@ -12,7 +12,7 @@ export default defineConfig({
       'packages/shared/src/**/*.test.ts',
       'packages/shared/test/**/*.spec.ts',
       'apps/**/src/**/*.spec.ts',
-      'apps/**/src/**/*.test.ts',
+      'apps/**/src/**/*.test.{ts,tsx}',
       'apps/**/test/**/*.spec.ts',
     ],
     passWithNoTests: true,
@@ -23,6 +23,16 @@ export default defineConfig({
     fileParallelism: false,
     coverage: {
       provider: 'v8',
+      exclude: [
+        '**/node_modules/**',
+        // v8 cannot map rolldown-compiled JSX (upstream vitest#10475), so .tsx
+        // produces partial, misleading numbers; behavior is asserted by the
+        // jsdom component tests instead.
+        '**/*.tsx',
+        '**/routeTree.gen.ts', // generated
+        'apps/api/src/main.ts', // boot entrypoint; exercised by the e2e suite instead
+        'apps/api/test/memory/**', // measured by test:mem instead
+      ],
       reporter: ['text', 'json-summary'],
       thresholds: {
         lines: 95,
