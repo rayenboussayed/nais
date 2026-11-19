@@ -58,7 +58,8 @@ function mockFetchOnce(responder: (url: string, body: unknown) => unknown) {
     const path = typeof url === 'string' ? url : String(url);
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     if (path === '/api/ai/tasks') return { items: tasks } as never;
-    if (path === '/api/languages') return { items: languages, next: null } as KeysetList<Language> as never;
+    if (path === '/api/languages')
+      return { items: languages, next: null } as KeysetList<Language> as never;
     return responder(path, body) as never;
   });
 }

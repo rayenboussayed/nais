@@ -5,10 +5,22 @@
 'use strict';
 
 const TASKS = [
-  ['sentiment-analysis', 'AI_SENTIMENT_MODEL', 'Xenova/distilbert-base-uncased-finetuned-sst-2-english'],
+  [
+    'sentiment-analysis',
+    'AI_SENTIMENT_MODEL',
+    'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
+  ],
   ['summarization', 'AI_SUMMARIZE_MODEL', 'Xenova/distilbart-cnn-6-6'],
-  ['question-answering', 'AI_QUESTION_ANSWERING_MODEL', 'Xenova/distilbert-base-uncased-distilled-squad'],
-  ['token-classification', 'AI_TOKEN_CLASSIFICATION_MODEL', 'Xenova/bert-base-cased-finetuned-conll03-english'],
+  [
+    'question-answering',
+    'AI_QUESTION_ANSWERING_MODEL',
+    'Xenova/distilbert-base-uncased-distilled-squad',
+  ],
+  [
+    'token-classification',
+    'AI_TOKEN_CLASSIFICATION_MODEL',
+    'Xenova/bert-base-NER',
+  ],
   ['zero-shot-classification', 'AI_ZERO_SHOT_CLASSIFICATION_MODEL', 'Xenova/nli-deberta-v3-xsmall'],
   ['feature-extraction', 'AI_FEATURE_EXTRACTION_MODEL', 'onnx-community/all-MiniLM-L6-v2-ONNX'],
 ];

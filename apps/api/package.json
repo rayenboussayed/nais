@@ -12,7 +12,8 @@
     "start:prod": "node dist/main",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node bin/db-migrate.mjs",
-    "db:seed": "node bin/db-seed.mjs"
+    "db:seed": "node bin/db-seed.mjs",
+    "transformers:warmup": "node bin/transformers-warmup.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.93",

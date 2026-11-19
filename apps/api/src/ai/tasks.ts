@@ -47,7 +47,7 @@ export const AI_TASK_REGISTRY: Record<AiTask, AiTaskEntry> = {
   },
   'token-classification': {
     provider: 'transformers',
-    defaultModel: 'Xenova/bert-base-cased-finetuned-conll03-english',
+    defaultModel: 'Xenova/bert-base-NER',
     label: 'Named entities (NER)',
     description: 'Token classification over arbitrary text; CoNLL-2003 entity groups.',
   },

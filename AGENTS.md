@@ -5,8 +5,10 @@
 NestJS 12 + Fastify 5 (REST + socket.io WebSocket gateway), Drizzle ORM 1.0 RC
 (plain query builder, no relational queries) on PostgreSQL, `@nestjs/ai` with
 `@ai-sdk/openai-compatible` against an Ollama `/v1` endpoint (default
-`bonsai-2:2b`), pg-boss for the translate queue, React 19 + Vite (Rolldown)
-with TanStack Router/Query for the web app. zod v4 contracts in
+`bonsai-2:2b`) for LLM work, `@huggingface/transformers` + `onnxruntime-node`
+for dedicated per-task ONNX pipelines (sentiment, summarize, QA, NER,
+zero-shot, embeddings), pg-boss for the `ai-task` queue (all tasks), React 19 +
+Vite (Rolldown) with TanStack Router/Query for the web app. zod v4 contracts in
 `packages/shared` are the single source of truth; Swagger consumes them via
 native Standard Schema.
 
@@ -59,6 +61,29 @@ native Standard Schema.
 12. **Tests run against real databases:** integration specs create a throwaway
     PostgreSQL cluster in /tmp (unix sockets), apply `drizzle/` migrations,
     and seed. Never point tests at a developer or shared database.
+
+13. **A general-purpose AI gateway splits cleanly along task boundaries.**
+    Provider per task: Ollama for LLM work (translate), dedicated ONNX
+    pipelines via `@huggingface/transformers` for everything else. Pipelines
+    are lazy singletons cached by effective model id; the first request pays
+    the model download (verified: all six dedicated pipelines download and run in this repo). Tests stub `PipelineLoader` — the registry, cache round-trip and
+    audit trail are covered without network.
+14. **onnxruntime-node ships native binaries in the package (548 MB).** Its
+    postinstall only prunes; this repo's npm install-scripts policy is left
+    intact (`npm install-scripts ls` shows it as pending, and the runtime
+    works fine — the Docker image installs with `--ignore-scripts` as usual).
+15. **WS gateway + pg-boss generalize together.** `translate` message stays
+    byte-compatible; the `ai` message carries `{ task, input, requestId }`
+    with the same ack contract (200 inline/202/400/404/429/500). The worker
+    emits `translation` for translate and `ai-result`/`ai-error` otherwise.
+16. **The test harness needs serial boots under CI load.** Each integration
+    spec boots a full Nest app + throwaway cluster; parallel workers push
+    hooks past timeouts. `fileParallelism: false` in vitest.config.mts keeps
+    the suite deterministic everywhere (~80s wall, green CI).
+17. **`.test.tsx` files must be in the test include glob.** Route component
+    tests existed but never ran (`.test.{ts,tsx}` was missing) — the global
+    glob had silently excluded all `.tsx` tests. With them running, jsdom
+    behavior tests assert playground/studio/admin rendering.
 
 ## Conventions
 

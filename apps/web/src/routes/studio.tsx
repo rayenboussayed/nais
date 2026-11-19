@@ -34,10 +34,7 @@ export function Studio() {
     }
   }, [tasks, task]);
 
-  const selected = useMemo(
-    () => tasks.find((entry) => entry.task === task),
-    [tasks, task],
-  );
+  const selected = useMemo(() => tasks.find((entry) => entry.task === task), [tasks, task]);
 
   function buildPayload(): Record<string, unknown> {
     switch (task) {
@@ -63,7 +60,10 @@ export function Studio() {
     if (!trimmed) return false;
     if (task === 'question-answering' && !question.trim()) return false;
     if (task === 'zero-shot-classification') {
-      const labels = candidateLabels.split(',').map((label) => label.trim()).filter(Boolean);
+      const labels = candidateLabels
+        .split(',')
+        .map((label) => label.trim())
+        .filter(Boolean);
       if (labels.length < 2) return false;
     }
     return true;
@@ -178,9 +178,7 @@ export function Studio() {
           </div>
         )}
 
-        <label htmlFor="studio-text">
-          {task === 'question-answering' ? 'Context' : 'Text'}
-        </label>
+        <label htmlFor="studio-text">{task === 'question-answering' ? 'Context' : 'Text'}</label>
         <textarea
           id="studio-text"
           rows={8}
@@ -208,7 +206,11 @@ export function Studio() {
               <span className={`badge ${run.cached ? 'badge-ok' : ''}`}>
                 {run.cached ? 'cached' : 'model'}
               </span>
-              <button type="button" className="button button-ghost button-small" onClick={copyResult}>
+              <button
+                type="button"
+                className="button button-ghost button-small"
+                onClick={copyResult}
+              >
                 Copy JSON
               </button>
             </div>

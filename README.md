@@ -1,8 +1,28 @@
 # trainslator
 
-Standalone AI translation service: NestJS 12 + Fastify (REST + WebSocket), Drizzle ORM on PostgreSQL, Ollama for models, React 19 + Vite for the web app.
+General-purpose AI service: NestJS 12 + Fastify (REST + WebSocket), Drizzle ORM on PostgreSQL, Ollama for LLMs plus dedicated per-task ONNX models (transformers.js), React 19 + Vite for the web app.
 
-The service exposes a synchronous REST `POST /api/translate`, an async WebSocket `translate` message flow (cookie or Basic auth), admin REST resources for translations, languages and AI messages, and a Swagger-documented API at `/api/docs`.
+The service exposes one endpoint per AI task (`POST /api/ai/<task>`) with a shared cache-aside + audited pipeline, a legacy synchronous `POST /api/translate` (unchanged), an async WebSocket `ai` message flow, admin REST resources for translations, languages and AI messages, and a Swagger-documented API at `/api/docs`. Translation is one task of many.
+
+## AI tasks
+
+| Task                       | Provider        | Default model                                            | Notes                            |
+| -------------------------- | --------------- | -------------------------------------------------------- | -------------------------------- |
+| `translate`                | Ollama          | `bonsai-2:2b`                                            | catalogue-cached (184 languages) |
+| `sentiment`                | transformers.js | `Xenova/distilbert-base-uncased-finetuned-sst-2-english` | binary ±1                        |
+| `summarize`                | transformers.js | `Xenova/distilbart-cnn-6-6`                              | CNN/DM-style                     |
+| `question-answering`       | transformers.js | `Xenova/distilbert-base-uncased-distilled-squad`         | extractive (SQuAD)               |
+| `token-classification`     | transformers.js | `Xenova/bert-base-NER`       | NER (CoNLL-2003)                 |
+| `zero-shot-classification` | transformers.js | `Xenova/nli-deberta-v3-xsmall`                           | arbitrary labels                 |
+| `feature-extraction`       | transformers.js | `onnx-community/all-MiniLM-L6-v2-ONNX`                   | mean-pooled embeddings           |
+
+Override any model with `AI_<TASK>_MODEL` (dashes → underscores), or point `HF_CACHE_DIR` at a shared cache. `GET /api/ai/tasks` lists the live registry, and every call is cached in `ai_cache` (task+model+input hash) and audited in `ai_messages`. Results are stable across calls; a cache hit answers in milliseconds.
+
+```bash
+curl -u admin:password -X POST http://localhost:3000/api/ai/sentiment \
+  -H 'content-type: application/json' -d '{"text": "I love this service"}'
+# {"label":"POSITIVE","score":0.9998,"cached":false}
+```
 
 ## Quickstart (local, no Docker)
 
@@ -27,16 +47,23 @@ npm run start:dev -w @trainslator/api     # terminal 1, port 3000
 npm run dev -w @trainslator/web           # terminal 2, port 4173
 ```
 
-The web dev server proxies `/api` and `/socket.io` to the API.
+The web dev server proxies `/api` and `/socket.io` to the API. The web app has three surfaces: the translation Playground, the AI Studio (`/studio` — one form per task), and the Admin console (translations, languages, the AI message audit log).
 
 ## Docker
 
-Production stack (PostgreSQL, Ollama with a one-shot model pull, and the API image). From the repository root:
+Production stack (PostgreSQL, Ollama with a one-shot model pull, a `transformers-init` one-shot that pre-downloads the dedicated ONNX models into a shared `hf-cache` volume, and the API image). From the repository root:
 
 ```bash
 cp .env.example .env   # edit: POSTGRES_PASSWORD, BASIC_AUTH_PASSWORD_HASH, SESSION_SECRET
 docker compose up -d --build
 docker compose logs -f api
+```
+
+The `transformers-init` one-shot is lazy and idempotent — it only downloads models that are not yet in the `hf-cache` volume, and it runs alongside `ollama-init`. First boot without it still works; the first `POST /api/ai/<task>` pays the download instead (documented in the logs as `loading pipeline task=...`). To warm the cache without compose:
+
+```bash
+docker run --rm -v trainslator_hf-cache:/hf-cache \
+  -e HF_CACHE_DIR=/hf-cache trainslator/api:latest node apps/api/bin/transformers-warmup.mjs
 ```
 
 On first deploy, apply migrations and seed once, then restart:
@@ -84,13 +111,15 @@ npm run test:perf    # microbenchmarks (translationKeyFor, pagination, rate limi
 npm run test:mem     # heap-delta memory test (--expose-gc)
 ```
 
-Integration specs create a throwaway PostgreSQL cluster in /tmp (unix sockets, migrations applied, torn down after). Nothing touches a developer or production database.
+Integration specs create a throwaway PostgreSQL cluster in /tmp (unix sockets, migrations applied, torn down after). Nothing touches a developer or production database. The dedicated ONNX pipelines are never downloaded in tests: the AI suite stubs the pipeline loader and asserts shapes/normalization against the real contracts (integration runs on the throwaway cluster). A real pipeline smoke can be run manually with `npm run transformers:warmup -w @trainslator/api`.
+
+Coverage of `.tsx` route components is excluded from the gate (v8 cannot map rolldown-compiled JSX reliably — upstream vitest#10475); component behavior is asserted by the jsdom suites (`apps/web/src/routes/*.test.tsx`).
 
 ## Layout
 
-- `apps/api` — NestJS 12 API + WebSocket gateway + pg-boss worker
-- `apps/web` — React 19 + Vite playground and admin console
-- `packages/shared` — zod contracts shared by the API and the web app
+- `apps/api` — NestJS 12 API + WebSocket gateway + pg-boss worker (`ai-task` queue) + transformers.js pipeline loader
+- `apps/web` — React 19 + Vite playground, AI Studio (`/studio`) and admin console
+- `packages/shared` — zod contracts shared by the API and the web app (AI tasks, WS messages, OpenAPI inputs)
 
 ## Dependencies & security
 

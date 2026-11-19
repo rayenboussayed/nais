@@ -14,7 +14,7 @@ audit, inflight dedup, queue, WS.
    v1 ships: sentiment (`Xenova/distilbert-base-uncased-finetuned-sst-2-english`),
    summarize (`Xenova/distilbart-cnn-6-6`), question-answering
    (`Xenova/distilbert-base-uncased-distilled-squad`), token-classification
-   (`Xenova/bert-base-cased-finetuned-conll03-english`), zero-shot-classification
+   (`Xenova/bert-base-NER`), zero-shot-classification
    (`Xenova/nli-deberta-v3-xsmall`), feature-extraction
    (`onnx-community/all-MiniLM-L6-v2-ONNX`).
    Per-task model override via `AI_<TASK>_MODEL` env vars; pipelines lazy-load.
@@ -36,6 +36,23 @@ audit, inflight dedup, queue, WS.
 7. **Web.** New `/studio` route: task picker + per-task form, same styling.
 8. **Models in Docker.** `HF_CACHE_DIR` volume; one-shot `transformers-init`
    service pre-downloads the v1 task models (ollama-init parity).
+
+## Implementation status (2026-11-19)
+
+Everything above is implemented and green in the repo: shared contracts
+(`packages/shared/src/ai.ts`), the DB migration (`ai_cache`, `ai_messages.task`,
+`ai_messages.payload`), the task registry + `PipelineLoader` (lazy memoized
+pipelines), `AiService` (cache-aside + inflight dedup + unified audit), REST
+routes for all seven tasks + `GET /api/ai/tasks`, the WS `ai` message with the
+same ack contract, the `ai-task` pg-boss queue, the web `/studio` route, the
+`transformers-init` compose one-shot and `apps/api/bin/transformers-warmup.mjs`
+(both proven against live pipelines: **all six download and run** —
+warmup completed green in 372s on this network).
+
+Verification limits: models download at first use (or via the warmup); the
+full v1 model set is not pre-downloaded into this checkout. Docker image
+build and compose flow remain unverifiable here (no docker daemon) — see the
+README Docker section and run `docker compose up -d` on a Docker machine.
 
 ## Non-goals (v1)
 
