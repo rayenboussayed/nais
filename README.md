@@ -92,6 +92,13 @@ Integration specs create a throwaway PostgreSQL cluster in /tmp (unix sockets, m
 - `apps/web` — React 19 + Vite playground and admin console
 - `packages/shared` — zod contracts shared by the API and the web app
 
+## Dependencies & security
+
+- `npm audit --omit=dev` is clean (zero vulnerabilities) as of this writing; it runs in the pre-commit hook and in CI.
+- Runtime dependency families: NestJS 12 ecosystem (common/core/platform-fastify/websockets/platform-socket.io/config/terminus/throttler/resilience/ai/swagger), drizzle-orm, pg, pg-boss (+ nestjs-pgboss), socket.io, zod. Web: React 19, TanStack Router/Query, socket.io-client, Vite 8 (Rolldown). No class-validator/class-transformer usage; validation is zod-only.
+- `npm-audit` findings must be fixed, not suppressed; there is no `overrides` entry for security reasons.
+- Dependency updates are grouped by ecosystem in `.github/dependabot.yml` (nest, testing) on a weekly cadence.
+
 ## Commands
 
 ```bash
