@@ -53,4 +53,26 @@ describe('changedFields', () => {
       name: 'German',
     });
   });
+
+  it('compares nested objects by value regardless of key order', () => {
+    const beforeObj = { nested: { a: 1, b: 2, c: [1, 2, { x: 'y', z: 'w' }] } };
+    const patch = { nested: { c: [1, 2, { z: 'w', x: 'y' }], b: 2, a: 1 } };
+    expect(changedFields(beforeObj, patch)).toEqual({});
+
+    expect(changedFields(beforeObj, { nested: { a: 1, b: 2, c: [1, 2, { z: 'W', x: 'y' }] } })).toEqual({
+      nested: { a: 1, b: 2, c: [1, 2, { z: 'W', x: 'y' }] },
+    });
+  });
+
+  it('treats a before-shape key holding undefined as undefined', () => {
+    const beforeUndefined = { maybe: undefined as string | undefined };
+    expect(changedFields(beforeUndefined, { maybe: 'x' })).toEqual({ maybe: 'x' });
+    expect(changedFields(beforeUndefined, { maybe: undefined })).toEqual({});
+  });
+
+  it('treats reordered arrays as different values', () => {
+    const beforeObj = { list: [1, 2, 3] };
+    expect(changedFields(beforeObj, { list: [3, 2, 1] })).toEqual({ list: [3, 2, 1] });
+    expect(changedFields(beforeObj, { list: [1, 2, 3] })).toEqual({});
+  });
 });

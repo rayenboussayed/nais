@@ -5,6 +5,7 @@ import { validateEnv } from './env';
 const baseEnv = {
   NODE_ENV: 'development',
   DATABASE_URL: 'postgresql://trainslator:change-me@localhost:5432/trainslator',
+  SESSION_SECRET: 'a'.repeat(64),
 } as NodeJS.ProcessEnv;
 
 describe('validateEnv', () => {
@@ -21,9 +22,12 @@ describe('validateEnv', () => {
   });
 
   it('defaults NODE_ENV to development when unset', () => {
-    expect(validateEnv({ DATABASE_URL: 'postgresql://u:p@db:5432/x' }).NODE_ENV).toBe(
-      'development',
-    );
+    expect(
+      validateEnv({
+        DATABASE_URL: 'postgresql://u:p@db:5432/x',
+        SESSION_SECRET: 'a'.repeat(64),
+      }).NODE_ENV,
+    ).toBe('development');
   });
 
   it('coerces PORT from the environment string', () => {
@@ -38,10 +42,20 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ NODE_ENV: 'staging-ish' })).toThrow(/NODE_ENV/);
   });
 
-  it('fails fast in production without BASIC_AUTH_PASSWORD_HASH and SESSION_SECRET', () => {
+  it('fails fast in production without BASIC_AUTH_PASSWORD_HASH', () => {
     expect(() =>
-      validateEnv({ NODE_ENV: 'production', DATABASE_URL: 'postgresql://u:p@db:5432/trainslator' }),
+      validateEnv({
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgresql://u:p@db:5432/trainslator',
+        SESSION_SECRET: 'a'.repeat(64),
+      }),
     ).toThrow(/BASIC_AUTH_PASSWORD_HASH/);
+  });
+
+  it('requires SESSION_SECRET in every environment, including development', () => {
+    expect(() =>
+      validateEnv({ NODE_ENV: 'development', DATABASE_URL: 'postgresql://u:p@db:5432/trainslator' }),
+    ).toThrow(/SESSION_SECRET/);
     expect(() =>
       validateEnv({
         NODE_ENV: 'production',

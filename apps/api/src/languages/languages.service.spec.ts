@@ -77,7 +77,7 @@ describe('LanguagesService failure paths (stubbed database)', () => {
     const service = new LanguagesService(databaseReturning([]));
     await expect(
       service.update('123e4567-e89b-42d3-a456-426655440000', { name: 'After' }),
-    ).rejects.toThrow('update returned no row');
+    ).rejects.toThrow('Language not found');
   });
 
   it('update rethrows non-unique pg errors', async () => {

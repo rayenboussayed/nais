@@ -32,6 +32,7 @@ describe('ws gateway with a failing backend', () => {
     const { scryptSync, randomBytes } = await import('node:crypto');
     const salt = randomBytes(16);
     process.env.BASIC_AUTH_PASSWORD_HASH = `scrypt$16384$8$1$${salt.toString('hex')}$${scryptSync('admin-password', salt, 64, { N: 16384, r: 8, p: 1 }).toString('hex')}`;
+    process.env.SESSION_SECRET = 'a'.repeat(64);
     delete process.env.PG_BOSS_URL;
 
     const pool = new Pool({ connectionString: cluster.url() });
@@ -50,6 +51,7 @@ describe('ws gateway with a failing backend', () => {
     else process.env.BASIC_AUTH_USERNAME = originalAuthUsername;
     if (originalAuthHash === undefined) delete process.env.BASIC_AUTH_PASSWORD_HASH;
     else process.env.BASIC_AUTH_PASSWORD_HASH = originalAuthHash;
+    delete process.env.SESSION_SECRET;
     delete process.env.PG_BOSS_URL;
     await stub.close();
     cluster.destroy();
@@ -79,6 +81,54 @@ describe('ws gateway with a failing backend', () => {
     for (const socket of sockets.splice(0)) socket.disconnect();
     await app.close();
   });
+
+  it('answers a structured 500 ack and handles a non-Error backend failure', async () => {
+    const { AppModule } = await import('../src/app.module.js');
+    const { LanguagesService } = await import('../src/languages/languages.service.js');
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(LanguagesService)
+      .useValue({ findByIso: () => Promise.reject('a string, not an error') })
+      .compile();
+    const otherApp = moduleRef.createNestApplication<NestFastifyApplication>(
+      new FastifyAdapter(),
+      { logger: false },
+    );
+    otherApp.useWebSocketAdapter(new (await import('@nestjs/platform-socket.io')).IoAdapter(otherApp));
+    otherApp.setGlobalPrefix(API_GLOBAL_PREFIX);
+    await otherApp.init();
+    await otherApp.listen(0, '127.0.0.1');
+
+    const address = otherApp.getHttpServer().address();
+    if (!address || typeof address === 'string') throw new Error('server not listening');
+    const socket = io(`http://127.0.0.1:${address.port}`, {
+      transports: ['websocket'],
+      reconnection: false,
+      extraHeaders: {
+        authorization: `Basic ${Buffer.from('admin:admin-password').toString('base64')}`,
+      },
+    });
+    await new Promise<void>((resolve, reject) => {
+      socket.on('connect', () => resolve());
+      socket.on('connect_error', (error) => reject(error));
+    });
+
+    const response = await new Promise<{ statusCode: number }>((resolve, reject) => {
+      socket
+        .timeout(5_000)
+        .emit(
+          'translate',
+          { text: 'hello', targetLanguage: 'fr', requestId: crypto.randomUUID() },
+          (error: Error | null, ack?: { statusCode: number }) => {
+            if (error) reject(error);
+            else resolve(ack!);
+          },
+        );
+    });
+    expect(response.statusCode).toBe(500);
+
+    socket.disconnect();
+    await otherApp.close();
+  }, 20_000);
 
   it('answers a structured 500 ack instead of hanging', async () => {
     const address = app.getHttpServer().address();

@@ -27,7 +27,7 @@ COPY apps/api ./apps/api
 RUN npm run build -w packages/shared && npm run build -w @trainslator/api
 # Drop devDependencies so the runtime layer carries only production deps.
 RUN npm prune --omit=dev --workspace=@trainslator/shared --workspace=@trainslator/api \
-    --include-workspace-root=false
+    --include-workspace-root=false --ignore-scripts
 
 # ──────────────────────────── runtime stage ─────────────────────────────
 FROM node:24-alpine AS runtime

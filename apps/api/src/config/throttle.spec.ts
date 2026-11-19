@@ -5,6 +5,7 @@ import { skipHealthProbe } from './throttle';
 
 function httpContext(url?: string): ExecutionContext {
   return {
+    getType: () => 'http',
     switchToHttp: () => ({
       getRequest: () => (url === undefined ? {} : { url }),
     }),
@@ -24,6 +25,13 @@ describe('skipHealthProbe', () => {
 
   it('returns false when the request or url is missing', () => {
     expect(skipHealthProbe(httpContext())).toBe(false);
+  });
+
+  it('skips non-http contexts (the websocket gateway has its own limiter)', () => {
+    const wsContext = {
+      getType: () => 'ws',
+    } as unknown as ExecutionContext;
+    expect(skipHealthProbe(wsContext)).toBe(true);
   });
 
   it('returns false when switchToHttp throws', () => {

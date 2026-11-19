@@ -32,7 +32,6 @@ function databaseReturning(returning: unknown, insertError?: unknown, updateErro
               key: 'greeting',
               text: 'bonjour',
               parentId: null,
-              metadata: null,
               createdAt: new Date(),
               updatedAt: new Date(),
               deletedAt: null,
@@ -77,7 +76,7 @@ describe('TranslationsService failure paths (stubbed database)', () => {
     const service = new TranslationsService(databaseReturning([]));
     await expect(
       service.update('123e4567-e89b-42d3-a456-426655440000', { text: 'after' }),
-    ).rejects.toThrow('update returned no row');
+    ).rejects.toThrow('Translation not found');
   });
 
   it('update rethrows non-unique pg errors', async () => {

@@ -23,7 +23,7 @@ export class HttpAuthGuard implements CanActivate {
     if (context.getType() !== 'http') return true;
 
     const request = context.switchToHttp().getRequest<FastifyRequest>();
-    const path = (request.url.split('?')[0] ?? '/').replace(/\/+$/, '');
+    const path = String(request.url.split('?')[0]).replace(/\/+$/, '');
     if (AUTH_ALLOWLIST.has(path)) return true;
 
     const auth = await authenticateHeaders(

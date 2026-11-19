@@ -45,11 +45,11 @@ const envSchema = z
     BASIC_AUTH_USERNAME: z.string().trim().min(1).default('admin'),
     /** scrypt hash, format `scrypt$N$r$p$saltHex$hashHex`; required in production. */
     BASIC_AUTH_PASSWORD_HASH: z.string().trim().min(1).optional(),
-    /** 64+ random hex chars; required in production. Used to sign session cookies. */
+    /** 64 lowercase hex chars; required everywhere — sessions are unusable without it. */
     SESSION_SECRET: z
       .string()
-      .regex(/^[0-9a-f]{64}$/, 'Expected 64 lowercase hex chars (openssl rand -hex 32)')
-      .optional(),
+      .trim()
+      .regex(/^[0-9a-f]{64}$/, 'Expected 64 lowercase hex chars (openssl rand -hex 32)'),
     /** Client IP behind a proxy: 'loopback' for same-host reverse proxy, true to trust all, false to ignore forwarded-for. */
     TRUST_PROXY: z.enum(['true', 'false', 'loopback']).default('loopback'),
     /** Extra allowed browser origins for WS/HTTP, comma separated; same-origin when empty. */
@@ -72,13 +72,6 @@ const envSchema = z
         code: 'custom',
         path: ['BASIC_AUTH_PASSWORD_HASH'],
         message: 'Expected a scrypt$N$r$p$saltHex$hashHex hash',
-      });
-    }
-    if (!env.SESSION_SECRET) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['SESSION_SECRET'],
-        message: 'Required in production; generate with `openssl rand -hex 32`',
       });
     }
   })

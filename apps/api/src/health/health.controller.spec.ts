@@ -9,7 +9,7 @@ import { API_GLOBAL_PREFIX } from '../app.constants';
 import { HealthModule } from './health.module';
 import { DRIZZLE } from '../database/drizzle.module';
 import { startTempCluster } from '../../test/pg-temp';
-import { basicAuthHeaders } from '../../test/auth';
+import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from '../../test/auth';
 
 // NOTE: ConfigModule resolves loadEnv at module-decorator time, i.e. at
 // import. The health module is deliberately scoped to ConfigModule +
@@ -22,6 +22,7 @@ describe('GET /api/health (integration)', () => {
 
   beforeAll(() => {
     process.env.DATABASE_URL = cluster.url();
+    Object.assign(process.env, TEST_BASIC_AUTH_ENV);
   });
 
   afterAll(() => {
@@ -76,6 +77,7 @@ describe('GET /api/health with a dead database', () => {
   beforeAll(() => {
     // Never dialed: DRIZZLE is stubbed below. validateEnv just needs shape.
     process.env.DATABASE_URL = 'postgresql://trainslator:change-me@127.0.0.1:1/trainslator';
+    Object.assign(process.env, TEST_BASIC_AUTH_ENV);
   });
 
   afterAll(() => {

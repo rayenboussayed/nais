@@ -1,0 +1,35 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "b02fb0f4-3205-497f-ab8b-9ab2eb9cf5df",
+  "prevIds": [
+    "db2bfeb3-9ffc-4442-9939-357bdb17ea81"
+  ],
+  "footprints": [
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "translations",
+        "metadata"
+      ],
+      "writes": [
+        "s|col|public.translations.metadata",
+        "n|col|public.translations.metadata",
+        "e|col|public.translations.metadata"
+      ],
+      "reads": [
+        "n|tbl|public.translations",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"translations\",\"metadata\"]"
+    }
+  ]
+}

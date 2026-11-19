@@ -23,7 +23,24 @@ function valuesEqual(a: unknown, b: unknown): boolean {
   if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
   if (a === null || b === null || a === undefined || b === undefined) return a === b;
   if (typeof a === 'object' || typeof b === 'object') {
-    return JSON.stringify(a) === JSON.stringify(b);
+    return canonicalJson(a) === canonicalJson(b);
   }
   return Object.is(a, b);
+}
+
+/** JSON with recursively sorted object keys, so key order never affects equality. */
+function canonicalJson(value: unknown): string {
+  return JSON.stringify(canonicalize(value));
+}
+
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
+        .map(([key, nested]) => [key, canonicalize(nested)]),
+    );
+  }
+  return value;
 }

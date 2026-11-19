@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -51,6 +52,11 @@ export function buildSystemPrompt(
 /**
  * Substitutes the placeholders in the human template.
  *
+ * The source text is wrapped in a nonce-tagged fence: an attacker cannot
+ * predict the marker, cannot close the fence from inside the source text, and
+ * the template instructs the model to treat everything inside the fence as
+ * data, never as instructions.
+ *
  * @param template - contents of human.md (`{TARGET_LANGUAGE}`, `{TEXT}`)
  * @param values - substitution values
  */
@@ -58,7 +64,10 @@ export function buildHumanPrompt(
   template: string,
   values: { TARGET_LANGUAGE: string; TEXT: string },
 ): string {
+  const nonce = randomBytes(8).toString('hex');
+  const begin = `<<<TRANSLATE_SOURCE:${nonce}>>>`;
+  const end = `<<<END_TRANSLATE_SOURCE:${nonce}>>>`;
   return template
     .replaceAll('{TARGET_LANGUAGE}', values.TARGET_LANGUAGE)
-    .replaceAll('{TEXT}', values.TEXT);
+    .replaceAll('{TEXT}', `${begin}\n${values.TEXT}\n${end}`);
 }

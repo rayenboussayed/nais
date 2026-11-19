@@ -35,6 +35,20 @@ describe('verifyScryptPassword', () => {
     }
   });
 
+  it('treats an absurd N as a bad hash without throwing', async () => {
+    const salt = 'aa'.repeat(16);
+    const expected = 'bb'.repeat(64);
+    // N = 2**30 exceeds scrypt's maxBuffer; Node reports the failure via the callback error.
+    await expect(
+      verifyScryptPassword(`scrypt$1073741824$1$1$${salt}$${expected}`, 'x'),
+    ).resolves.toBe(false);
+  });
+
+  it('rejects when the expected hash is the wrong length', async () => {
+    const salt = 'aa'.repeat(16);
+    await expect(verifyScryptPassword(`scrypt$16384$8$1$${salt}$bbbb`, 'x')).resolves.toBe(false);
+  });
+
   it('treats non-power-of-2 N as a bad hash', async () => {
     const salt = 'aa'.repeat(16);
     const expected = 'bb'.repeat(64);

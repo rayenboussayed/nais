@@ -3,7 +3,7 @@ import type { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env';
 
 import { SESSION_COOKIE_NAME, verifySession } from './session';
-import { verifyScryptPassword } from './validator';
+import { DUMMY_SCRYPT_HASH, verifyScryptPassword } from './validator';
 
 /**
  * Authenticates a request or handshake by either its `Authorization: Basic`
@@ -19,8 +19,8 @@ export async function authenticateHeaders(
   config: ConfigService<Env, true>,
 ): Promise<{ username: string } | null> {
   const username = config.get('BASIC_AUTH_USERNAME', { infer: true });
-  const passwordHash = config.get('BASIC_AUTH_PASSWORD_HASH', { infer: true }) ?? '';
-  const sessionSecret = config.get('SESSION_SECRET', { infer: true }) ?? '';
+  const passwordHash = config.get('BASIC_AUTH_PASSWORD_HASH', { infer: true });
+  const sessionSecret = config.get('SESSION_SECRET', { infer: true });
 
   const authorization = firstHeader(headers['authorization']);
   if (authorization?.startsWith('Basic ')) {
@@ -31,10 +31,11 @@ export async function authenticateHeaders(
     if (colon > 0) {
       const candidateName = decoded.slice(0, colon);
       const candidatePassword = decoded.slice(colon + 1);
-      if (
-        candidateName === username &&
-        (await verifyScryptPassword(passwordHash, candidatePassword))
-      ) {
+      // Always run the KDF (against the real hash, or the dummy when the
+      // password is unconfigured or the name differs) so the response time
+      // does not reveal whether the username exists.
+      const passwordOk = await verifyScryptPassword(passwordHash ?? DUMMY_SCRYPT_HASH, candidatePassword);
+      if (Boolean(passwordHash) && candidateName === username && passwordOk) {
         return { username: candidateName };
       }
     }
@@ -45,7 +46,8 @@ export async function authenticateHeaders(
   if (cookieHeader) {
     const parts = cookieHeader.split(';').map((part) => part.trim());
     const session = parts.find((part) => part.startsWith(`${SESSION_COOKIE_NAME}=`));
-    if (session) {
+    // No known secret means no session can ever verify; fail closed without HMAC.
+    if (session && sessionSecret) {
       const raw = session.slice(SESSION_COOKIE_NAME.length + 1);
       try {
         const value = decodeURIComponent(raw);

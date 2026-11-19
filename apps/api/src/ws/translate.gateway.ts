@@ -45,7 +45,7 @@ export class TranslateGateway implements OnGatewayInit {
   @WebSocketServer() private readonly server!: Server;
 
   private readonly limiter = new RateLimiter(10, 60_000);
-  /** Global backstop: caps handshake attempts per minute regardless of credential. */
+  /** Per-IP backstop: caps handshake attempts per minute regardless of credential. */
   private readonly connectLimiter = new RateLimiter(60, 60_000);
   private readonly logger = new Logger(TranslateGateway.name);
 
@@ -65,7 +65,10 @@ export class TranslateGateway implements OnGatewayInit {
     const extraOrigins = parseAllowedOrigins(this.config.get('CORS_ORIGINS', { infer: true }));
     server.use((socket, next) => {
       void (async () => {
-        if (!this.connectLimiter.hit('*')) {
+        // Per-IP bucket when the peer is known; the union falls back to a
+        // process-wide bucket so an address-less transport cannot flood freely.
+        const address = typeof socket.handshake.address === 'string' && socket.handshake.address ? socket.handshake.address : '*';
+        if (!this.connectLimiter.hit(address)) {
           next(new Error('too many connections'));
           return;
         }
@@ -100,10 +103,10 @@ export class TranslateGateway implements OnGatewayInit {
   }
 
   /**
-   * Handles a `translate` message: schema validation and unknown languages
-   * are free; cache hit -> immediate answer; cache miss -> enqueued for the
-   * pg-boss worker; over-limit -> 429. Any backend failure answers 500
-   * (structured, never silently dropped).
+   * Handles a `translate` message: schema validation is free; every accepted
+   * frame costs one rate-limit token; cache hit -> immediate answer; cache
+   * miss -> enqueued for the pg-boss worker; over-limit -> 429. Any backend
+   * failure answers 500 (structured, never silently dropped).
    */
   @SubscribeMessage('translate')
   async translate(
@@ -117,12 +120,9 @@ export class TranslateGateway implements OnGatewayInit {
     }
     const message = parsed.data;
     try {
-      const language = await this.languages.findByIso(message.targetLanguage);
-      if (!language) {
-        return ack({ statusCode: 404, requestId: message.requestId, data: null });
-      }
-
-      // The handshake middleware always sets socket.data.username.
+      // The handshake middleware always sets socket.data.username. Rate limit
+      // BEFORE any database work so floods of valid-but-unknown language codes
+      // cannot burn the catalogue query.
       const identity = client.data.username as string;
       if (!this.limiter.hit(identity)) {
         return ack({
@@ -131,6 +131,11 @@ export class TranslateGateway implements OnGatewayInit {
           data: null,
           retryAfterMs: 60_000,
         });
+      }
+
+      const language = await this.languages.findByIso(message.targetLanguage);
+      if (!language) {
+        return ack({ statusCode: 404, requestId: message.requestId, data: null });
       }
 
       const cached = await this.translations.findByLanguageAndKey(
@@ -151,7 +156,8 @@ export class TranslateGateway implements OnGatewayInit {
 
       return ack({ statusCode: 202, requestId: message.requestId, data: null });
     } catch (error) {
-      this.logger.error(`translate handler failed: ${String(error)}`);
+      // Class name only: upstream error messages can embed DSNs or URLs.
+      this.logger.error(`translate handler failed: ${error instanceof Error ? error.name : 'unknown error'}`);
       return ack({ statusCode: 500, requestId: message.requestId, data: null });
     }
   }

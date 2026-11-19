@@ -18,7 +18,7 @@ import { loginRequestSchema } from '@trainslator/shared';
 
 import type { Env } from '../config/env';
 import { SESSION_COOKIE_NAME, signSession } from './session';
-import { verifyScryptPassword } from './validator';
+import { DUMMY_SCRYPT_HASH, verifyScryptPassword } from './validator';
 import { RateLimiter } from '../common/rate-limit';
 
 const COOKIE_MAX_AGE_SECONDS = 12 * 60 * 60;
@@ -46,7 +46,16 @@ export class AuthController {
     @Ip() ip: string,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<{ username: string }> {
-    // Never sign a session with a forgeable key: fail the boot config loudly.
+    // The limiter sees every attempt, including misconfigured deployments, so
+    // probing for the misconfiguration is indistinguishable from a wrong guess.
+    if (!this.limiter.hit(ip)) {
+      throw new HttpException(
+        { statusCode: 429, message: 'Too many login attempts' },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    // Never sign a session with a forgeable key: fail closed loudly.
     const secret = this.config.get('SESSION_SECRET', { infer: true });
     if (!secret) {
       this.logger.error('login refused: SESSION_SECRET is not configured');
@@ -56,18 +65,12 @@ export class AuthController {
       );
     }
 
-    if (!this.limiter.hit(ip)) {
-      throw new HttpException(
-        { statusCode: 429, message: 'Too many login attempts' },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
     const expectedUsername = this.config.get('BASIC_AUTH_USERNAME', { infer: true });
-    const storedHash = this.config.get('BASIC_AUTH_PASSWORD_HASH', { infer: true }) ?? '';
-    const passwordOk =
-      body.username === expectedUsername && (await verifyScryptPassword(storedHash, body.password));
-    if (!passwordOk) {
+    const storedHash = this.config.get('BASIC_AUTH_PASSWORD_HASH', { infer: true });
+    // Always run the KDF — against the configured hash or the dummy — so the
+    // response time does not reveal whether the username exists.
+    const passwordOk = await verifyScryptPassword(storedHash ?? DUMMY_SCRYPT_HASH, body.password);
+    if (!storedHash || body.username !== expectedUsername || !passwordOk) {
       throw new UnauthorizedException('Invalid credentials');
     }
 

@@ -57,6 +57,43 @@ describe('TranslateGateway handshake backstop', () => {
     expect(result?.message).toBe('unauthorized');
   });
 
+  it('gives each client IP its own handshake budget', async () => {
+    const gateway = makeGateway();
+    const { server, getMiddleware } = fakeServer();
+    gateway.afterInit(server);
+
+    const middleware = getMiddleware();
+    if (!middleware) throw new Error('middleware not registered');
+
+    const socketFor = (address?: string) =>
+      ({
+        handshake: address === undefined ? { headers: {} } : { headers: {}, address },
+        data: {},
+      }) as unknown as Socket;
+
+    const run = (socket: Socket) =>
+      new Promise<Error | undefined>((resolve) => middleware(socket, (error) => resolve(error)));
+
+    const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+    for (let i = 0; i < 60; i += 1) {
+      middleware(socketFor('198.51.100.1'), () => {});
+      await flush();
+    }
+
+    // IP A is exhausted; a different IP still gets its own (unauthorized) verdict, not a limit verdict.
+    const forB = await run(socketFor('203.0.113.77'));
+    expect(forB?.message).toBe('unauthorized');
+
+    // The budget fell back to per-IP keys, so address-less clients share the star bucket.
+    for (let i = 0; i < 60; i += 1) {
+      middleware(socketFor(), () => {});
+      await flush();
+    }
+    const addressless = await run(socketFor());
+    expect(addressless?.message).toBe('too many connections');
+  });
+
   it('rejects handshakes past the global connect limit', async () => {
     const gateway = makeGateway();
     const { server, getMiddleware } = fakeServer();

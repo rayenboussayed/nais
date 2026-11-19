@@ -3,6 +3,7 @@ import type {
   WsTranslateAck,
   WsTranslationErrorEvent,
   WsTranslationEvent,
+  WsTranslateMessage,
 } from '@trainslator/shared';
 
 /** Lazily-created shared socket; same-origin, cookie auth via the WS handshake. */
@@ -15,19 +16,14 @@ function getSocket(): Socket {
   return socket;
 }
 
-interface TranslateResult {
-  text: string;
-  cached: boolean;
-}
+type TranslateResult = Pick<WsTranslationEvent, 'text' | 'cached'>;
 
 export interface TranslateCallbacks {
   onDone: (result: TranslateResult) => void;
   onError: (message: string) => void;
 }
 
-export interface TranslateAccept {
-  requestId: string;
-}
+export type TranslateAccept = Pick<WsTranslateMessage, 'requestId'>;
 
 /**
  * Runs one translate request over the WebSocket channel.
@@ -95,7 +91,12 @@ export function translateText(
         }
         switch (ack.statusCode) {
           case 200:
-            done({ text: ack.data ?? '', cached: true });
+            if (ack.data === null) {
+              // A cached answer without text is a protocol violation, not an answer.
+              error('No answer from the translation service.');
+              return;
+            }
+            done({ text: ack.data, cached: true });
             return;
           case 202:
             return; // the `translation` event will land later

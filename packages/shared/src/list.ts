@@ -20,11 +20,7 @@ export const keysetListSchema = <T extends z.ZodTypeAny>(item: T) =>
 
 /**
  * Wire shape produced by {@link keysetListSchema}: items plus an opaque cursor
- * pair, or null on the last page. Kept as a hand-written structural alias
- * because TS instantiation expressions in type aliases don't survive the
- * zod v4 generic chain; the schema is the runtime source of truth.
+ * pair, or null on the last page. Derived directly from the zod schema so the
+ * compile-time shape cannot drift from the runtime one.
  */
-export type KeysetList<T> = {
-  items: T[];
-  next: { lastId: string; lastCreatedAt: string } | null;
-};
+export type KeysetList<T> = z.infer<ReturnType<typeof keysetListSchema<z.ZodType<T>>>>;

@@ -7,9 +7,9 @@ export function isUniqueViolation(error: unknown): boolean {
   let current: unknown = error;
   for (let hop = 0; hop < 10; hop += 1) {
     if (typeof current !== 'object' || current === null) return false;
-    const code = (current as { code?: unknown }).code;
+    const code = 'code' in current ? current.code : undefined;
     if (code === '23505') return true;
-    const next = (current as { cause?: unknown }).cause;
+    const next = 'cause' in current ? current.cause : undefined;
     if (next === undefined || next === current) return false;
     current = next;
   }

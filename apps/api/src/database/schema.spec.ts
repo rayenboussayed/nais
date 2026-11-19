@@ -47,9 +47,15 @@ describe('drizzle schema invariants', () => {
     expect(fk?.reference().foreignColumns.map((column) => column.name)).toEqual(['id']);
   });
 
-  it('ai_messages has the created_at index', () => {
-    const config = getTableConfig(aiMessages);
-    const names = config.indexes.map((index) => index.config.name);
-    expect(names).toContain('ai_messages_created_idx');
+  it('ai_messages, translations and languages have the (created_at, id) keyset index', () => {
+    expect(
+      getTableConfig(aiMessages).indexes.map((index) => index.config.name),
+    ).toContain('ai_messages_created_at_id_idx');
+    expect(
+      getTableConfig(translations).indexes.map((index) => index.config.name),
+    ).toContain('translations_created_at_id_idx');
+    expect(
+      getTableConfig(languages).indexes.map((index) => index.config.name),
+    ).toContain('languages_created_at_id_idx');
   });
 });

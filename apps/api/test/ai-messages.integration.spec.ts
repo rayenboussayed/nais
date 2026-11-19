@@ -6,6 +6,7 @@ import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
+import { eq } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { API_GLOBAL_PREFIX } from '../src/app.constants';
@@ -49,15 +50,15 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
         usage: null,
       },
     ]);
-    const [first] = await db
+    const [bonjour] = await db
       .select({ id: schema.aiMessages.id })
       .from(schema.aiMessages)
-      .orderBy(schema.aiMessages.createdAt)
+      .where(eq(schema.aiMessages.response, 'Bonjour le monde'))
       .limit(1);
-    if (!first) throw new Error('seed returned no message');
+    if (!bonjour) throw new Error('seed returned no message');
     await db.insert(schema.aiMessagePrompts).values([
-      { messageId: first.id, role: 'system', prompt: 'You are a translator.' },
-      { messageId: first.id, role: 'human', prompt: 'Translate: hello' },
+      { messageId: bonjour.id, role: 'system', prompt: 'You are a translator.' },
+      { messageId: bonjour.id, role: 'human', prompt: 'Translate: hello' },
     ]);
     await pool.end();
   }, 60_000);

@@ -30,12 +30,12 @@ describe('keysetWhere', () => {
   const column = languages.createdAt;
   const id = languages.id;
 
-  it('returns undefined without a complete cursor', () => {
+  it('returns undefined without any cursor and throws on a partial cursor', () => {
     expect(keysetWhere(column, id, 'desc', undefined, undefined)).toBeUndefined();
-    expect(
+    expect(() =>
       keysetWhere(column, id, 'desc', '2026-11-18T00:00:00.000000+00:00', undefined),
-    ).toBeUndefined();
-    expect(keysetWhere(column, id, 'desc', undefined, 'id')).toBeUndefined();
+    ).toThrow(/both lastCreatedAt and lastId/);
+    expect(() => keysetWhere(column, id, 'desc', undefined, 'id')).toThrow(/both lastCreatedAt and lastId/);
   });
 
   it('emits ascending and descending comparators when the cursor is complete', () => {

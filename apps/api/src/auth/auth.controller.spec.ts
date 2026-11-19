@@ -76,6 +76,16 @@ describe('AuthController.login', () => {
     ).rejects.toThrow('Invalid credentials');
   });
 
+  it('clears the cookie with Secure in production so it actually matches the login cookie', () => {
+    const { reply, headers } = replyStub();
+    const controller = new AuthController(configStub({ NODE_ENV: 'production' }));
+
+    controller.logout(reply);
+
+    expect(headers.get('set-cookie')).toContain('Secure');
+    expect(headers.get('set-cookie')).toContain('Max-Age=0');
+  });
+
   it('limits repeated failures to five attempts per minute per client', async () => {
     const { reply } = replyStub();
     const controller = new AuthController(configStub({ BASIC_AUTH_PASSWORD_HASH: HASH }));

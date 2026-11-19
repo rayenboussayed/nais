@@ -26,8 +26,8 @@ export function registerHttpGuards(
   fastify.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
     if (!MUTATING_METHODS.has(request.method)) return;
 
-    const origin = firstHeader(request.headers.origin as string | string[] | undefined);
-    const host = firstHeader(request.headers.host as string | string[] | undefined);
+    const origin = firstHeader(request.headers.origin);
+    const host = firstHeader(request.headers.host);
     if (!isOriginAllowed(origin, host, allowedOrigins)) {
       await reply.code(403).send({ statusCode: 403, message: 'Forbidden origin' });
       return;
@@ -37,13 +37,10 @@ export function registerHttpGuards(
   // Swagger UI and the JSON document are registered at Fastify level and do
   // NOT pass through Nest guards. They get the same Basic-or-cookie check.
   fastify.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
-    const path = request.url.split('?')[0] ?? '/';
+    const path = String(request.url.split('?')[0]);
     if (!path.startsWith('/api/docs')) return;
 
-    const auth = await authenticateHeaders(
-      request.headers as Record<string, string | string[] | undefined>,
-      config,
-    );
+    const auth = await authenticateHeaders(request.headers, config);
     if (!auth) {
       await reply
         .code(401)

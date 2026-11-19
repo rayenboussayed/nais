@@ -119,4 +119,17 @@ describe('authenticateHeaders', () => {
     ).toBeNull();
     expect(await authenticateHeaders({ cookie: `${SESSION_COOKIE_NAME}=x.y` }, empty)).toBeNull();
   });
+
+  it('fails closed on a missing password hash even with a well-formed basic header', async () => {
+    const config = configStub({ BASIC_AUTH_PASSWORD_HASH: undefined });
+    await expect(
+      authenticateHeaders({ authorization: basic('admin', PASSWORD) }, config),
+    ).resolves.toBeNull();
+  });
+
+  it('fails closed on a missing session secret even with a correctly signed cookie', async () => {
+    const cookie = `${SESSION_COOKIE_NAME}=${signSession('admin', SECRET).value}`;
+    const config = configStub({ SESSION_SECRET: undefined });
+    await expect(authenticateHeaders({ cookie }, config)).resolves.toBeNull();
+  });
 });

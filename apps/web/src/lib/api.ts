@@ -17,8 +17,8 @@ export class ApiError extends Error {
   }
 }
 
+/** The API error envelope: message may be a single string or an array of them. */
 interface ApiErrorBody {
-  statusCode?: number;
   message?: string | string[];
 }
 

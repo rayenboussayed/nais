@@ -185,6 +185,20 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
     expect(badTarget.requestId).toBe(requestId);
   });
 
+  it('answers 400 with a null requestId for a null payload', async () => {
+    const socket = await connect(basicAuthHeader());
+    const response = await new Promise<{ statusCode: number; requestId: string | null }>((resolve, reject) => {
+      socket
+        .timeout(5_000)
+        .emit('translate', null, (error: Error | null, ack?: { statusCode: number; requestId: string | null }) => {
+          if (error) reject(error);
+          else resolve(ack!);
+        });
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.requestId).toBeNull();
+  });
+
   it('answers 404 for an unsupported target language without crashing', async () => {
     const socket = await connect(basicAuthHeader());
     const response = await new Promise<{ statusCode: number }>((resolve, reject) => {

@@ -48,7 +48,11 @@ export const languages = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (table) => [uniqueIndex('languages_iso639_1_unique').on(table.iso6391)],
+  // All three admin lists keyset-paginate on (created_at, id); keep the plan index-only.
+  (table) => [
+    uniqueIndex('languages_iso639_1_unique').on(table.iso6391),
+    index('languages_created_at_id_idx').on(table.createdAt, table.id),
+  ],
 );
 
 /**
@@ -69,7 +73,6 @@ export const translations = pgTable(
     key: varchar('key', { length: 255 }).notNull(),
     text: text('text').notNull(),
     parentId: uuid('parent_id'),
-    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -84,6 +87,7 @@ export const translations = pgTable(
       table.namespace,
       table.createdAt,
     ),
+    index('translations_created_at_id_idx').on(table.createdAt, table.id),
     foreignKey({
       columns: [table.parentId],
       foreignColumns: [table.id],
@@ -108,7 +112,9 @@ export const aiMessages = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (table) => [index('ai_messages_created_idx').on(table.createdAt)],
+  (table) => [
+    index('ai_messages_created_at_id_idx').on(table.createdAt, table.id),
+  ],
 );
 
 /** Individual prompts exchanged during an AI call (system, human, output). Owned by ai_messages. */

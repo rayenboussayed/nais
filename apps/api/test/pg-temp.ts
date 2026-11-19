@@ -111,25 +111,26 @@ export function startTempCluster(
     execFileSync('sleep', ['0.1']);
   }
 
-  execFileSync(join(pgBin, 'createdb'), ['-h', socketDir, '-p', port, '-U', 'postgres', dbName], {
-    stdio: 'ignore',
-  });
+  try {
+    execFileSync(join(pgBin, 'createdb'), ['-h', socketDir, '-p', port, '-U', 'postgres', dbName], {
+      stdio: 'ignore',
+    });
+  } catch (error) {
+    destroy();
+    throw error;
+  }
 
   function url(db = dbName): string {
     return `postgresql://postgres@/${encodeURIComponent(db)}?host=${encodeURIComponent(socketDir)}&port=${port}`;
   }
 
   function destroy() {
-    try {
-      spawn(join(pgBin, 'pg_ctl'), ['-D', dataDir, '-m', 'immediate', 'stop'], {
-        stdio: 'ignore',
-      }).unref();
-    } finally {
-      // Socket file and cluster are under /tmp; remove best-effort after stop.
-      setImmediate(() =>
-        rmSync(socketDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }),
-      );
-    }
+    // -w: wait for the postmaster to actually stop before we remove the
+    // cluster directory; otherwise the rm races the shutdown and leaks data.
+    execFileSync(join(pgBin, 'pg_ctl'), ['-D', dataDir, '-m', 'immediate', '-w', 'stop'], {
+      stdio: 'ignore',
+    });
+    rmSync(socketDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 
   return { url, dbName, socketDir, destroy };

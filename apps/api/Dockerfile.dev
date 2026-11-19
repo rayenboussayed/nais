@@ -3,6 +3,12 @@
 # Development image: installs all dependencies and runs the API in watch mode.
 # The repository is bind-mounted at runtime (see docker-compose.dev.yml); the
 # baked node_modules overlay keeps platform-correct binaries.
+#
+# Note: the container intentionally runs as root. Bind-mounting the repository
+# onto an overlay whose ownership does not match the host user breaks file
+# watching/writes for non-root uids; the production image (apps/api/Dockerfile)
+# runs as `node`. Dev mode never holds production secrets and is not exposed
+# beyond the developer's machine.
 FROM node:24-alpine
 WORKDIR /repo
 

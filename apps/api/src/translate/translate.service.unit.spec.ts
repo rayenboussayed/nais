@@ -51,17 +51,19 @@ function buildDb({
   cachedRow,
   finalRow,
   auditReturning,
+  updateSets,
 }: {
   languageRow?: typeof language;
   cachedRow?: { text: string };
   finalRow?: { text: string };
   auditReturning: Array<{ id: string }>;
+  /** Captures aiMessages set() payloads from inside the transaction. */
+  updateSets?: Array<Record<string, unknown>>;
 }) {
   return {
     select: mockSelectFactory([
       languageRow ? [languageRow as unknown as Record<string, unknown>] : [],
       cachedRow ? [cachedRow as unknown as Record<string, unknown>] : [],
-      finalRow ? [finalRow as unknown as Record<string, unknown>] : [],
     ]),
     insert: () => ({
       values: () => ({
@@ -72,15 +74,28 @@ function buildDb({
       fn({
         insert: () => ({
           values: () => ({
-            onConflictDoNothing: async () => [],
+            // Model a lost race: no row returned; the in-tx select decides.
+            onConflictDoNothing: () => ({
+              returning: async () => [],
+            }),
             then: (onFulfilled?: (value: unknown) => unknown) =>
               Promise.resolve([]).then(onFulfilled ?? ((value) => value)),
           }),
         }),
-        update: () => ({
-          set: () => ({
-            where: () => Promise.resolve([]),
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: async () => (finalRow ? [finalRow as unknown as Record<string, unknown>] : []),
+            }),
           }),
+        }),
+        update: () => ({
+          set: (value: Record<string, unknown>) => {
+            updateSets?.push(value);
+            return {
+              where: () => Promise.resolve([]),
+            };
+          },
         }),
       }),
     update: () => ({
@@ -116,6 +131,34 @@ describe('TranslateService.onModuleInit (stale processing reaper)', () => {
       configStub(),
     );
     await expect(service.onModuleInit()).resolves.toBeUndefined();
+  });
+
+  it('swallows a reaper failure that is not an Error instance', async () => {
+    const service = new TranslateService(
+      buildReaperDb(undefined, 'a string, not an error'),
+      aiStub() as unknown as AiService,
+      configStub(),
+    );
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+  });
+
+  it('swallows a failure-marking error that is not an Error instance', async () => {
+    const db = {
+      ...buildDb({ languageRow: language, auditReturning: [{ id: 'msg-1' }] }),
+      update: () => ({
+        set: () => ({
+          where: () => Promise.reject('a string, not an error'),
+        }),
+      }),
+    } as unknown as Database;
+    const aiHanging = {
+      generateText: vi.fn(async () => {
+        throw new Error('operation timed out');
+      }),
+    } as unknown as AiService;
+
+    const service = new TranslateService(db, aiHanging, configStub());
+    await expect(service.translate({ ...request })).rejects.toThrow('Translation timed out');
   });
 
   it('swallows and logs a failing reaper without taking the boot down', async () => {
@@ -161,28 +204,19 @@ describe('TranslateService (stubbed database and model)', () => {
   });
 
   it('aligns the audit response with the catalogue text when a race is lost', async () => {
-    const auditSets: Array<Record<string, unknown>> = [];
-    const db = {
-      ...buildDb({
-        languageRow: language,
-        finalRow: { text: '[fr] winner from catalogue' },
-        auditReturning: [{ id: 'msg-1' }],
-      }),
-      update: () => ({
-        set: (value: Record<string, unknown>) => {
-          auditSets.push(value);
-          return {
-            where: () => Promise.resolve([]),
-          };
-        },
-      }),
-    } as unknown as Database;
+    const updateSets: Array<Record<string, unknown>> = [];
+    const db = buildDb({
+      languageRow: language,
+      finalRow: { text: '[fr] winner from catalogue' },
+      auditReturning: [{ id: 'msg-1' }],
+      updateSets,
+    });
 
     const service = new TranslateService(db, aiStub() as unknown as AiService, configStub());
     const result = await service.translate({ ...request });
 
     expect(result.text).toBe('[fr] winner from catalogue');
-    expect(auditSets.some((value) => value.response === '[fr] winner from catalogue')).toBe(true);
+    expect(updateSets.some((value) => value.response === '[fr] winner from catalogue')).toBe(true);
   });
 
   it('throws when the audit insert yields no row', async () => {

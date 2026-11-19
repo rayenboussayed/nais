@@ -22,9 +22,9 @@ import { TranslateGateway } from '../ws/translate.gateway';
     LanguagesModule,
     TranslationsModule,
     PgBossModule.forRootAsync({
+      // pg-boss gets its own connection via the env transform (PG_BOSS_URL defaults to DATABASE_URL there).
       useFactory: (config: ConfigService<Env, true>) => ({
-        connectionString:
-          config.get('PG_BOSS_URL', { infer: true }) ?? config.get('DATABASE_URL', { infer: true }),
+        connectionString: config.get('PG_BOSS_URL', { infer: true }),
       }),
       inject: [ConfigService],
     }),

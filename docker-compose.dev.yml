@@ -37,7 +37,13 @@ services:
       start_period: 30s
 
   web:
-    image: node:24-alpine
+    # Same image as the API dev service: its anonymous /repo/node_modules
+    # overlay is seeded with the baked install, so Vite resolves without a
+    # host node_modules.
+    image: trainslator/api:dev
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
     working_dir: /repo
     command: npm run dev -w @trainslator/web -- --host 0.0.0.0 --port 4173
     volumes:
@@ -47,6 +53,8 @@ services:
       VITE_API_PROXY_TARGET: http://api:3000
     ports:
       - '${WEB_PORT:-4173}:4173'
+    # Vite dev server inside the same image as the API dev service: its baked
+    # node_modules is exposed through the anonymous volume, so Vite resolves.
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy

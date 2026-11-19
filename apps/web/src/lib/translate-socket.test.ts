@@ -120,6 +120,17 @@ describe('translateText', () => {
     expect(done).not.toHaveBeenCalled();
   });
 
+  it('ignores translation-error events for other requestIds', async () => {
+    state.ackPayload = { statusCode: 202, requestId, data: null };
+    const error = vi.fn();
+
+    translateText('hello', 'fr', { onDone: vi.fn(), onError: error });
+    await vi.waitFor(() => expect(emitted).toHaveLength(1));
+
+    emitServerEvent('translation-error', { requestId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', message: 'boom' });
+    expect(error).not.toHaveBeenCalled();
+  });
+
   it('maps a 429 ack to a retry message with the provided delay', async () => {
     state.ackPayload = { statusCode: 429, requestId, data: null, retryAfterMs: 30_000 };
     const error = vi.fn();
@@ -141,18 +152,24 @@ describe('translateText', () => {
     }
   });
 
-  it('applies the default 60s retry hint on a 429 without one and tolerates a missing 200 body', async () => {
+  it('applies the default 60s retry hint on a 429 without one', async () => {
     const error429 = vi.fn();
     state.ackPayload = { statusCode: 429, requestId, data: null };
     translateText('hello', 'fr', { onDone: vi.fn(), onError: error429 });
     await vi.waitFor(() =>
       expect(error429).toHaveBeenCalledWith('Rate limit reached. Retry in 60s.'),
     );
+  });
 
+  it('treats a 200 ack with null data as a protocol violation, not an empty answer', async () => {
+    const error = vi.fn();
     const done = vi.fn();
     state.ackPayload = { statusCode: 200, requestId, data: null };
-    translateText('hello', 'fr', { onDone: done, onError: vi.fn() });
-    await vi.waitFor(() => expect(done).toHaveBeenCalledWith({ text: '', cached: true }));
+    translateText('hello', 'fr', { onDone: done, onError: error });
+    await vi.waitFor(() =>
+      expect(error).toHaveBeenCalledWith('No answer from the translation service.'),
+    );
+    expect(done).not.toHaveBeenCalled();
   });
 
   it('reports a missing acknowledgment', async () => {

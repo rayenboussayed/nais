@@ -209,10 +209,11 @@ export class TranslationsService {
       const updated = await this.db
         .update(translations)
         .set({ ...changed, updatedAt: new Date() })
-        .where(eq(translations.id, id))
+        .where(and(eq(translations.id, id), isNull(translations.deletedAt)))
         .returning();
       const row = updated[0];
-      if (!row) throw new Error('update returned no row');
+      // 0 rows: the row was soft-deleted between the read above and this write.
+      if (!row) throw new NotFoundException('Translation not found');
       return rowToTranslation(row);
     } catch (error) {
       if (isUniqueViolation(error)) {

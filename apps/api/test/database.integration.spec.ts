@@ -33,6 +33,7 @@ describe('database layer (throwaway PostgreSQL 17)', () => {
   beforeAll(async () => {
     cluster = startTempCluster();
     process.env.DATABASE_URL = cluster.url();
+    process.env.SESSION_SECRET = 'a'.repeat(64);
     pool = new Pool({ connectionString: cluster.url() });
     db = drizzle({ client: pool });
     await migrate(db, { migrationsFolder: path.join(__dirname, '..', 'drizzle') });
@@ -40,6 +41,7 @@ describe('database layer (throwaway PostgreSQL 17)', () => {
 
   afterAll(async () => {
     delete process.env.DATABASE_URL;
+    delete process.env.SESSION_SECRET;
     await pool.end();
     cluster.destroy();
   });

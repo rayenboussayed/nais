@@ -177,10 +177,11 @@ export class LanguagesService {
       const updated = await this.db
         .update(languages)
         .set({ ...changed, updatedAt: new Date() })
-        .where(eq(languages.id, id))
+        .where(and(eq(languages.id, id), isNull(languages.deletedAt)))
         .returning();
       const row = updated[0];
-      if (!row) throw new Error('update returned no row');
+      // 0 rows: the row was soft-deleted between the read above and this write.
+      if (!row) throw new NotFoundException('Language not found');
       return rowToLanguage(row);
     } catch (error) {
       if (isUniqueViolation(error)) {

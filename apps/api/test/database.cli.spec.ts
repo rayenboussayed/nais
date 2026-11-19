@@ -29,7 +29,7 @@ describe('database bins (child process)', () => {
     if (!cluster) {
       throw new Error('dist missing: run `npm run build` first');
     }
-    const env = { ...process.env, DATABASE_URL: cluster.url() };
+    const env = { ...process.env, DATABASE_URL: cluster.url(), SESSION_SECRET: 'a'.repeat(64) };
 
     const migrate = spawnSync(process.execPath, [path.join(binsDir, 'db-migrate.mjs')], {
       env,

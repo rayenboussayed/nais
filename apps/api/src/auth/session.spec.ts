@@ -1,7 +1,12 @@
+import { createHmac } from 'node:crypto';
+
 import { describe, expect, it } from 'vitest';
 
 import { SESSION_COOKIE_NAME, signSession, verifySession } from './session';
 
+const hmac = (segment: string, secret: string): string =>
+  createHmac('sha256', secret).update(segment).digest('base64url');
+const forge = (segment: string): string => `${segment}.${hmac(segment, SECRET)}`;
 const SECRET = 'a'.repeat(64);
 
 describe('signSession/verifySession', () => {
@@ -40,6 +45,18 @@ describe('signSession/verifySession', () => {
     expect(verifySession('no-dot-here', SECRET)).toBeNull();
     expect(verifySession('.sig', SECRET)).toBeNull();
     expect(verifySession('not-base64url.sig', SECRET)).toBeNull();
+  });
+
+  it('rejects a valid signature over a payload that is not an object', () => {
+    const scalar = Buffer.from('"just-a-string"').toString('base64url');
+    // HMAC is computed correctly over the scalar payload; only the shape check can save us.
+    const forged = forge(scalar);
+    expect(verifySession(forged, SECRET)).toBeNull();
+  });
+
+  it('rejects a valid signature over a payload that is not JSON', () => {
+    const garbage = Buffer.from('not json at all').toString('base64url');
+    expect(verifySession(forge(garbage), SECRET)).toBeNull();
   });
 
   it('rejects a well-formed signature over a malformed payload shape', () => {

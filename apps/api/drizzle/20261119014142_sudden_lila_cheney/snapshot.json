@@ -1,0 +1,194 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "a25bac84-138c-41d1-84f2-404d716f6431",
+  "prevIds": [
+    "b02fb0f4-3205-497f-ab8b-9ab2eb9cf5df"
+  ],
+  "footprints": [
+    {
+      "statementType": "drop_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ai_messages",
+        "ai_messages_created_idx"
+      ],
+      "writes": [
+        "s|idx|public.ai_messages_created_idx",
+        "n|idx|public.ai_messages_created_idx",
+        "e|idx|public.ai_messages_created_idx",
+        "n|rel|public.ai_messages_created_idx"
+      ],
+      "reads": [
+        "e|tbl|public.ai_messages",
+        "n|sch|public",
+        "e|col|public.ai_messages.created_at"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ai_messages",
+        "ai_messages_created_at_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.ai_messages_created_at_id_idx",
+        "n|idx|public.ai_messages_created_at_id_idx",
+        "e|idx|public.ai_messages_created_at_id_idx",
+        "n|rel|public.ai_messages_created_at_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ai_messages",
+        "n|sch|public",
+        "n|col|public.ai_messages.created_at",
+        "n|col|public.ai_messages.id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "languages",
+        "languages_created_at_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.languages_created_at_id_idx",
+        "n|idx|public.languages_created_at_id_idx",
+        "e|idx|public.languages_created_at_id_idx",
+        "n|rel|public.languages_created_at_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.languages",
+        "n|sch|public",
+        "n|col|public.languages.created_at",
+        "n|col|public.languages.id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "translations",
+        "translations_created_at_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.translations_created_at_id_idx",
+        "n|idx|public.translations_created_at_id_idx",
+        "e|idx|public.translations_created_at_id_idx",
+        "n|rel|public.translations_created_at_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.translations",
+        "n|sch|public",
+        "n|col|public.translations.created_at",
+        "n|col|public.translations.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ai_messages",
+        "name": "ai_messages_created_at_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "created_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "languages",
+        "name": "languages_created_at_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "created_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "translations",
+        "name": "translations_created_at_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "created_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"ai_messages_created_idx\"]"
+    }
+  ]
+}

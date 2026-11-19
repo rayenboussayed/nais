@@ -68,7 +68,7 @@ export function TranslationsAdmin() {
 
   function openCreate() {
     setDraft({
-      languageId: (languages[0]?.id as string | undefined) ?? '',
+      languageId: languages[0]?.id ?? '',
       namespace: 'dynamic',
       key: '',
       text: '',

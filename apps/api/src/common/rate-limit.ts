@@ -19,7 +19,13 @@ export class RateLimiter {
    * @returns true when the caller is within the limit, false when exceeded
    */
   hit(key: string, now: number = Date.now()): boolean {
-    if (this.buckets.size >= RateLimiter.MAX_BUCKETS) this.prune(now);
+    if (this.buckets.size >= RateLimiter.MAX_BUCKETS && !this.buckets.has(key)) {
+      this.prune(now);
+      // A window that is still active cannot be pruned; make room by evicting
+      // the oldest tracked window. The requesting key is absent at this point
+      // (checked above), so a full non-empty map always yields a victim.
+      if (this.buckets.size >= RateLimiter.MAX_BUCKETS) this.evictOldest();
+    }
     const bucket = this.buckets.get(key);
     if (!bucket || now - bucket.windowStart >= this.windowMs) {
       this.buckets.set(key, { count: 1, windowStart: now });
@@ -35,5 +41,21 @@ export class RateLimiter {
     for (const [key, bucket] of this.buckets) {
       if (now - bucket.windowStart >= this.windowMs) this.buckets.delete(key);
     }
+  }
+
+  /**
+   * Evicts the bucket with the oldest window start (approximate LRU).
+   * Precondition: the requesting key is not tracked, so at least one victim exists.
+   */
+  private evictOldest(): void {
+    let oldestKey: string | undefined;
+    let oldestStart = Infinity;
+    for (const [key, bucket] of this.buckets) {
+      if (bucket.windowStart < oldestStart) {
+        oldestStart = bucket.windowStart;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey !== undefined) this.buckets.delete(oldestKey);
   }
 }

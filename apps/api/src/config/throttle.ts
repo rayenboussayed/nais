@@ -1,15 +1,21 @@
 import type { ExecutionContext } from '@nestjs/common';
 
 /**
- * Throttler `skipIf` predicate: never rate-limit the health probe.
- * Probes without an HTTP context are treated as unlimited as well.
+ * Throttler `skipIf` predicate. The global limiter covers HTTP only:
+ * - the WebSocket handshake and every `translate` frame are limited by the
+ *   gateway's identity-keyed limiter (and its per-IP handshake backstop);
+ * - the health probe answers for orchestrators;
+ * - a non-HTTP context has no response to annotate, so the throttler would
+ *   crash on it.
  */
 export function skipHealthProbe(context: ExecutionContext): boolean {
   try {
+    if (typeof context.getType === 'function' && context.getType() !== 'http') return true;
     const request = context.switchToHttp().getRequest<{ url?: string }>();
     return request?.url?.startsWith('/api/health') ?? false;
   } catch {
-    // No HTTP context or a hostile switchToHttp: do not skip the limiter.
+    // Unrecognized context shape: fail open for WS-like hosts only when we can
+    // tell; otherwise do not skip the limiter.
     return false;
   }
 }

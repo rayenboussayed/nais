@@ -30,11 +30,8 @@ import {
 } from './prompts';
 import type { Env } from '../config/env';
 
-/** Result of a translate call, internal shape before mapping to the shared contract. */
-interface TranslateOutcome {
-  text: string;
-  cached: boolean;
-}
+/** Result of a translate call; mirrors the shared response contract. */
+type TranslateOutcome = TranslateResponse;
 
 /** Whether the error looks like an upstream timeout, walking the cause chain. */
 export function isTimeoutError(error: unknown): boolean {
@@ -49,7 +46,7 @@ export function isTimeoutError(error: unknown): boolean {
     ) {
       return true;
     }
-    const next = (current as { cause?: unknown }).cause;
+    const next = current.cause;
     if (next === undefined || next === current) return false;
     current = next;
   }
@@ -93,7 +90,7 @@ export class TranslateService implements OnModuleInit {
         this.logger.warn(`reaped ${rows.length} stale processing AI message(s)`);
       }
     } catch (error) {
-      this.logger.error(`stale processing reaper skipped: ${String(error)}`);
+      this.logger.error(`stale processing reaper skipped: ${error instanceof Error ? error.name : 'unknown error'}`);
     }
   }
 
@@ -178,11 +175,32 @@ export class TranslateService implements OnModuleInit {
         throw new Error('model returned an empty completion');
       }
 
+      // Persist translation + audit rows atomically. When the insert loses a
+      // race against a concurrent process, the transaction re-reads the winner
+      // and aligns the audit row with the text actually served, so the whole
+      // unit commits or rolls back together.
+      let persistedText = content;
       await this.db.transaction(async (tx) => {
-        await tx
+        const inserted = await tx
           .insert(translations)
           .values({ languageId: language.id, namespace: 'dynamic', key, text: content })
-          .onConflictDoNothing();
+          .onConflictDoNothing()
+          .returning({ text: translations.text });
+        let finalText = inserted[0]?.text ?? content;
+        if (inserted.length === 0) {
+          const final = await tx
+            .select({ text: translations.text })
+            .from(translations)
+            .where(
+              and(
+                eq(translations.languageId, language.id),
+                eq(translations.key, key),
+                isNull(translations.deletedAt),
+              ),
+            )
+            .limit(1);
+          finalText = final[0]?.text ?? content;
+        }
         await tx.insert(aiMessagePrompts).values([
           { messageId: message.id, role: 'system', prompt: buildSystemPrompt(language.name) },
           { messageId: message.id, role: 'human', prompt },
@@ -191,42 +209,15 @@ export class TranslateService implements OnModuleInit {
           .update(aiMessages)
           .set({
             status: 'completed',
-            response: content,
+            response: finalText,
             usage: toUsageRecord(output.usage),
             updatedAt: new Date(),
           })
           .where(eq(aiMessages.id, message.id));
+        persistedText = finalText;
       });
 
-      // A concurrent process may have committed its own translation first;
-      // return the catalogue’s row so every caller agrees on one text, and
-      // align the audit row with what was actually served.
-      const final = await this.db
-        .select({ text: translations.text })
-        .from(translations)
-        .where(
-          and(
-            eq(translations.languageId, language.id),
-            eq(translations.key, key),
-            isNull(translations.deletedAt),
-          ),
-        )
-        .limit(1);
-      const finalText = final[0]?.text ?? content;
-
-      if (finalText !== content) {
-        await this.db
-          .update(aiMessages)
-          .set({ response: finalText, updatedAt: new Date() })
-          .where(eq(aiMessages.id, message.id))
-          .catch((secondaryError: unknown) => {
-            this.logger.error(
-              `audit row ${message.id} could not be aligned with the catalogue text: ${String(secondaryError)}`,
-            );
-          });
-      }
-
-      return { text: finalText, cached: false };
+      return { text: persistedText, cached: false };
     } catch (error) {
       this.logger.error(
         `translation failed for key=${key.slice(0, 12)}… (${isTimeoutError(error) ? 'timeout' : 'upstream'})`,
@@ -238,7 +229,7 @@ export class TranslateService implements OnModuleInit {
         .catch((secondaryError: unknown) => {
           // Best-effort audit; never mask the original failure with a database error.
           this.logger.error(
-            `audit row ${message.id} could not be marked failed: ${String(secondaryError)}`,
+            `audit row ${message.id} could not be marked failed: ${secondaryError instanceof Error ? secondaryError.name : 'unknown error'}`,
           );
         });
 

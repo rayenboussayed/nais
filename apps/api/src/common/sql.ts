@@ -29,6 +29,7 @@ export const timestamptzCursor = (column: Column) =>
  * @param orderBy - direction of the ordering
  * @param lastCreatedAt - cursor value from the previous page, or undefined for the first page
  * @param lastId - cursor value from the previous page, or undefined for the first page
+ * @throws Error when only one of the two cursor values is supplied — a partial cursor would silently restart pagination
  */
 export function keysetWhere(
   column: Column,
@@ -37,7 +38,10 @@ export function keysetWhere(
   lastCreatedAt: string | undefined,
   lastId: string | undefined,
 ) {
-  if (!lastCreatedAt || !lastId) return undefined;
+  if (!lastCreatedAt && !lastId) return undefined;
+  if (!lastCreatedAt || !lastId) {
+    throw new Error('keyset cursor requires both lastCreatedAt and lastId');
+  }
   return orderBy === 'asc'
     ? sql`(${column}, ${id}) > (${lastCreatedAt}::timestamptz, ${lastId}::uuid)`
     : sql`(${column}, ${id}) < (${lastCreatedAt}::timestamptz, ${lastId}::uuid)`;

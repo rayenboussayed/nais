@@ -46,4 +46,15 @@ describe('RateLimiter', () => {
     // All windows are fresh: nothing may be pruned, enforcement still applies.
     expect(limiter.hit('keep-1', 100)).toBe(false);
   });
+
+  it('evicts the oldest window when the cap is reached and nothing can be pruned', () => {
+    const limiter = new RateLimiter(1, 3_600_000);
+    // 10_000 distinct callers, all in one long window: prune frees nothing.
+    for (let i = 0; i < 10_000; i += 1) limiter.hit(`fresh-${i}`, 100);
+
+    // The new caller must still get in: the oldest window is evicted to make room.
+    expect(limiter.hit('newcomer', 200)).toBe(true);
+    // The eviction made room without dropping fresh callers wholesale:
+    expect(limiter.hit('fresh-1', 200)).toBe(false);
+  });
 });
