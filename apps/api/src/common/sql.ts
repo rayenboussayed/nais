@@ -1,6 +1,8 @@
 import { sql } from 'drizzle-orm';
 import type { Column } from 'drizzle-orm';
 
+import type { KeysetList } from '@trainslator/shared';
+
 /**
  * Escapes user input for use inside a LIKE/ILIKE pattern with `ESCAPE '\'`.
  * Backslashes are doubled first, then `%` and `_` are escaped.
@@ -45,4 +47,24 @@ export function keysetWhere(
   return orderBy === 'asc'
     ? sql`(${column}, ${id}) > (${lastCreatedAt}::timestamptz, ${lastId}::uuid)`
     : sql`(${column}, ${id}) < (${lastCreatedAt}::timestamptz, ${lastId}::uuid)`;
+}
+
+/**
+ * Shared tail of the keyset-paginated list services. Callers pass the
+ * `pageSize + 1` rows selected with `createdAtCursor: timestamptzCursor(...)`;
+ * this slices the page, computes `hasMore` and the opaque cursor pair.
+ */
+export function keysetPage<Row extends { id: string; createdAtCursor: string }, Item>(
+  rows: Row[],
+  pageSize: number,
+  map: (row: Row) => Item,
+): KeysetList<Item> {
+  const page = rows.slice(0, pageSize);
+  const hasMore = rows.length > pageSize;
+  const lastRow = page[page.length - 1];
+  return {
+    items: page.map(map),
+    next:
+      hasMore && lastRow ? { lastId: lastRow.id, lastCreatedAt: lastRow.createdAtCursor } : null,
+  };
 }

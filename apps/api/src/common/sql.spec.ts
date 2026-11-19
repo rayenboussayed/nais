@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { languages } from '../database/schema';
 
-import { escapeLike, keysetWhere, timestamptzCursor } from './sql';
+import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from './sql';
 
 describe('escapeLike', () => {
   it('escapes %, _ and backslash itself', () => {
@@ -55,5 +55,31 @@ describe('keysetWhere', () => {
     );
     expect(asc).toBeDefined();
     expect(desc).toBeDefined();
+  });
+});
+
+describe('keysetPage', () => {
+  const rows = [
+    { id: 'a', createdAtCursor: '2026-11-18T00:00:01.000000+00' },
+    { id: 'b', createdAtCursor: '2026-11-18T00:00:02.000000+00' },
+    { id: 'c', createdAtCursor: '2026-11-18T00:00:03.000000+00' },
+  ];
+
+  it('slices to the page and emits a cursor when there are extra rows', () => {
+    const page = keysetPage(rows, 2, (row) => row.id);
+    expect(page.items).toEqual(['a', 'b']);
+    expect(page.next).toEqual({ lastId: 'b', lastCreatedAt: '2026-11-18T00:00:02.000000+00' });
+  });
+
+  it('returns a null cursor on the last page', () => {
+    const page = keysetPage(rows.slice(0, 2), 2, (row) => row.id);
+    expect(page.items).toEqual(['a', 'b']);
+    expect(page.next).toBeNull();
+  });
+
+  it('handles an empty result set', () => {
+    const page = keysetPage([], 10, (row: { id: string; createdAtCursor: string }) => row.id);
+    expect(page.items).toEqual([]);
+    expect(page.next).toBeNull();
   });
 });

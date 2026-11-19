@@ -22,7 +22,7 @@ import { translations } from '../database/schema';
 import type { TranslationsListQuery } from '../common/list-query';
 import { changedFields } from '../common/changed-fields';
 import { isUniqueViolation } from '../common/db-error';
-import { escapeLike, keysetWhere, timestamptzCursor } from '../common/sql';
+import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from '../common/sql';
 import { translationKeyFor } from '../common/key';
 
 /** Row shape of the translations table; mirrors `translations` in drizzle/schema.ts. */
@@ -91,14 +91,7 @@ export class TranslationsService {
       .orderBy(orderColumn, orderId)
       .limit(pageSize + 1);
 
-    const page = rows.slice(0, pageSize);
-    const hasMore = rows.length > pageSize;
-    const lastRow = page[page.length - 1];
-    return {
-      items: page.map(rowToTranslation),
-      next:
-        hasMore && lastRow ? { lastId: lastRow.id, lastCreatedAt: lastRow.createdAtCursor } : null,
-    };
+    return keysetPage(rows, pageSize, rowToTranslation);
   }
 
   /**

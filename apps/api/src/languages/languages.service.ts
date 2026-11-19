@@ -22,7 +22,7 @@ import { languages } from '../database/schema';
 
 import { changedFields } from '../common/changed-fields';
 import { isUniqueViolation } from '../common/db-error';
-import { escapeLike, keysetWhere, timestamptzCursor } from '../common/sql';
+import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from '../common/sql';
 
 /** Row shape of the languages table; mirrors `languages` in drizzle/schema.ts. */
 type LanguageRow = typeof languages.$inferSelect;
@@ -80,14 +80,7 @@ export class LanguagesService {
       .orderBy(orderColumn, orderId)
       .limit(pageSize + 1);
 
-    const page = rows.slice(0, pageSize);
-    const hasMore = rows.length > pageSize;
-    const lastRow = page[page.length - 1];
-    return {
-      items: page.map(rowToLanguage),
-      next:
-        hasMore && lastRow ? { lastId: lastRow.id, lastCreatedAt: lastRow.createdAtCursor } : null,
-    };
+    return keysetPage(rows, pageSize, rowToLanguage);
   }
 
   /**

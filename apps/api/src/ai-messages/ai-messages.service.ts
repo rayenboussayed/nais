@@ -8,7 +8,7 @@ import { DRIZZLE } from '../database/drizzle.module';
 import type { Database } from '../database/drizzle.module';
 import { aiMessages, aiMessagePrompts } from '../database/schema';
 
-import { escapeLike, keysetWhere, timestamptzCursor } from '../common/sql';
+import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from '../common/sql';
 
 /** Row shape of the ai_messages table; mirrors `ai_messages` in drizzle/schema.ts. */
 type AiMessageRow = typeof aiMessages.$inferSelect;
@@ -77,14 +77,7 @@ export class AiMessagesService {
       .orderBy(orderColumn, orderId)
       .limit(pageSize + 1);
 
-    const page = rows.slice(0, pageSize);
-    const hasMore = rows.length > pageSize;
-    const lastRow = page[page.length - 1];
-    return {
-      items: page.map(rowToAiMessage),
-      next:
-        hasMore && lastRow ? { lastId: lastRow.id, lastCreatedAt: lastRow.createdAtCursor } : null,
-    };
+    return keysetPage(rows, pageSize, rowToAiMessage);
   }
 
   /**
