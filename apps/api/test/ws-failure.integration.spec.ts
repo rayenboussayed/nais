@@ -1,10 +1,10 @@
-import path from 'node:path';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
+import { FastifyAdapter } from '@nestjs/platform-fastify';
+import { Test } from '@nestjs/testing';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { FastifyAdapter } from '@nestjs/platform-fastify';
-import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { Test } from '@nestjs/testing';
+import path from 'node:path';
 import { Pool } from 'pg';
 import { io, type Socket } from 'socket.io-client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -12,8 +12,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
 import { seedLanguages } from '../src/database/seed.js';
 import { TranslationsService } from '../src/translations/translations.service.js';
+import { type OllamaStub, startOllamaStub } from './ollama-stub.js';
 import { startTempCluster, type TempCluster } from './pg-temp.js';
-import { startOllamaStub, type OllamaStub } from './ollama-stub.js';
 
 describe('ws gateway with a failing backend', () => {
   let cluster: TempCluster;
@@ -29,9 +29,9 @@ describe('ws gateway with a failing backend', () => {
     process.env.DATABASE_URL = cluster.url();
     process.env.OLLAMA_BASE_URL = stub.url;
     process.env.BASIC_AUTH_USERNAME = 'admin';
-    const { scryptSync, randomBytes } = await import('node:crypto');
+    const { randomBytes, scryptSync } = await import('node:crypto');
     const salt = randomBytes(16);
-    process.env.BASIC_AUTH_PASSWORD_HASH = `scrypt$16384$8$1$${salt.toString('hex')}$${scryptSync('admin-password', salt, 64, { N: 16384, r: 8, p: 1 }).toString('hex')}`;
+    process.env.BASIC_AUTH_PASSWORD_HASH = `scrypt$16384$8$1$${salt.toString('hex')}$${scryptSync('admin-password', salt, 64, { N: 16384, p: 1, r: 8 }).toString('hex')}`;
     process.env.SESSION_SECRET = 'a'.repeat(64);
     delete process.env.PG_BOSS_URL;
 
@@ -102,11 +102,11 @@ describe('ws gateway with a failing backend', () => {
     const address = otherApp.getHttpServer().address();
     if (!address || typeof address === 'string') throw new Error('server not listening');
     const socket = io(`http://127.0.0.1:${address.port}`, {
-      transports: ['websocket'],
-      reconnection: false,
       extraHeaders: {
         authorization: `Basic ${Buffer.from('admin:admin-password').toString('base64')}`,
       },
+      reconnection: false,
+      transports: ['websocket'],
     });
     await new Promise<void>((resolve, reject) => {
       socket.on('connect', () => resolve());
@@ -118,7 +118,7 @@ describe('ws gateway with a failing backend', () => {
         .timeout(5_000)
         .emit(
           'translate',
-          { text: 'hello', targetLanguage: 'fr', requestId: crypto.randomUUID() },
+          { requestId: crypto.randomUUID(), targetLanguage: 'fr', text: 'hello' },
           (error: Error | null, ack?: { statusCode: number }) => {
             if (error) reject(error);
             else resolve(ack!);
@@ -135,11 +135,11 @@ describe('ws gateway with a failing backend', () => {
     const address = app.getHttpServer().address();
     if (!address || typeof address === 'string') throw new Error('server not listening');
     const socket = io(`http://127.0.0.1:${address.port}`, {
-      transports: ['websocket'],
-      reconnection: false,
       extraHeaders: {
         authorization: `Basic ${Buffer.from('admin:admin-password').toString('base64')}`,
       },
+      reconnection: false,
+      transports: ['websocket'],
     });
     sockets.push(socket);
     await new Promise<void>((resolve, reject) => {
@@ -152,7 +152,7 @@ describe('ws gateway with a failing backend', () => {
         .timeout(5_000)
         .emit(
           'translate',
-          { text: 'hello', targetLanguage: 'fr', requestId: crypto.randomUUID() },
+          { requestId: crypto.randomUUID(), targetLanguage: 'fr', text: 'hello' },
           (error: Error | null, ack?: { statusCode: number }) => {
             if (error) reject(error);
             else resolve(ack!);

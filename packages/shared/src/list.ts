@@ -6,14 +6,16 @@ import { cursorTimestampSchema } from './common';
  * Keyset-paginated list envelope. Callers pass the item schema; the response
  * exposes the items plus an opaque cursor pair or null when the page is the
  * last one.
+ * @param item - the item schema for one entry
+ * @returns the zod schema for the list envelope
  */
 export const keysetListSchema = <T extends z.ZodTypeAny>(item: T) =>
   z.object({
     items: z.array(item),
     next: z
       .object({
-        lastId: z.uuid(),
         lastCreatedAt: cursorTimestampSchema,
+        lastId: z.uuid(),
       })
       .nullable(),
   });

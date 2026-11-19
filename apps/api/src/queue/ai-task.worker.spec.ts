@@ -1,29 +1,34 @@
-import type { JobWithMetadata } from 'pg-boss';
-import { describe, expect, it, vi } from 'vitest';
-
 import type { AiTaskJob } from '@trainslator/shared';
+import type { JobWithMetadata } from 'pg-boss';
+
+import { describe, expect, it, vi } from 'vitest';
 
 import type { AiService } from '../ai/ai.service.js';
 import type { TranslateGateway } from '../ws/translate.gateway.js';
 
 import { AiTaskWorker } from './ai-task.worker.js';
 
+/**
+ * Builds a pg-boss job carrying the given AI task payload.
+ * @param data - the job payload
+ * @returns the job double
+ */
 function makeJob(data: AiTaskJob): JobWithMetadata<AiTaskJob> {
-  return { id: 'job-1', name: 'ai-task', data } as never;
+  return { data, id: 'job-1', name: 'ai-task' } as never;
 }
 
 const translateEnvelope = {
-  task: 'translate' as const,
-  result: { text: 'bonjour', cached: false },
   cached: false,
   model: 'bonsai-2:2b',
+  result: { cached: false, text: 'bonjour' },
+  task: 'translate' as const,
 };
 
 const sentimentEnvelope = {
-  task: 'sentiment' as const,
-  result: { label: 'POSITIVE', score: 0.99, cached: false },
   cached: false,
   model: 'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
+  result: { cached: false, label: 'POSITIVE', score: 0.99 },
+  task: 'sentiment' as const,
 };
 
 describe('AiTaskWorker.onAiTask', () => {
@@ -37,28 +42,28 @@ describe('AiTaskWorker.onAiTask', () => {
 
     await worker.onAiTask([
       makeJob({
-        task: 'translate',
-        input: { text: 'hello', targetLanguage: 'fr' },
+        input: { targetLanguage: 'fr', text: 'hello' },
         requestId: '123e4567-e89b-42d3-a456-426655440000',
         socketId: 'socket-1',
+        task: 'translate',
       }),
     ]);
 
-    expect(run).toHaveBeenCalledWith('translate', { text: 'hello', targetLanguage: 'fr' });
+    expect(run).toHaveBeenCalledWith('translate', { targetLanguage: 'fr', text: 'hello' });
     expect(emitTo).toHaveBeenCalledWith(
       'socket-1',
       'translation',
-      expect.objectContaining({ text: 'bonjour', cached: false }),
+      expect.objectContaining({ cached: false, text: 'bonjour' }),
     );
   });
 
   it('falls back to an empty text when the translate result carries no text string', async () => {
     const emitTo = vi.fn();
     const run = vi.fn(async () => ({
-      task: 'translate' as const,
-      result: { text: 42 as unknown as string, cached: false },
       cached: false,
       model: 'test/model',
+      result: { cached: false, text: 42 as unknown as string },
+      task: 'translate' as const,
     }));
     const worker = new AiTaskWorker(
       { run } as unknown as AiService,
@@ -67,10 +72,10 @@ describe('AiTaskWorker.onAiTask', () => {
 
     await worker.onAiTask([
       makeJob({
-        task: 'translate',
-        input: { text: 'hello', targetLanguage: 'fr' },
+        input: { targetLanguage: 'fr', text: 'hello' },
         requestId: '123e4567-e89b-42d3-a456-426655440000',
         socketId: 'socket-1',
+        task: 'translate',
       }),
     ]);
 
@@ -91,10 +96,10 @@ describe('AiTaskWorker.onAiTask', () => {
 
     await worker.onAiTask([
       makeJob({
-        task: 'sentiment',
         input: { text: 'I love this' },
         requestId: '123e4567-e89b-42d3-a456-426655440000',
         socketId: 'socket-1',
+        task: 'sentiment',
       }),
     ]);
 
@@ -118,10 +123,10 @@ describe('AiTaskWorker.onAiTask', () => {
     await expect(
       worker.onAiTask([
         makeJob({
-          task: 'translate',
-          input: { text: 'hello', targetLanguage: 'fr' },
+          input: { targetLanguage: 'fr', text: 'hello' },
           requestId: '123e4567-e89b-42d3-a456-426655440000',
           socketId: 'socket-1',
+          task: 'translate',
         }),
       ]),
     ).rejects.toThrow('model exploded');
@@ -144,10 +149,10 @@ describe('AiTaskWorker.onAiTask', () => {
     await expect(
       worker.onAiTask([
         makeJob({
-          task: 'summarize',
           input: { text: 'long document' },
           requestId: '123e4567-e89b-42d3-a456-426655440000',
           socketId: 'socket-1',
+          task: 'summarize',
         }),
       ]),
     ).rejects.toThrow('boom');
@@ -155,7 +160,7 @@ describe('AiTaskWorker.onAiTask', () => {
     expect(emitTo).toHaveBeenCalledWith(
       'socket-1',
       'ai-error',
-      expect.objectContaining({ task: 'summarize', message: 'AI task failed' }),
+      expect.objectContaining({ message: 'AI task failed', task: 'summarize' }),
     );
   });
 
@@ -170,10 +175,10 @@ describe('AiTaskWorker.onAiTask', () => {
     await expect(
       worker.onAiTask([
         makeJob({
-          task: 'sentiment',
           input: { text: 'hello' },
           requestId: '123e4567-e89b-42d3-a456-426655440000',
           socketId: 'socket-1',
+          task: 'sentiment',
         }),
       ]),
     ).rejects.toBe('string failure');
@@ -189,9 +194,9 @@ describe('AiTaskWorker.onAiTask', () => {
 
     await worker.onAiTask([
       makeJob({
-        task: 'translate',
-        input: { text: 'hello', targetLanguage: 'fr' },
+        input: { targetLanguage: 'fr', text: 'hello' },
         requestId: '123e4567-e89b-42d3-a456-426655440000',
+        task: 'translate',
       }),
     ]);
     expect(emitTo).not.toHaveBeenCalled();
@@ -208,9 +213,9 @@ describe('AiTaskWorker.onAiTask', () => {
     await expect(
       worker.onAiTask([
         makeJob({
-          task: 'sentiment',
           input: { text: 'hello' },
           requestId: '123e4567-e89b-42d3-a456-426655440000',
+          task: 'sentiment',
         }),
       ]),
     ).rejects.toThrow('boom');

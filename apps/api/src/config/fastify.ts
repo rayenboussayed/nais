@@ -4,14 +4,16 @@
  * 'true' trusts any forwarded-for chain (multi-tier LB, e2e tests, k8s ingress
  * with trusted CIDRs is the operator's responsibility); 'false' ignores
  * forwarded headers entirely.
+ * @param value - the TRUST_PROXY env enum value
+ * @returns Fastify's `trustProxy` option
  */
-export function resolveTrustProxy(value: 'true' | 'false' | 'loopback'): boolean | 'loopback' {
+export function resolveTrustProxy(value: 'false' | 'loopback' | 'true'): 'loopback' | boolean {
   switch (value) {
-    case 'true':
-      return true;
     case 'false':
       return false;
     case 'loopback':
       return 'loopback';
+    case 'true':
+      return true;
   }
 }

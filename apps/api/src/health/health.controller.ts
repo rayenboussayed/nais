@@ -1,6 +1,7 @@
+import type { HealthCheckResult } from '@nestjs/terminus';
+
 import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
-import type { HealthCheckResult } from '@nestjs/terminus';
 
 import { DatabaseHealthIndicator } from '../database/database-health.indicator.js';
 
@@ -16,6 +17,7 @@ export class HealthController {
    * Terminus readiness result. The database probe is the only external
    * dependency the service has; when it fails, Docker/orchestrators get a 503
    * instead of traffic routed to a hollow instance.
+   * @returns the readiness result
    */
   @Get()
   @HealthCheck()

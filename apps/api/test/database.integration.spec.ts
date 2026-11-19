@@ -1,20 +1,25 @@
-import path from 'node:path';
+import type { SQL } from 'drizzle-orm';
+import type { QueryResult, QueryResultRow } from 'pg';
 
 import { sql } from 'drizzle-orm';
-import type { SQL } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import type { QueryResult, QueryResultRow } from 'pg';
+import path from 'node:path';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import * as schema from '../src/database/schema.js';
 import type { Database } from '../src/database/drizzle.module.js';
-import { seedLanguages } from '../src/database/seed.js';
 
+import * as schema from '../src/database/schema.js';
+import { seedLanguages } from '../src/database/seed.js';
 import { startTempCluster, type TempCluster } from './pg-temp.js';
 
-/** Raw SQL helper for the integration suite: guards the multi-result union and keeps rows typed. */
+/**
+ * Raw SQL helper for the integration suite: guards the multi-result union and keeps rows typed.
+ * @param db - the drizzle database handle
+ * @param statement - the raw SQL to execute
+ * @returns the typed rows
+ */
 async function rawRows<T extends QueryResultRow>(db: Database, statement: SQL): Promise<T[]> {
   const result = (await db.execute(statement)) as QueryResult<Record<string, unknown>>;
   if (result == null || typeof result !== 'object' || !Array.isArray(result.rows)) {
@@ -104,10 +109,10 @@ describe('database layer (throwaway PostgreSQL 17)', () => {
     const inserted = await db
       .insert(schema.aiMessages)
       .values({
-        provider: 'ollama',
         model: 'bonsai-2:2b',
-        status: 'completed',
+        provider: 'ollama',
         response: 'Bonjour',
+        status: 'completed',
       })
       .returning({ id: schema.aiMessages.id });
     const message = inserted[0];
@@ -115,7 +120,7 @@ describe('database layer (throwaway PostgreSQL 17)', () => {
 
     await db
       .insert(schema.aiMessagePrompts)
-      .values({ messageId: message.id, role: 'human', prompt: 'hello' });
+      .values({ messageId: message.id, prompt: 'hello', role: 'human' });
 
     const before = await rawRows<{ n: number }>(
       db,

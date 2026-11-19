@@ -1,14 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
-
+import type { AiTaskJob } from '@trainslator/shared';
 import type { JobWithMetadata } from 'pg-boss';
+
+import { Injectable, Logger } from '@nestjs/common';
+import { aiTaskJobSchema } from '@trainslator/shared';
 import { Job } from '@wavezync/nestjs-pgboss';
 
-import type { AiTaskJob } from '@trainslator/shared';
-import { aiTaskJobSchema } from '@trainslator/shared';
-
 import { AiService } from '../ai/ai.service.js';
-import { AI_TASK_QUEUE } from './ai-task-queue.constants.js';
 import { TranslateGateway } from '../ws/translate.gateway.js';
+import { AI_TASK_QUEUE } from './ai-task-queue.constants.js';
 
 /**
  * pg-boss worker consuming `ai-task` jobs with batchSize 1: one model call at
@@ -26,7 +25,10 @@ export class AiTaskWorker extends Logger {
     super(AiTaskWorker.name);
   }
 
-  /** Consumes one job; batches with more than one job are not expected. */
+  /**
+   * Consumes one job; batches with more than one job are not expected.
+   * @param jobs - the job batch (pg-boss delivers one for ai-task)
+   */
   @Job(AI_TASK_QUEUE, { batchSize: 1 }, { retryLimit: 0 })
   async onAiTask(jobs: JobWithMetadata<AiTaskJob>[]): Promise<void> {
     for (const job of jobs) {
@@ -38,26 +40,28 @@ export class AiTaskWorker extends Logger {
     // Defense in depth: pg-boss hands us whatever was enqueued; re-validate.
     const parsed = aiTaskJobSchema.safeParse(job.data);
     if (!parsed.success) {
-      this.error(`ai task job payload rejected: ${parsed.error.issues[0]?.message ?? 'invalid payload'}`);
+      this.error(
+        `ai task job payload rejected: ${parsed.error.issues[0]?.message ?? 'invalid payload'}`,
+      );
       throw new Error('ai task job payload rejected');
     }
-    const { task, input, requestId, socketId } = parsed.data;
+    const { input, requestId, socketId, task } = parsed.data;
     try {
       const envelope = await this.ai.run(task, input);
       if (!socketId) return;
       if (task === 'translate') {
         const text = typeof envelope.result.text === 'string' ? envelope.result.text : '';
         this.gateway.emitTo(socketId, 'translation', {
+          cached: envelope.cached,
           requestId,
           text,
-          cached: envelope.cached,
         });
       } else {
         this.gateway.emitTo(socketId, 'ai-result', {
-          requestId,
-          task,
-          result: envelope.result,
           cached: envelope.cached,
+          requestId,
+          result: envelope.result,
+          task,
         });
       }
     } catch (error) {
@@ -70,14 +74,14 @@ export class AiTaskWorker extends Logger {
 
       if (task === 'translate') {
         this.gateway.emitTo(socketId, 'translation-error', {
-          requestId,
           message: 'Translation failed',
+          requestId,
         });
       } else {
         this.gateway.emitTo(socketId, 'ai-error', {
+          message: 'AI task failed',
           requestId,
           task,
-          message: 'AI task failed',
         });
       }
       throw error;

@@ -3,10 +3,10 @@
  * external state. Suitable for bounding WebSocket frames per connection.
  */
 export class RateLimiter {
-  private readonly buckets = new Map<string, { count: number; windowStart: number }>();
-
   /** Soft cap on tracked callers; stale windows are pruned lazily past this size. */
   private static readonly MAX_BUCKETS = 10_000;
+
+  private readonly buckets = new Map<string, { count: number; windowStart: number }>();
 
   constructor(
     private readonly limit: number,
@@ -15,7 +15,8 @@ export class RateLimiter {
 
   /**
    * Registers one hit for `key`.
-   *
+   * @param key - the bucket key (client id)
+   * @param now - current time in milliseconds
    * @returns true when the caller is within the limit, false when exceeded
    */
   hit(key: string, now: number = Date.now()): boolean {
@@ -36,13 +37,6 @@ export class RateLimiter {
     return true;
   }
 
-  /** Drops windows that have fully elapsed; called only past the bucket cap. */
-  private prune(now: number): void {
-    for (const [key, bucket] of this.buckets) {
-      if (now - bucket.windowStart >= this.windowMs) this.buckets.delete(key);
-    }
-  }
-
   /**
    * Evicts the bucket with the oldest window start (approximate LRU).
    * Precondition: the requesting key is not tracked, so at least one victim exists.
@@ -57,5 +51,15 @@ export class RateLimiter {
       }
     }
     if (oldestKey !== undefined) this.buckets.delete(oldestKey);
+  }
+
+  /**
+   * Drops windows that have fully elapsed; called only past the bucket cap.
+   * @param now - current time in milliseconds
+   */
+  private prune(now: number): void {
+    for (const [key, bucket] of this.buckets) {
+      if (now - bucket.windowStart >= this.windowMs) this.buckets.delete(key);
+    }
   }
 }

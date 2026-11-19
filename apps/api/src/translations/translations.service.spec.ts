@@ -5,12 +5,19 @@ import type { Database } from '../database/drizzle.module.js';
 import { TranslationsService } from './translations.service.js';
 
 const valid = {
-  namespace: 'static',
-  languageId: '123e4567-e89b-42d3-a456-426655440000',
-  text: 'bonjour',
   key: 'greeting',
+  languageId: '123e4567-e89b-42d3-a456-426655440000',
+  namespace: 'static',
+  text: 'bonjour',
 } as const;
 
+/**
+ * Builds a DB double whose insert/update chains resolve or throw on demand.
+ * @param returning - rows the insert/update "returns"
+ * @param insertError - when set, the insert throws this instead
+ * @param updateError - when set, the update throws this instead
+ * @returns the Database double
+ */
 function databaseReturning(returning: unknown, insertError?: unknown, updateError?: unknown) {
   return {
     insert: () => ({
@@ -26,15 +33,15 @@ function databaseReturning(returning: unknown, insertError?: unknown, updateErro
         where: () => ({
           limit: async () => [
             {
+              createdAt: new Date(),
+              deletedAt: null,
               id: '123e4567-e89b-42d3-a456-426655440000',
+              key: 'greeting',
               languageId: '123e4567-e89b-42d3-a456-426655440000',
               namespace: 'static',
-              key: 'greeting',
-              text: 'bonjour',
               parentId: null,
-              createdAt: new Date(),
+              text: 'bonjour',
               updatedAt: new Date(),
-              deletedAt: null,
             },
           ],
         }),

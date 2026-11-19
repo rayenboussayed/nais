@@ -12,7 +12,7 @@ The service exposes one endpoint per AI task (`POST /api/ai/<task>`) with a shar
 | `sentiment`                | transformers.js | `Xenova/distilbert-base-uncased-finetuned-sst-2-english` | binary ±1                        |
 | `summarize`                | transformers.js | `Xenova/distilbart-cnn-6-6`                              | CNN/DM-style                     |
 | `question-answering`       | transformers.js | `Xenova/distilbert-base-uncased-distilled-squad`         | extractive (SQuAD)               |
-| `token-classification`     | transformers.js | `Xenova/bert-base-NER`       | NER (CoNLL-2003)                 |
+| `token-classification`     | transformers.js | `Xenova/bert-base-NER`                                   | NER (CoNLL-2003)                 |
 | `zero-shot-classification` | transformers.js | `Xenova/nli-deberta-v3-xsmall`                           | arbitrary labels                 |
 | `feature-extraction`       | transformers.js | `onnx-community/all-MiniLM-L6-v2-ONNX`                   | mean-pooled embeddings           |
 

@@ -1,9 +1,27 @@
-import { describe, expect, it, vi } from 'vitest';
-
 import type { Server, Socket } from 'socket.io';
+
+import { describe, expect, it, vi } from 'vitest';
 
 import { TranslateGateway } from './translate.gateway.js';
 
+/**
+ * Fake socket.io server capturing the handshake middleware.
+ * @returns the server double and its middleware getter
+ */
+function fakeServer() {
+  let middleware: ((socket: Socket, next: (error?: Error) => void) => void) | undefined;
+  const server = {
+    use: (fn: typeof middleware) => {
+      middleware = fn;
+    },
+  } as unknown as Server;
+  return { getMiddleware: () => middleware, server };
+}
+
+/**
+ * Builds the gateway with unimplemented services; only the handshake limiter is under test.
+ * @returns the gateway under test
+ */
 function makeGateway() {
   // Only the connect limiter is under test; the services are never reached
   // because unauthenticated handshakes fail first.
@@ -11,7 +29,7 @@ function makeGateway() {
   const languages = { findByIso: vi.fn() };
   const pgBoss = { scheduleJob: vi.fn() };
   const config = { get: () => undefined };
-  const ai = { peekCache: vi.fn(), run: vi.fn(), modelFor: vi.fn(), listTasks: vi.fn() };
+  const ai = { listTasks: vi.fn(), modelFor: vi.fn(), peekCache: vi.fn(), run: vi.fn() };
   const gateway = new TranslateGateway(
     translations as never,
     languages as never,
@@ -22,26 +40,16 @@ function makeGateway() {
   return gateway;
 }
 
-function fakeServer() {
-  let middleware: ((socket: Socket, next: (error?: Error) => void) => void) | undefined;
-  const server = {
-    use: (fn: typeof middleware) => {
-      middleware = fn;
-    },
-  } as unknown as Server;
-  return { server, getMiddleware: () => middleware };
-}
-
 const fakeSocket = () =>
   ({
-    handshake: { headers: {}, address: '203.0.113.9' },
     data: {},
+    handshake: { address: '203.0.113.9', headers: {} },
   }) as unknown as Socket;
 
 describe('TranslateGateway handshake backstop', () => {
   it('routes an unexpected middleware failure to unauthorized instead of hanging', async () => {
     const gateway = makeGateway();
-    const { server, getMiddleware } = fakeServer();
+    const { getMiddleware, server } = fakeServer();
     gateway.afterInit(server);
 
     const middleware = getMiddleware();
@@ -61,7 +69,7 @@ describe('TranslateGateway handshake backstop', () => {
 
   it('gives each client IP its own handshake budget', async () => {
     const gateway = makeGateway();
-    const { server, getMiddleware } = fakeServer();
+    const { getMiddleware, server } = fakeServer();
     gateway.afterInit(server);
 
     const middleware = getMiddleware();
@@ -69,8 +77,8 @@ describe('TranslateGateway handshake backstop', () => {
 
     const socketFor = (address?: string) =>
       ({
-        handshake: address === undefined ? { headers: {} } : { headers: {}, address },
         data: {},
+        handshake: address === undefined ? { headers: {} } : { address, headers: {} },
       }) as unknown as Socket;
 
     const run = (socket: Socket) =>
@@ -98,7 +106,7 @@ describe('TranslateGateway handshake backstop', () => {
 
   it('rejects handshakes past the global connect limit', async () => {
     const gateway = makeGateway();
-    const { server, getMiddleware } = fakeServer();
+    const { getMiddleware, server } = fakeServer();
     gateway.afterInit(server);
 
     const middleware = getMiddleware();

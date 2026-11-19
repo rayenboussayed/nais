@@ -1,9 +1,9 @@
+import type { KeysetList, Language, Translation } from '@trainslator/shared';
+
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import type { KeysetList, Language, Translation } from '@trainslator/shared';
 
 import { apiFetch } from './lib/api';
 import { TranslationsAdmin } from './routes/admin/translations';
@@ -15,35 +15,39 @@ vi.mock('./lib/api', async (importOriginal) => {
 
 const languages: Language[] = [
   {
+    createdAt: '2026-11-18T00:00:00.000Z',
+    deletedAt: null,
+    dir: 'ltr',
     id: '10000000-0000-4000-8000-000000000001',
+    iso6391: 'en',
+    isSource: true,
     name: 'English',
     nativeName: 'English',
-    iso6391: 'en',
-    dir: 'ltr',
-    isSource: true,
-    createdAt: '2026-11-18T00:00:00.000Z',
     updatedAt: '2026-11-18T00:00:00.000Z',
-    deletedAt: null,
   },
 ];
 
 const translations: Translation[] = [
   {
+    createdAt: '2026-11-18T00:00:00.000Z',
+    deletedAt: null,
     id: '10000000-0000-4000-8000-000000000010',
+    key: 'home.title',
     languageId: '10000000-0000-4000-8000-000000000001',
     namespace: 'static',
-    key: 'home.title',
-    text: 'Accueil',
     parentId: null,
-    createdAt: '2026-11-18T00:00:00.000Z',
+    text: 'Accueil',
     updatedAt: '2026-11-18T00:00:00.000Z',
-    deletedAt: null,
   },
 ];
 
+/**
+ * Test wrapper: renders children under a throwaway QueryClient.
+ * @returns the wrapper component
+ */
 function wrapper() {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    defaultOptions: { queries: { gcTime: 0, retry: false } },
   });
   return function TestWrapper({ children }: { children: React.ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
@@ -73,7 +77,7 @@ describe('TranslationsAdmin', () => {
     await waitFor(() => {
       expect(screen.queryByText('home.title', { exact: false })).toBeTruthy();
     });
-    expect(screen.queryByText('Accueil')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'New translation' })).toBeTruthy();
+    expect(screen.getByText('Accueil')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'New translation' })).toBeTruthy();
   });
 });

@@ -1,7 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-
 import { describe, expect, it, vi } from 'vitest';
 
 import { resolvePgBin } from './pg-temp.js';
@@ -30,13 +29,14 @@ describe('resolvePgBin with an unreadable Debian-bin dir', () => {
     delete process.env.PG_BIN;
     const originalPath = process.env.PATH ?? '';
     const fakeBin = mkdtempSync(join(tmpdir(), 'trainslator-pgbin-'));
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- test harness: fakeBin is a mkdtempSync-created dir, not caller input
     writeFileSync(join(fakeBin, 'initdb'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
     process.env.PATH = `${fakeBin}:${originalPath}`;
     try {
       expect(resolvePgBin()).toBe(fakeBin);
     } finally {
       process.env.PATH = originalPath;
-      rmSync(fakeBin, { recursive: true, force: true });
+      rmSync(fakeBin, { force: true, recursive: true });
     }
   });
 

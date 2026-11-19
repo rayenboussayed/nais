@@ -24,8 +24,8 @@ describe('keysetListSchema', () => {
     const parsed = list.parse({
       items: [],
       next: {
-        lastId: '123e4567-e89b-42d3-a456-426655440000',
         lastCreatedAt: '2026-11-18T23:05:21.809035+00',
+        lastId: '123e4567-e89b-42d3-a456-426655440000',
       },
     });
     expect(parsed.next?.lastId).toBe('123e4567-e89b-42d3-a456-426655440000');
@@ -36,7 +36,7 @@ describe('keysetListSchema', () => {
     expect(() =>
       list.parse({
         items: [],
-        next: { lastId: 'nope', lastCreatedAt: '2026-11-18T00:00:00.000Z' },
+        next: { lastCreatedAt: '2026-11-18T00:00:00.000Z', lastId: 'nope' },
       }),
     ).toThrow();
   });

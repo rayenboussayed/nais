@@ -1,12 +1,19 @@
-import { scryptSync, randomBytes } from 'node:crypto';
-
+import { randomBytes, scryptSync } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
 import { verifyScryptPassword } from './validator.js';
 
+/**
+ * Hashes a password into the scrypt format validateEnv expects.
+ * @param password - the plaintext password
+ * @param N - the CPU/memory cost parameter
+ * @param r - the block size
+ * @param p - the parallelization parameter
+ * @returns the scrypt hash string
+ */
 function makeHash(password: string, N = 16384, r = 8, p = 1): string {
   const salt = randomBytes(16);
-  const derived = scryptSync(password, salt, 64, { N, r, p });
+  const derived = scryptSync(password, salt, 64, { N, p, r });
   return `scrypt$${N}$${r}$${p}$${salt.toString('hex')}$${derived.toString('hex')}`;
 }
 

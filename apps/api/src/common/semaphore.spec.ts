@@ -20,6 +20,7 @@ describe('Semaphore', () => {
     let released = false;
     const third = semaphore.acquire().then(() => {
       released = true;
+      return true;
     });
     // Not resolved yet: both permits are held.
     await Promise.resolve();

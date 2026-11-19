@@ -9,54 +9,54 @@ import {
   updateTranslationBodySchema,
   updateTranslationSchema,
   wsTranslateAckSchema,
+  wsTranslateMessageSchema,
   wsTranslationErrorEventSchema,
   wsTranslationEventSchema,
-  wsTranslateMessageSchema,
 } from './translations';
 
 describe('translateRequestSchema', () => {
   it('accepts a valid request and trims text', () => {
-    const parsed = translateRequestSchema.parse({ text: '  hello  ', targetLanguage: 'fr' });
+    const parsed = translateRequestSchema.parse({ targetLanguage: 'fr', text: '  hello  ' });
     expect(parsed.text).toBe('hello');
     expect(parsed.targetLanguage).toBe('fr');
   });
 
   it('rejects empty and oversized text', () => {
-    expect(() => translateRequestSchema.parse({ text: '   ', targetLanguage: 'fr' })).toThrow();
+    expect(() => translateRequestSchema.parse({ targetLanguage: 'fr', text: '   ' })).toThrow();
     expect(() =>
       translateRequestSchema.parse({
-        text: 'a'.repeat(MAX_TRANSLATION_TEXT_LENGTH + 1),
         targetLanguage: 'fr',
+        text: 'a'.repeat(MAX_TRANSLATION_TEXT_LENGTH + 1),
       }),
     ).toThrow();
   });
 
   it('accepts exactly MAX_TRANSLATION_TEXT_LENGTH characters', () => {
     const parsed = translateRequestSchema.parse({
-      text: 'a'.repeat(MAX_TRANSLATION_TEXT_LENGTH),
       targetLanguage: 'fr',
+      text: 'a'.repeat(MAX_TRANSLATION_TEXT_LENGTH),
     });
     expect(parsed.text).toHaveLength(MAX_TRANSLATION_TEXT_LENGTH);
   });
 
   it('rejects malformed target languages', () => {
     for (const targetLanguage of ['', 'F', 'fra', 'FR', 'f1', 12]) {
-      expect(() => translateRequestSchema.parse({ text: 'hi', targetLanguage })).toThrow();
+      expect(() => translateRequestSchema.parse({ targetLanguage, text: 'hi' })).toThrow();
     }
   });
 });
 
 describe('translation rows', () => {
   const row = {
+    createdAt: '2026-11-18T00:00:00.000Z',
+    deletedAt: null,
     id: '123e4567-e89b-42d3-a456-426655440000',
+    key: 'home.title',
     languageId: '223e4567-e89b-42d3-a456-426655440000',
     namespace: 'static',
-    key: 'home.title',
-    text: 'Home',
     parentId: null,
-    createdAt: '2026-11-18T00:00:00.000Z',
+    text: 'Home',
     updatedAt: '2026-11-18T00:00:00.000Z',
-    deletedAt: null,
   };
 
   it('parses a stored row', () => {
@@ -65,16 +65,16 @@ describe('translation rows', () => {
 
   it('createTranslationSchema static branch requires a key', () => {
     const parsed = createTranslationSchema.parse({
-      namespace: 'static',
-      languageId: row.languageId,
-      text: 'Bonjour',
       key: 'greeting',
+      languageId: row.languageId,
+      namespace: 'static',
+      text: 'Bonjour',
     });
     expect(parsed.key).toBe('greeting');
     expect(() =>
       createTranslationSchema.parse({
-        namespace: 'static',
         languageId: row.languageId,
+        namespace: 'static',
         text: 'Bonjour',
       }),
     ).toThrow();
@@ -82,12 +82,12 @@ describe('translation rows', () => {
 
   it('createTranslationSchema dynamic branch derives the key server-side', () => {
     const parsed = createTranslationSchema.parse({
-      namespace: 'dynamic',
       languageId: row.languageId,
+      namespace: 'dynamic',
       text: 'Bonjour',
     });
     expect(parsed.namespace).toBe('dynamic');
-    expect(Object.keys(parsed)).toEqual(['namespace', 'languageId', 'text']);
+    expect([...Object.keys(parsed)].sort()).toEqual(['languageId', 'namespace', 'text']);
   });
 
   it('createTranslationSchema requires namespace', () => {
@@ -125,7 +125,7 @@ describe('translation rows', () => {
   });
 
   it('translateResponseSchema requires the cached flag', () => {
-    expect(translateResponseSchema.parse({ text: 'Bonjour', cached: true }).cached).toBe(true);
+    expect(translateResponseSchema.parse({ cached: true, text: 'Bonjour' }).cached).toBe(true);
     expect(() => translateResponseSchema.parse({ text: 'Bonjour' })).toThrow();
   });
 });
@@ -134,15 +134,15 @@ describe('ws envelopes', () => {
   const requestId = '123e4567-e89b-42d3-a456-426655440000';
 
   it('wsTranslateMessageSchema requires a uuid requestId and a valid target', () => {
-    const parsed = wsTranslateMessageSchema.parse({ text: 'hi', targetLanguage: 'de', requestId });
+    const parsed = wsTranslateMessageSchema.parse({ requestId, targetLanguage: 'de', text: 'hi' });
     expect(parsed.requestId).toBe(requestId);
     expect(() =>
-      wsTranslateMessageSchema.parse({ text: 'hi', targetLanguage: 'de', requestId: 'nope' }),
+      wsTranslateMessageSchema.parse({ requestId: 'nope', targetLanguage: 'de', text: 'hi' }),
     ).toThrow();
   });
 
   it('wsTranslationEventSchema carries text and cached', () => {
-    const parsed = wsTranslationEventSchema.parse({ requestId, text: 'Hallo', cached: false });
+    const parsed = wsTranslationEventSchema.parse({ cached: false, requestId, text: 'Hallo' });
     expect(parsed.text).toBe('Hallo');
     expect(() => wsTranslationEventSchema.parse({ requestId, text: 'Hallo' })).toThrow();
   });
@@ -150,44 +150,44 @@ describe('ws envelopes', () => {
   it('answers a structurally invalid ack-shaped payload with a validation error', () => {
     expect(() =>
       wsTranslateAckSchema.parse({
-        statusCode: 201,
-        requestId: '123e4567-e89b-42d3-a456-426655440000',
         data: null,
+        requestId: '123e4567-e89b-42d3-a456-426655440000',
+        statusCode: 201,
       }),
     ).toThrow();
   });
 
   it('parses a 400 ack with a null requestId and keeps a valid one when present', () => {
-    const garbage = wsTranslateAckSchema.parse({ statusCode: 400, requestId: null, data: null });
+    const garbage = wsTranslateAckSchema.parse({ data: null, requestId: null, statusCode: 400 });
     expect(garbage.requestId).toBeNull();
 
     const kept = wsTranslateAckSchema.parse({
-      statusCode: 400,
-      requestId: '123e4567-e89b-42d3-a456-426655440000',
       data: null,
+      requestId: '123e4567-e89b-42d3-a456-426655440000',
+      statusCode: 400,
     });
     expect(kept.requestId).toBe('123e4567-e89b-42d3-a456-426655440000');
   });
 
   it('parses a 429 ack with retryAfterMs and a 500 ack', () => {
     const limited = wsTranslateAckSchema.parse({
-      statusCode: 429,
-      requestId: '123e4567-e89b-42d3-a456-426655440000',
       data: null,
+      requestId: '123e4567-e89b-42d3-a456-426655440000',
       retryAfterMs: 60_000,
+      statusCode: 429,
     });
     expect(limited.retryAfterMs).toBe(60_000);
 
     const failed = wsTranslateAckSchema.parse({
-      statusCode: 500,
-      requestId: '123e4567-e89b-42d3-a456-426655440000',
       data: null,
+      requestId: '123e4567-e89b-42d3-a456-426655440000',
+      statusCode: 500,
     });
     expect(failed.statusCode).toBe(500);
   });
 
   it('wsTranslationErrorEventSchema requires a message', () => {
-    expect(wsTranslationErrorEventSchema.parse({ requestId, message: 'boom' }).message).toBe(
+    expect(wsTranslationErrorEventSchema.parse({ message: 'boom', requestId }).message).toBe(
       'boom',
     );
     expect(() => wsTranslationErrorEventSchema.parse({ requestId })).toThrow();

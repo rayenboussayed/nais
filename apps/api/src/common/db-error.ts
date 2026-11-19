@@ -2,6 +2,8 @@
  * True when the error (or its cause chain) is a PostgreSQL unique-violation
  * (23505), which drizzle wraps in a DrizzleQueryError with the pg error as
  * `cause`.
+ * @param error - the unknown thrown value
+ * @returns true when the error (or its cause chain) is a PostgreSQL unique-violation
  */
 export function isUniqueViolation(error: unknown): boolean {
   let current: unknown = error;

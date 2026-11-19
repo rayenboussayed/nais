@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  isOriginAllowed,
-  parseAllowedOrigins,
   buildGatewayCors,
   buildGatewayOptions,
+  isOriginAllowed,
+  parseAllowedOrigins,
 } from './origin.js';
 
 describe('buildGatewayCors', () => {
@@ -16,8 +16,8 @@ describe('buildGatewayCors', () => {
 
   it('returns an exact-match allowlist with credentials when configured', () => {
     expect(buildGatewayCors('https://a.example.com,https://b.example.com')).toEqual({
-      origin: ['https://a.example.com', 'https://b.example.com'],
       credentials: true,
+      origin: ['https://a.example.com', 'https://b.example.com'],
     });
   });
 });
@@ -32,8 +32,8 @@ describe('buildGatewayOptions', () => {
 
   it('includes an exact-match CORS allowlist when configured', () => {
     expect(buildGatewayOptions('https://admin.example.com, https://ops.example.com').cors).toEqual({
-      origin: ['https://admin.example.com', 'https://ops.example.com'],
       credentials: true,
+      origin: ['https://admin.example.com', 'https://ops.example.com'],
     });
   });
 });

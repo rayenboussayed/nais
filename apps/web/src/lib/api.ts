@@ -4,11 +4,16 @@
  * same-origin cookies; 401s surface as a redirect to /login.
  */
 
+/** The API error envelope: message may be a single string or an array of them. */
+interface ApiErrorBody {
+  message?: string | string[];
+}
+
 export class ApiError extends Error {
-  /** HTTP status code from the server, or 0 when the request never reached it. */
-  readonly status: number;
   /** Machine-readable message from the API error body when present. */
   readonly apiMessage: string | undefined;
+  /** HTTP status code from the server, or 0 when the request never reached it. */
+  readonly status: number;
 
   constructor(status: number, message: string, apiMessage?: string) {
     super(message);
@@ -17,20 +22,12 @@ export class ApiError extends Error {
   }
 }
 
-/** The API error envelope: message may be a single string or an array of them. */
-interface ApiErrorBody {
-  message?: string | string[];
-}
-
-function messageOf(body: unknown): string | undefined {
-  if (typeof body !== 'object' || body === null) return undefined;
-  const candidate = (body as ApiErrorBody).message;
-  if (typeof candidate === 'string') return candidate;
-  if (Array.isArray(candidate)) return candidate.join('; ');
-  return undefined;
-}
-
-/** Performs a request, throwing {@link ApiError} on non-2xx responses. */
+/**
+ * Performs a request, throwing {@link ApiError} on non-2xx responses.
+ * @param path - the request path (relative to the API origin)
+ * @param init - fetch overrides (method, headers, body...)
+ * @returns the parsed response body
+ */
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
     ...init,
@@ -46,11 +43,11 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
 
   if (!response.ok) {
-    let body: unknown = null;
+    let body: unknown;
     try {
       body = await response.json();
     } catch {
-      // ignore: keep the status text
+      body = null; // body unreadable: fall back to the status text
     }
     const apiMessage = messageOf(body);
     throw new ApiError(response.status, apiMessage ?? response.statusText, apiMessage);
@@ -62,9 +59,13 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   return (await response.json()) as T;
 }
 
-/** Builds a query string from pagination/search parameters, skipping empties. */
+/**
+ * Builds a query string from pagination/search parameters, skipping empties.
+ * @param params - the query parameters (undefined and empty string values are skipped)
+ * @returns the query string including the leading `?`, or '' when empty
+ */
 export function toQueryString(
-  params: Record<string, string | number | boolean | undefined>,
+  params: Record<string, boolean | number | string | undefined>,
 ): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -73,4 +74,17 @@ export function toQueryString(
   }
   const query = search.toString();
   return query ? `?${query}` : '';
+}
+
+/**
+ * Extracts the API error message from an error response body, if any.
+ * @param body - the parsed response body
+ * @returns the message when the body carries one
+ */
+function messageOf(body: unknown): string | undefined {
+  if (typeof body !== 'object' || body === null) return undefined;
+  const candidate = (body as ApiErrorBody).message;
+  if (typeof candidate === 'string') return candidate;
+  if (Array.isArray(candidate)) return candidate.join('; ');
+  return undefined;
 }

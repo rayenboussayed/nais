@@ -1,11 +1,13 @@
-import { sql } from 'drizzle-orm';
+import type { KeysetList } from '@trainslator/shared';
 import type { Column } from 'drizzle-orm';
 
-import type { KeysetList } from '@trainslator/shared';
+import { sql } from 'drizzle-orm';
 
 /**
  * Escapes user input for use inside a LIKE/ILIKE pattern with `ESCAPE '\'`.
  * Backslashes are doubled first, then `%` and `_` are escaped.
+ * @param value - the raw user-supplied search term
+ * @returns the term escaped for a LIKE/ILIKE pattern with `ESCAPE '\'`
  */
 export function escapeLike(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
@@ -18,19 +20,45 @@ export function escapeLike(value: string): string {
  * digits Postgres stores — which is enough to let the anchor row of a keyset
  * page pass `>` again. Cursor values must always come from this expression.
  * `to_char` is immune to session `DateStyle`, unlike a `::text` cast.
+ * @param column - the timestamptz column to render
+ * @returns the microsecond-precision ISO-8601 text of the column
  */
 export const timestamptzCursor = (column: Column) =>
   sql<string>`to_char(${column}, 'YYYY-MM-DD"T"HH24:MI:SS.USOF')`;
 
 /**
+ * Shared tail of the keyset-paginated list services. Callers pass the
+ * `pageSize + 1` rows selected with `createdAtCursor: timestamptzCursor(...)`;
+ * this slices the page, computes `hasMore` and the opaque cursor pair.
+ * @param rows - the `pageSize + 1` rows selected with `timestamptzCursor`
+ * @param pageSize - the maximum number of items to return
+ * @param map - maps a row to the wire item
+ * @returns the keyset-paginated page
+ */
+export function keysetPage<Row extends { createdAtCursor: string; id: string }, Item>(
+  rows: Row[],
+  pageSize: number,
+  map: (row: Row) => Item,
+): KeysetList<Item> {
+  const page = rows.slice(0, pageSize);
+  const hasMore = rows.length > pageSize;
+  const lastRow = page[page.length - 1];
+  return {
+    items: page.map(map),
+    next:
+      hasMore && lastRow ? { lastCreatedAt: lastRow.createdAtCursor, lastId: lastRow.id } : null,
+  };
+}
+
+/**
  * Row-value keyset comparator for keyset pagination ordered by
  * `(createdAt, id)`; pairs with the client cursor `{ lastCreatedAt, lastId }`.
- *
  * @param column - the table's created_at column
  * @param id - the table's id column
  * @param orderBy - direction of the ordering
  * @param lastCreatedAt - cursor value from the previous page, or undefined for the first page
  * @param lastId - cursor value from the previous page, or undefined for the first page
+ * @returns the row-value comparator SQL fragment
  * @throws Error when only one of the two cursor values is supplied — a partial cursor would silently restart pagination
  */
 export function keysetWhere(
@@ -47,24 +75,4 @@ export function keysetWhere(
   return orderBy === 'asc'
     ? sql`(${column}, ${id}) > (${lastCreatedAt}::timestamptz, ${lastId}::uuid)`
     : sql`(${column}, ${id}) < (${lastCreatedAt}::timestamptz, ${lastId}::uuid)`;
-}
-
-/**
- * Shared tail of the keyset-paginated list services. Callers pass the
- * `pageSize + 1` rows selected with `createdAtCursor: timestamptzCursor(...)`;
- * this slices the page, computes `hasMore` and the opaque cursor pair.
- */
-export function keysetPage<Row extends { id: string; createdAtCursor: string }, Item>(
-  rows: Row[],
-  pageSize: number,
-  map: (row: Row) => Item,
-): KeysetList<Item> {
-  const page = rows.slice(0, pageSize);
-  const hasMore = rows.length > pageSize;
-  const lastRow = page[page.length - 1];
-  return {
-    items: page.map(map),
-    next:
-      hasMore && lastRow ? { lastId: lastRow.id, lastCreatedAt: lastRow.createdAtCursor } : null,
-  };
 }

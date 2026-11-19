@@ -1,5 +1,6 @@
 import type { AiMessage as AiMessageWire } from '@trainslator/shared';
 
+import { isNull } from 'drizzle-orm';
 import {
   boolean,
   foreignKey,
@@ -13,7 +14,6 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
-import { isNull } from 'drizzle-orm';
 
 /**
  * Drizzle schema for the translation service. This file is the single source
@@ -38,15 +38,15 @@ export const aiMessageStatusEnum = pgEnum('ai_message_status', [
 export const languages = pgTable(
   'languages',
   {
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    dir: languageDirEnum('dir').notNull(),
     id: uuid('id').defaultRandom().primaryKey(),
+    iso6391: varchar('iso639_1', { length: 2 }).notNull(),
+    isSource: boolean('is_source').notNull().default(false),
     name: varchar('name', { length: 255 }).notNull(),
     nativeName: varchar('native_name', { length: 255 }).notNull(),
-    iso6391: varchar('iso639_1', { length: 2 }).notNull(),
-    dir: languageDirEnum('dir').notNull(),
-    isSource: boolean('is_source').notNull().default(false),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   // All three admin lists keyset-paginate on (created_at, id); keep the plan index-only.
   (table) => [
@@ -64,18 +64,18 @@ export const languages = pgTable(
 export const translations = pgTable(
   'translations',
   {
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     id: uuid('id').defaultRandom().primaryKey(),
+    /** sha512 base64url of the NFC-normalized text for `dynamic` rows; human slug for `static`. */
+    key: varchar('key', { length: 255 }).notNull(),
     languageId: uuid('language_id')
       .notNull()
       .references(() => languages.id),
     namespace: translationNamespaceEnum('namespace').notNull().default('dynamic'),
-    /** sha512 base64url of the NFC-normalized text for `dynamic` rows; human slug for `static`. */
-    key: varchar('key', { length: 255 }).notNull(),
-    text: text('text').notNull(),
     parentId: uuid('parent_id'),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    text: text('text').notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
     // Partial: a soft-deleted row stops occupying the slot; the next write re-creates it.
@@ -100,21 +100,21 @@ export const translations = pgTable(
 export const aiMessages = pgTable(
   'ai_messages',
   {
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     id: uuid('id').defaultRandom().primaryKey(),
-    /** Which AI task produced this call; 'translate' predates the general service. */
-    task: varchar('task', { length: 64 }).notNull().default('translate'),
-    provider: varchar('provider', { length: 50 }).notNull().default('ollama'),
     model: varchar('model', { length: 50 }).notNull(),
     /** Serialized task input (text/context/question…); text payloads live in the prompts rows too. */
     payload: jsonb('payload').$type<Record<string, unknown>>(),
-    status: aiMessageStatusEnum('status').notNull().default('pending'),
+    provider: varchar('provider', { length: 50 }).notNull().default('ollama'),
     /** Final text returned by the model; null until it answers or on failure. */
     response: text('response'),
+    status: aiMessageStatusEnum('status').notNull().default('pending'),
+    /** Which AI task produced this call; 'translate' predates the general service. */
+    task: varchar('task', { length: 64 }).notNull().default('translate'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     /** Token/cost accounting as reported by the provider (jsonb). */
     usage: jsonb('usage').$type<AiMessageWire['usage']>(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [index('ai_messages_created_at_id_idx').on(table.createdAt, table.id)],
 );
@@ -126,14 +126,14 @@ export const aiMessages = pgTable(
 export const aiCache = pgTable(
   'ai_cache',
   {
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     id: uuid('id').defaultRandom().primaryKey(),
-    task: varchar('task', { length: 64 }).notNull(),
-    model: varchar('model', { length: 255 }).notNull(),
     /** sha512 base64url of the NFC-normalized canonical input JSON. */
     key: varchar('key', { length: 255 }).notNull(),
+    model: varchar('model', { length: 255 }).notNull(),
     /** Task-shaped result object (validated by the caller against the task's result schema). */
     result: jsonb('result').$type<Record<string, unknown>>().notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    task: varchar('task', { length: 64 }).notNull(),
   },
   (table) => [
     uniqueIndex('ai_cache_task_model_key_unique').on(table.task, table.model, table.key),
@@ -145,24 +145,24 @@ export const aiCache = pgTable(
 export const aiMessagePrompts = pgTable(
   'ai_message_prompts',
   {
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     id: uuid('id').defaultRandom().primaryKey(),
     messageId: uuid('message_id')
       .notNull()
       .references(() => aiMessages.id, { onDelete: 'cascade' }),
-    role: varchar('role', { length: 10 }).notNull(),
     prompt: text('prompt').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    role: varchar('role', { length: 10 }).notNull(),
   },
   (table) => [index('ai_message_prompts_message_idx').on(table.messageId)],
 );
 
 export type AiCache = typeof aiCache.$inferSelect;
-export type NewAiCache = typeof aiCache.$inferInsert;
-export type Language = typeof languages.$inferSelect;
-export type NewLanguage = typeof languages.$inferInsert;
-export type Translation = typeof translations.$inferSelect;
-export type NewTranslation = typeof translations.$inferInsert;
 export type AiMessage = typeof aiMessages.$inferSelect;
-export type NewAiMessage = typeof aiMessages.$inferInsert;
 export type AiMessagePrompt = typeof aiMessagePrompts.$inferSelect;
+export type Language = typeof languages.$inferSelect;
+export type NewAiCache = typeof aiCache.$inferInsert;
+export type NewAiMessage = typeof aiMessages.$inferInsert;
 export type NewAiMessagePrompt = typeof aiMessagePrompts.$inferInsert;
+export type NewLanguage = typeof languages.$inferInsert;
+export type NewTranslation = typeof translations.$inferInsert;
+export type Translation = typeof translations.$inferSelect;

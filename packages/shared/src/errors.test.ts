@@ -4,22 +4,22 @@ import { apiErrorSchema } from './errors';
 
 describe('apiErrorSchema', () => {
   it('accepts a single-message Nest error body', () => {
-    const parsed = apiErrorSchema.parse({ statusCode: 404, message: 'Translation not found' });
+    const parsed = apiErrorSchema.parse({ message: 'Translation not found', statusCode: 404 });
     expect(parsed.statusCode).toBe(404);
   });
 
   it('accepts a multi-issue validation body', () => {
     const parsed = apiErrorSchema.parse({
-      statusCode: 400,
-      message: ['text must contain at least 1 character', 'targetLanguage invalid'],
       error: 'Bad Request',
+      message: ['text must contain at least 1 character', 'targetLanguage invalid'],
+      statusCode: 400,
     });
     expect(parsed.message).toHaveLength(2);
   });
 
   it('rejects malformed bodies', () => {
-    expect(() => apiErrorSchema.parse({ statusCode: 99, message: 'too low' })).toThrow();
+    expect(() => apiErrorSchema.parse({ message: 'too low', statusCode: 99 })).toThrow();
     expect(() => apiErrorSchema.parse({ statusCode: 400 })).toThrow();
-    expect(() => apiErrorSchema.parse({ statusCode: '400', message: 'x' })).toThrow();
+    expect(() => apiErrorSchema.parse({ message: 'x', statusCode: '400' })).toThrow();
   });
 });

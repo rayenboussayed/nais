@@ -1,23 +1,31 @@
-import { useState, type FormEvent } from 'react';
 import { createRoute, useNavigate } from '@tanstack/react-router';
+import { type FormEvent, useState } from 'react';
 
-import { Route as rootRoute } from './__root';
-import { apiFetch, ApiError } from '../lib/api';
+import { ApiError, apiFetch } from '../lib/api';
 import { invalidateSessionProbe } from '../lib/session';
+import { Route as rootRoute } from './__root';
 
 export const Route = createRoute({
+  component: LoginPage,
   getParentRoute: () => rootRoute,
   path: '/login',
-  component: LoginPage,
 });
 
+/**
+ * Login page: posts credentials to /api/auth/login.
+ * @returns the rendered login page
+ */
 function LoginPage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<null | string>(null);
 
+  /**
+   * Submits the login form.
+   * @param event - the form submit event
+   */
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -26,8 +34,8 @@ function LoginPage() {
 
     try {
       await apiFetch<{ username: string }>('/api/auth/login', {
+        body: JSON.stringify({ password, username }),
         method: 'POST',
-        body: JSON.stringify({ username, password }),
       });
       invalidateSessionProbe();
       await navigate({ to: '/' });
@@ -59,29 +67,29 @@ function LoginPage() {
       <div>
         <label htmlFor="username">Username</label>
         <input
-          id="username"
-          name="username"
-          type="text"
           autoComplete="username"
           autoFocus
-          required
-          value={username}
+          id="username"
+          name="username"
           onChange={(event) => setUsername(event.target.value)}
+          required
+          type="text"
+          value={username}
         />
       </div>
       <div>
         <label htmlFor="password">Password</label>
         <input
+          autoComplete="current-password"
           id="password"
           name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
           onChange={(event) => setPassword(event.target.value)}
+          required
+          type="password"
+          value={password}
         />
       </div>
-      <button type="submit" className="button" disabled={busy}>
+      <button className="button" disabled={busy} type="submit">
         {busy ? 'Signing in…' : 'Sign in'}
       </button>
     </form>

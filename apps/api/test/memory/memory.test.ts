@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { changedFields } from '../../src/common/changed-fields.js';
+import { Inflight } from '../../src/common/inflight.js';
 import { translationKeyFor } from '../../src/common/key.js';
 import { escapeLike } from '../../src/common/sql.js';
-import { Inflight } from '../../src/common/inflight.js';
 
 /**
  * Memory smoke: a long-lived process must not accumulate heap across many
@@ -21,7 +21,7 @@ describe('memory: repeated translate operations', () => {
     // Warm up the allocator and the JIT.
     for (let i = 0; i < 20; i += 1) {
       translationKeyFor(`warmup ${i}`);
-      changedFields({ text: `warmup ${i}`, n: i }, { text: `warmup ${i}`, n: i });
+      changedFields({ n: i, text: `warmup ${i}` }, { n: i, text: `warmup ${i}` });
       escapeLike(`%${i}_ گرم`);
     }
     global.gc?.();
@@ -32,7 +32,7 @@ describe('memory: repeated translate operations', () => {
     for (let i = 0; i < ITERATIONS; i += 1) {
       const key = translationKeyFor(`benchmark text ${i} — lorem ipsum dolor sit amet ${i}`);
       void escapeLike(`search term ${i}%_${i}`);
-      changedFields({ key, text: 'abc', n: i }, { key, text: 'abc', n: i });
+      changedFields({ key, n: i, text: 'abc' }, { key, n: i, text: 'abc' });
       pending.push(inflight.run(`key-${i}`, async () => i));
     }
     // Let every tracked promise settle and the .finally() bookkeeping run

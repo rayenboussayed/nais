@@ -1,17 +1,17 @@
-import path from 'node:path';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
+import { FastifyAdapter } from '@nestjs/platform-fastify';
+import { Test } from '@nestjs/testing';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { FastifyAdapter } from '@nestjs/platform-fastify';
-import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { Test } from '@nestjs/testing';
+import path from 'node:path';
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
 import { seedLanguages } from '../src/database/seed.js';
-import { startTempCluster, type TempCluster } from './pg-temp.js';
 import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
 
 describe('languages REST (integration, throwaway PostgreSQL)', () => {
   let cluster: TempCluster;
@@ -52,12 +52,17 @@ describe('languages REST (integration, throwaway PostgreSQL)', () => {
     await app.close();
   });
 
+  /**
+   * Calls POST /api/languages and returns the raw injected response.
+   * @param body - the create body
+   * @returns the raw response
+   */
   async function createLanguage(body: Record<string, unknown>) {
     return app.inject({
       headers: basicAuthHeaders(),
       method: 'POST',
-      url: '/api/languages',
       payload: body,
+      url: '/api/languages',
     });
   }
 
@@ -119,10 +124,10 @@ describe('languages REST (integration, throwaway PostgreSQL)', () => {
 
   it('creates, reads, updates and soft-deletes a language', async () => {
     const created = await createLanguage({
+      dir: 'ltr',
+      iso6391: 'tz',
       name: 'Testese',
       nativeName: 'Teste',
-      iso6391: 'tz',
-      dir: 'ltr',
     });
     expect(created.statusCode).toBe(201);
     const createdBody = created.json() as { id: string; iso6391: string };
@@ -136,18 +141,18 @@ describe('languages REST (integration, throwaway PostgreSQL)', () => {
     expect(fetched.statusCode).toBe(200);
 
     const duplicated = await createLanguage({
+      dir: 'rtl',
+      iso6391: 'tz',
       name: 'Testese again',
       nativeName: 'Teste',
-      iso6391: 'tz',
-      dir: 'rtl',
     });
     expect(duplicated.statusCode).toBe(409);
 
     const updated = await app.inject({
       headers: basicAuthHeaders(),
       method: 'PATCH',
-      url: `/api/languages/${createdBody.id}`,
       payload: { dir: 'rtl' },
+      url: `/api/languages/${createdBody.id}`,
     });
     expect(updated.statusCode).toBe(200);
     expect((updated.json() as { dir: string }).dir).toBe('rtl');
@@ -155,8 +160,8 @@ describe('languages REST (integration, throwaway PostgreSQL)', () => {
     const nothingChanged = await app.inject({
       headers: basicAuthHeaders(),
       method: 'PATCH',
-      url: `/api/languages/${createdBody.id}`,
       payload: { dir: 'rtl' },
+      url: `/api/languages/${createdBody.id}`,
     });
     expect(nothingChanged.statusCode).toBe(400);
 
@@ -184,45 +189,45 @@ describe('languages REST (integration, throwaway PostgreSQL)', () => {
 
   it('rejects an empty PATCH body at the schema boundary', async () => {
     const created = await createLanguage({
+      dir: 'ltr',
+      iso6391: 'bx',
       name: 'Boundaryese',
       nativeName: 'B',
-      iso6391: 'bx',
-      dir: 'ltr',
     });
     const id = (created.json() as { id: string }).id;
     const response = await app.inject({
       headers: basicAuthHeaders(),
       method: 'PATCH',
-      url: `/api/languages/${id}`,
       payload: {},
+      url: `/api/languages/${id}`,
     });
     expect(response.statusCode).toBe(400);
   });
 
   it('returns 409 when a PATCH moves iso6391 onto a taken code', async () => {
-    await createLanguage({ name: 'conflict-a', nativeName: 'a', iso6391: 'ac', dir: 'ltr' });
+    await createLanguage({ dir: 'ltr', iso6391: 'ac', name: 'conflict-a', nativeName: 'a' });
     const b = await createLanguage({
+      dir: 'ltr',
+      iso6391: 'bc',
       name: 'conflict-b',
       nativeName: 'b',
-      iso6391: 'bc',
-      dir: 'ltr',
     });
     const bId = (b.json() as { id: string }).id;
     const response = await app.inject({
       headers: basicAuthHeaders(),
       method: 'PATCH',
-      url: `/api/languages/${bId}`,
       payload: { iso6391: 'ac' },
+      url: `/api/languages/${bId}`,
     });
     expect(response.statusCode).toBe(409);
   });
 
   it('hides soft-deleted rows by default and shows them with onlyDeleted', async () => {
     const created = await createLanguage({
+      dir: 'ltr',
+      iso6391: 'gb',
       name: 'gonebutSeen',
       nativeName: 'gone',
-      iso6391: 'gb',
-      dir: 'ltr',
     });
     const id = (created.json() as { id: string }).id;
     await app.inject({
@@ -251,10 +256,10 @@ describe('languages REST (integration, throwaway PostgreSQL)', () => {
   it('walks keyset pages without duplicates', async () => {
     for (const name of ['zzwalk-a', 'zzwalk-b', 'zzwalk-c', 'zzwalk-d', 'zzwalk-e']) {
       await createLanguage({
+        dir: 'ltr',
+        iso6391: name.slice(-1) + 'q',
         name,
         nativeName: `${name}-native`,
-        iso6391: name.slice(-1) + 'q',
-        dir: 'ltr',
       });
     }
 
@@ -266,7 +271,7 @@ describe('languages REST (integration, throwaway PostgreSQL)', () => {
       expect(response.statusCode).toBe(200);
       const body = response.json() as {
         items: Array<{ name: string }>;
-        next: { lastId: string; lastCreatedAt: string } | null;
+        next: null | { lastCreatedAt: string; lastId: string };
       };
       collected.push(...body.items.map((item) => item.name));
       if (!body.next) break;

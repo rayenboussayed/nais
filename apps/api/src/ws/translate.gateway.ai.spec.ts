@@ -1,18 +1,26 @@
-import { describe, expect, it, vi } from 'vitest';
-
+import type { WsAiAck } from '@trainslator/shared';
 import type { Socket } from 'socket.io';
 
-import type { WsAiAck } from '@trainslator/shared';
+import { describe, expect, it, vi } from 'vitest';
 
 import { TranslateGateway } from './translate.gateway.js';
 
 /** Unit tests for the `ai` message handler and its ack contract. */
 
+/**
+ * Builds the gateway with stubbed dependencies for unit tests.
+ * @param overrides - per-test dependency behaviour
+ * @param overrides.cached - the catalogue row the cache peek should see
+ * @param overrides.cached.text - the catalogue text a cache hit returns
+ * @param overrides.language - the language the fixture resolves, or null to model a missing one
+ * @param overrides.peek - the ai_cache entry the AI peek should see, or null for a miss
+ * @returns the gateway and its dependency stubs
+ */
 function makeGateway(
   overrides: {
     cached?: { text: string };
-    language?: { id: string } | null;
-    peek?: Record<string, unknown> | null;
+    language?: null | { id: string };
+    peek?: null | Record<string, unknown>;
   } = {},
 ) {
   const translations = {
@@ -35,15 +43,19 @@ function makeGateway(
     config as never,
     ai as never,
   );
-  return { gateway, translations, languages, pgBoss, ai };
+  return { ai, gateway, languages, pgBoss, translations };
 }
 
 const socket = {
   data: { username: 'admin' },
+  handshake: { address: '203.0.113.9', headers: {} },
   id: 'socket-1',
-  handshake: { headers: {}, address: '203.0.113.9' },
 } as unknown as Socket;
 
+/**
+ * Collects every ack call for assertions.
+ * @returns the collector and the collected ack calls
+ */
 function ackCollector() {
   const calls: WsAiAck[] = [];
   const ack = (response: WsAiAck) => {
@@ -57,15 +69,15 @@ describe('TranslateGateway ai handler', () => {
     const { gateway } = makeGateway();
     const { ack, calls } = ackCollector();
     await gateway.onAiMessage(null, socket, ack);
-    expect(calls).toEqual([{ statusCode: 400, requestId: null, cached: null, result: null }]);
+    expect(calls).toEqual([{ cached: null, requestId: null, result: null, statusCode: 400 }]);
   });
 
   it('rejects invalid per-task input with 400 and keeps the requestId', async () => {
     const { gateway } = makeGateway();
     const { ack, calls } = ackCollector();
     const requestId = '123e4567-e89b-42d3-a456-426655440000';
-    await gateway.onAiMessage({ task: 'sentiment', input: { nope: true }, requestId }, socket, ack);
-    expect(calls).toEqual([{ statusCode: 400, requestId, cached: null, result: null }]);
+    await gateway.onAiMessage({ input: { nope: true }, requestId, task: 'sentiment' }, socket, ack);
+    expect(calls).toEqual([{ cached: null, requestId, result: null, statusCode: 400 }]);
   });
 
   it('answers 404 for an unsupported target language on the translate task', async () => {
@@ -73,19 +85,19 @@ describe('TranslateGateway ai handler', () => {
     const { ack, calls } = ackCollector();
     await gateway.onAiMessage(
       {
-        task: 'translate',
-        input: { text: 'hello', targetLanguage: 'zz' },
+        input: { targetLanguage: 'zz', text: 'hello' },
         requestId: '123e4567-e89b-42d3-a456-426655440000',
+        task: 'translate',
       },
       socket,
       ack,
     );
     expect(calls).toEqual([
       {
-        statusCode: 404,
-        requestId: '123e4567-e89b-42d3-a456-426655440000',
         cached: null,
+        requestId: '123e4567-e89b-42d3-a456-426655440000',
         result: null,
+        statusCode: 404,
       },
     ]);
   });
@@ -95,32 +107,32 @@ describe('TranslateGateway ai handler', () => {
     const { ack, calls } = ackCollector();
     await gateway.onAiMessage(
       {
-        task: 'translate',
-        input: { text: 'hello', targetLanguage: 'fr' },
+        input: { targetLanguage: 'fr', text: 'hello' },
         requestId: '123e4567-e89b-42d3-a456-426655440000',
+        task: 'translate',
       },
       socket,
       ack,
     );
     expect(calls).toEqual([
       {
-        statusCode: 200,
-        requestId: '123e4567-e89b-42d3-a456-426655440000',
         cached: true,
-        result: { text: 'bonjour', cached: true },
+        requestId: '123e4567-e89b-42d3-a456-426655440000',
+        result: { cached: true, text: 'bonjour' },
+        statusCode: 200,
       },
     ]);
   });
 
   it('answers 200 with the cached task result inline on a dedicated-task cache hit', async () => {
-    const peek = { label: 'POSITIVE', score: 0.9, cached: true };
-    const { gateway, ai } = makeGateway({ peek });
+    const peek = { cached: true, label: 'POSITIVE', score: 0.9 };
+    const { ai, gateway } = makeGateway({ peek });
     const { ack, calls } = ackCollector();
     await gateway.onAiMessage(
       {
-        task: 'sentiment',
         input: { text: 'I love this' },
         requestId: '123e4567-e89b-42d3-a456-426655440000',
+        task: 'sentiment',
       },
       socket,
       ack,
@@ -128,10 +140,10 @@ describe('TranslateGateway ai handler', () => {
     expect(ai.peekCache).toHaveBeenCalledWith('sentiment', { text: 'I love this' });
     expect(calls).toEqual([
       {
-        statusCode: 200,
-        requestId: '123e4567-e89b-42d3-a456-426655440000',
         cached: true,
+        requestId: '123e4567-e89b-42d3-a456-426655440000',
         result: peek,
+        statusCode: 200,
       },
     ]);
   });
@@ -141,9 +153,9 @@ describe('TranslateGateway ai handler', () => {
     const { ack, calls } = ackCollector();
     await gateway.onAiMessage(
       {
-        task: 'sentiment',
         input: { text: 'miss me' },
         requestId: '123e4567-e89b-42d3-a456-426655440000',
+        task: 'sentiment',
       },
       socket,
       ack,
@@ -151,17 +163,17 @@ describe('TranslateGateway ai handler', () => {
     expect(pgBoss.scheduleJob).toHaveBeenCalledWith(
       'ai-task',
       expect.objectContaining({
-        task: 'sentiment',
         requestId: '123e4567-e89b-42d3-a456-426655440000',
+        task: 'sentiment',
       }),
       { retryLimit: 0 },
     );
     expect(calls).toEqual([
       {
-        statusCode: 202,
-        requestId: '123e4567-e89b-42d3-a456-426655440000',
         cached: null,
+        requestId: '123e4567-e89b-42d3-a456-426655440000',
         result: null,
+        statusCode: 202,
       },
     ]);
   });
@@ -172,19 +184,19 @@ describe('TranslateGateway ai handler', () => {
     const { ack, calls } = ackCollector();
     await gateway.onAiMessage(
       {
-        task: 'translate',
-        input: { text: 'hello', targetLanguage: 'fr' },
+        input: { targetLanguage: 'fr', text: 'hello' },
         requestId: '123e4567-e89b-42d3-a456-426655440000',
+        task: 'translate',
       },
       socket,
       ack,
     );
     expect(calls).toEqual([
       {
-        statusCode: 500,
-        requestId: '123e4567-e89b-42d3-a456-426655440000',
         cached: null,
+        requestId: '123e4567-e89b-42d3-a456-426655440000',
         result: null,
+        statusCode: 500,
       },
     ]);
   });

@@ -10,8 +10,12 @@ import { apiFetch } from './api';
 const SESSION_TTL_OK = 60_000;
 const SESSION_TTL_FAIL = 10_000;
 
-let probe: { expires: number; ok: boolean } | null = null;
+let probe: null | { expires: number; ok: boolean } = null;
 
+/**
+ * Session probe with a short cache.
+ * @returns true when the visitor appears signed in
+ */
 export async function hasSession(): Promise<boolean> {
   if (probe && probe.expires > Date.now()) return probe.ok;
 

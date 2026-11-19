@@ -1,5 +1,5 @@
-import { z } from 'zod';
 import { parse as parsePgConnectionString } from 'pg-connection-string';
+import { z } from 'zod';
 
 /**
  * Validates DATABASE_URL against the two shapes accepted by the pg driver: a
@@ -12,7 +12,7 @@ const pgConnectionStringSchema = z
   .trim()
   .min(1)
   .refine((value) => {
-    if (/^postgres(ql)?:\/\//i.test(value)) {
+    if (/^postgres(?:ql)?:\/\//i.test(value)) {
       try {
         const parsed = parsePgConnectionString(value);
         return Boolean(parsed.host) && Boolean(parsed.database);
@@ -31,58 +31,59 @@ const pgConnectionStringSchema = z
  */
 const envSchema = z
   .object({
-    /** `development` enables nothing unsafe by itself; logging stays minimal in all modes. */
-    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-    PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
-    /** Required everywhere; no silent default — a wrong-host connection is worse than a boot error. */
-    DATABASE_URL: pgConnectionStringSchema,
-    /** pg-boss gets its own connection string; defaults to DATABASE_URL when unset. */
-    PG_BOSS_URL: pgConnectionStringSchema.optional(),
-    /** Milliseconds a model call may take before it is abandoned; retried once. */
-    OLLAMA_TIMEOUT_MS: z.coerce.number().int().min(100).default(60_000),
-    OLLAMA_BASE_URL: z.url().default('http://localhost:11434'),
-    OLLAMA_TEXT_MODEL: z.string().trim().min(1).default('bonsai-2:2b'),
-    BASIC_AUTH_USERNAME: z.string().trim().min(1).default('admin'),
+    AI_FEATURE_EXTRACTION_MODEL: z.string().trim().min(1).optional(),
+    /** Max concurrent dedicated-model calls on the REST path (the worker is already serial). */
+    AI_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),
+    AI_QUESTION_ANSWERING_MODEL: z.string().trim().min(1).optional(),
+    /** Per-task dedicated-model overrides; unset keeps the registry defaults (see src/ai/tasks.ts). */
+    AI_SENTIMENT_MODEL: z.string().trim().min(1).optional(),
+    AI_SUMMARIZE_MODEL: z.string().trim().min(1).optional(),
+    AI_TOKEN_CLASSIFICATION_MODEL: z.string().trim().min(1).optional(),
+    AI_ZERO_SHOT_CLASSIFICATION_MODEL: z.string().trim().min(1).optional(),
     /** scrypt hash, format `scrypt$N$r$p$saltHex$hashHex`; required in production. */
     BASIC_AUTH_PASSWORD_HASH: z.string().trim().min(1).optional(),
+    BASIC_AUTH_USERNAME: z.string().trim().min(1).default('admin'),
+    /** Extra allowed browser origins for WS/HTTP, comma separated; same-origin when empty. */
+    CORS_ORIGINS: z.string().trim().optional(),
+    /** Required everywhere; no silent default — a wrong-host connection is worse than a boot error. */
+    DATABASE_URL: pgConnectionStringSchema,
+    /** Directory used by transformers.js for its model cache; defaults to the library default. */
+    HF_CACHE_DIR: z.string().trim().min(1).optional(),
+    /** `development` enables nothing unsafe by itself; logging stays minimal in all modes. */
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    // eslint-disable-next-line deslint/no-hardcoded-localhost -- documented local-development default; overridden by OLLAMA_BASE_URL
+    OLLAMA_BASE_URL: z.url().default('http://localhost:11434'),
+    OLLAMA_TEXT_MODEL: z.string().trim().min(1).default('bonsai-2:2b'),
+    /** Milliseconds a model call may take before it is abandoned; retried once. */
+    OLLAMA_TIMEOUT_MS: z.coerce.number().int().min(100).default(60_000),
+    /** pg-boss gets its own connection string; defaults to DATABASE_URL when unset. */
+    PG_BOSS_URL: pgConnectionStringSchema.optional(),
+    PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
     /** 64 lowercase hex chars; required everywhere — sessions are unusable without it. */
     SESSION_SECRET: z
       .string()
       .trim()
       .regex(/^[0-9a-f]{64}$/, 'Expected 64 lowercase hex chars (openssl rand -hex 32)'),
-    /** Client IP behind a proxy: 'loopback' for same-host reverse proxy, true to trust all, false to ignore forwarded-for. */
-    TRUST_PROXY: z.enum(['true', 'false', 'loopback']).default('loopback'),
-    /** Extra allowed browser origins for WS/HTTP, comma separated; same-origin when empty. */
-    CORS_ORIGINS: z.string().trim().optional(),
     /** Default rate limit per minute per client IP, applied globally. */
     THROTTLE_LIMIT: z.coerce.number().int().min(1).default(100),
-    /** Directory used by transformers.js for its model cache; defaults to the library default. */
-    HF_CACHE_DIR: z.string().trim().min(1).optional(),
-    /** Max concurrent dedicated-model calls on the REST path (the worker is already serial). */
-    AI_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),
-    /** Per-task dedicated-model overrides; unset keeps the registry defaults (see src/ai/tasks.ts). */
-    AI_SENTIMENT_MODEL: z.string().trim().min(1).optional(),
-    AI_SUMMARIZE_MODEL: z.string().trim().min(1).optional(),
-    AI_QUESTION_ANSWERING_MODEL: z.string().trim().min(1).optional(),
-    AI_TOKEN_CLASSIFICATION_MODEL: z.string().trim().min(1).optional(),
-    AI_ZERO_SHOT_CLASSIFICATION_MODEL: z.string().trim().min(1).optional(),
-    AI_FEATURE_EXTRACTION_MODEL: z.string().trim().min(1).optional(),
+    /** Client IP behind a proxy: 'loopback' for same-host reverse proxy, true to trust all, false to ignore forwarded-for. */
+    TRUST_PROXY: z.enum(['true', 'false', 'loopback']).default('loopback'),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
     if (!env.BASIC_AUTH_PASSWORD_HASH) {
       ctx.addIssue({
         code: 'custom',
-        path: ['BASIC_AUTH_PASSWORD_HASH'],
         message: 'Required in production (generate with `npm run auth:hash`)',
+        path: ['BASIC_AUTH_PASSWORD_HASH'],
       });
     } else if (
       !/^scrypt\$\d+\$\d+\$\d+\$[0-9a-f]+\$[0-9a-f]+$/.test(env.BASIC_AUTH_PASSWORD_HASH)
     ) {
       ctx.addIssue({
         code: 'custom',
-        path: ['BASIC_AUTH_PASSWORD_HASH'],
         message: 'Expected a scrypt$N$r$p$saltHex$hashHex hash',
+        path: ['BASIC_AUTH_PASSWORD_HASH'],
       });
     }
   })
@@ -93,7 +94,6 @@ export type Env = z.infer<typeof envSchema>;
 
 /**
  * Validates and normalizes raw process env.
- *
  * @param raw - typically `process.env`
  * @returns the parsed environment
  * @throws Error with a semicolon-separated list of issues when invalid; callers fail the boot on it

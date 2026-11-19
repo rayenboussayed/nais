@@ -12,25 +12,13 @@ const KEY_LENGTH = 64;
 export const DUMMY_SCRYPT_HASH =
   'scrypt$16384$8$1$5a9927be89f6a9d7173d12fc20754f3e$572f5b62505f05add98f2e3445ff9b77fa8f9c5d535a99ce69aa4810a79f156190c16a739d36f2dcce1f7c7fe79cd613f7f147abf0fa7a894757fac286459d69';
 
-function scryptBuffer(
-  password: string,
-  salt: Buffer,
-  n: number,
-  r: number,
-  p: number,
-): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    scrypt(password, salt, KEY_LENGTH, { N: n, r, p }, (error, derivedKey) => {
-      if (error) reject(error);
-      else resolve(derivedKey);
-    });
-  });
-}
-
 /**
  * Verifies a password against a `scrypt$N$r$p$saltHex$hashHex` hash.
  * Runs the KDF off the event loop; a bad hash behaves exactly like a wrong
  * password. Never throws.
+ * @param storedHash - the `scrypt$N$r$p$saltHex$hashHex` hash to check against
+ * @param password - the plaintext candidate to verify
+ * @returns true when the candidate matches the stored hash
  */
 export async function verifyScryptPassword(storedHash: string, password: string): Promise<boolean> {
   const parts = storedHash.split('$');
@@ -58,4 +46,28 @@ export async function verifyScryptPassword(storedHash: string, password: string)
     // Non-power-of-2 N or absurd parameters make scrypt throw; treat as a bad hash.
     return false;
   }
+}
+
+/**
+ * Runs scrypt off the event loop.
+ * @param password - the plaintext candidate
+ * @param salt - the scrypt salt
+ * @param n - the CPU/memory cost parameter (N)
+ * @param r - the block size
+ * @param p - the parallelization parameter
+ * @returns the derived key
+ */
+function scryptBuffer(
+  password: string,
+  salt: Buffer,
+  n: number,
+  r: number,
+  p: number,
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scrypt(password, salt, KEY_LENGTH, { N: n, p, r }, (error, derivedKey) => {
+      if (error) reject(error);
+      else resolve(derivedKey);
+    });
+  });
 }

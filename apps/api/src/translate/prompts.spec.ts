@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  TRANSLATE_HUMAN_PROMPT,
   buildHumanPrompt,
   buildSystemPrompt,
   stripEnclosingQuotes,
+  TRANSLATE_HUMAN_PROMPT,
 } from './prompts.js';
 
 describe('buildSystemPrompt', () => {

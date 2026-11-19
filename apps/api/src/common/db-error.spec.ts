@@ -31,13 +31,13 @@ describe('isUniqueViolation', () => {
   });
 
   it('terminates on a self-referential cause chain', () => {
-    const loop: { code?: string; cause?: unknown } = {};
+    const loop: { cause?: unknown; code?: string } = {};
     loop.cause = loop;
     expect(isUniqueViolation(loop)).toBe(false);
   });
 
   it('returns false for a deeply nested non-matching chain', () => {
-    let node: { code?: string; cause?: unknown } = { code: '22001' };
+    let node: { cause?: unknown; code?: string } = { code: '22001' };
     for (let i = 0; i < 12; i += 1) {
       node = { cause: node };
     }

@@ -1,8 +1,8 @@
+import type { TranslateRequest, TranslateResponse } from '@trainslator/shared';
+
 import { Body, Controller, Post } from '@nestjs/common';
 import { Resilience } from '@nestjs/resilience';
 import { Throttle } from '@nestjs/throttler';
-
-import type { TranslateRequest, TranslateResponse } from '@trainslator/shared';
 import { translateRequestSchema } from '@trainslator/shared';
 
 import { TranslateService } from './translate.service.js';
@@ -19,6 +19,8 @@ export class TranslateController {
    * otherwise calls the configured model, persists the result and returns it.
    * The `ollama` resilience preset caps concurrent model calls and fails
    * fast with 503 when Ollama is down.
+   * @param input - the validated translate request body
+   * @returns the translation response
    */
   @Post()
   @Resilience('ollama')

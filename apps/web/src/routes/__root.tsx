@@ -12,6 +12,10 @@ export const Route = createRootRoute({
   component: RootComponent,
 });
 
+/**
+ * Root layout: the route shell around the outlet.
+ * @returns the rendered layout
+ */
 function RootComponent() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const isLogin = pathname === '/login';
@@ -21,14 +25,14 @@ function RootComponent() {
       {!isLogin && (
         <header className="topbar">
           <span className="brand">trainslator</span>
-          <nav className="topnav" aria-label="Main">
-            <Link to="/" activeProps={{ className: 'active' }}>
+          <nav aria-label="Main" className="topnav">
+            <Link activeProps={{ className: 'active' }} to="/">
               Playground
             </Link>
-            <Link to="/studio" activeProps={{ className: 'active' }}>
+            <Link activeProps={{ className: 'active' }} to="/studio">
               Studio
             </Link>
-            <Link to="/admin" activeProps={{ className: 'active' }}>
+            <Link activeProps={{ className: 'active' }} to="/admin">
               Admin
             </Link>
           </nav>

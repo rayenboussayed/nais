@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { apiFetch, ApiError, toQueryString } from './api';
+import { ApiError, apiFetch, toQueryString } from './api';
 
 describe('toQueryString', () => {
   it('builds a query string and skips empty values', () => {
-    expect(toQueryString({ q: 'hello', pageSize: 20, cursor: undefined, raw: '' })).toBe(
-      '?q=hello&pageSize=20',
+    expect(toQueryString({ cursor: undefined, pageSize: 20, q: 'hello', raw: '' })).toBe(
+      '?pageSize=20&q=hello',
     );
   });
 
@@ -29,8 +29,8 @@ describe('apiFetch', () => {
       vi.fn(
         async () =>
           new Response(JSON.stringify({ items: [1, 2] }), {
-            status: 200,
             headers: { 'content-type': 'application/json' },
+            status: 200,
           }),
       ),
     );
@@ -44,9 +44,9 @@ describe('apiFetch', () => {
       vi.fn(
         async () =>
           new Response('42', {
+            headers: { 'content-type': 'application/json' },
             status: 503,
             statusText: 'Service Unavailable',
-            headers: { 'content-type': 'application/json' },
           }),
       ),
     );
@@ -61,9 +61,9 @@ describe('apiFetch', () => {
       vi.fn(
         async () =>
           new Response('totally not json', {
+            headers: { 'content-type': 'text/plain' },
             status: 503,
             statusText: 'Service Unavailable',
-            headers: { 'content-type': 'text/plain' },
           }),
       ),
     );
@@ -78,13 +78,13 @@ describe('apiFetch', () => {
       'fetch',
       vi.fn(
         async () =>
-          new Response(JSON.stringify({ statusCode: 400, message: ['a', 'b'] }), {
-            status: 400,
+          new Response(JSON.stringify({ message: ['a', 'b'], statusCode: 400 }), {
             headers: { 'content-type': 'application/json' },
+            status: 400,
           }),
       ),
     );
-    const error = await apiFetch('/api/x', { method: 'POST', body: '{}' }).catch(
+    const error = await apiFetch('/api/x', { body: '{}', method: 'POST' }).catch(
       (cause: unknown) => cause,
     );
     expect((error as ApiError).apiMessage).toBe('a; b');
@@ -97,17 +97,17 @@ describe('apiFetch', () => {
         async () =>
           new Response(
             JSON.stringify({
-              statusCode: 409,
               message: 'Language with this ISO 639-1 code already exists',
+              statusCode: 409,
             }),
             {
-              status: 409,
               headers: { 'content-type': 'application/json' },
+              status: 409,
             },
           ),
       ),
     );
-    const error = await apiFetch('/api/languages', { method: 'POST', body: '{}' }).catch(
+    const error = await apiFetch('/api/languages', { body: '{}', method: 'POST' }).catch(
       (cause: unknown) => cause,
     );
     expect(error).toBeInstanceOf(ApiError);

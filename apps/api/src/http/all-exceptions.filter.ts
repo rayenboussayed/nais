@@ -1,8 +1,8 @@
-import { HttpException, HttpStatus, Logger } from '@nestjs/common';
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
+import type { ApiError } from '@trainslator/shared';
 import type { FastifyReply } from 'fastify';
 
-import type { ApiError } from '@trainslator/shared';
+import { HttpException, HttpStatus, Logger } from '@nestjs/common';
 
 /**
  * Maps every thrown value to the shared `ApiError` wire shape. Nest HTTP
@@ -14,10 +14,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
   /**
+   * Renders the constant error body. Only meaningful on HTTP hosts (the WS transport gets its own handling).
    * @param exception - any value thrown by a handler; may be non-Error
    * @param host - arguments host; must be an HTTP context (Fastify adapter)
    */
-  /** Only meaningful on HTTP hosts (the WS transport gets its own handling). */
   catch(exception: unknown, host: ArgumentsHost): void {
     if (host.getType() !== 'http') {
       this.logger.error(
@@ -36,25 +36,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     void reply.send(body);
   }
 
-  private toBody(exception: unknown): ApiError {
-    if (exception instanceof HttpException) {
-      const statusCode = exception.getStatus();
-      return {
-        statusCode,
-        message: this.extractMessage(exception.getResponse(), exception.message),
-      };
-    }
-
-    // Never log the exception body or stack here: error messages can carry
-    // connection strings. The 500 response is a constant by design.
-    this.logger.error(exception instanceof Error ? exception.name : typeof exception);
-    return {
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: 'Internal server error',
-    };
-  }
-
-  private extractMessage(response: string | object, fallback: string): string | string[] {
+  private extractMessage(response: object | string, fallback: string): string | string[] {
     if (typeof response === 'string') return response;
     const message = (response as Record<string, unknown>).message;
     if (typeof message === 'string') return message;
@@ -65,5 +47,23 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return message;
     }
     return fallback;
+  }
+
+  private toBody(exception: unknown): ApiError {
+    if (exception instanceof HttpException) {
+      const statusCode = exception.getStatus();
+      return {
+        message: this.extractMessage(exception.getResponse(), exception.message),
+        statusCode,
+      };
+    }
+
+    // Never log the exception body or stack here: error messages can carry
+    // connection strings. The 500 response is a constant by design.
+    this.logger.error(exception instanceof Error ? exception.name : typeof exception);
+    return {
+      message: 'Internal server error',
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+    };
   }
 }

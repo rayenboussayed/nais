@@ -8,22 +8,28 @@ vi.mock('@huggingface/transformers', () => ({
   pipeline: transformersMock.pipeline,
 }));
 
-import { resolveModelId, PipelineLoader } from './pipeline-loader.js';
-import { modelEnvKey, defaultModelFor, listTaskDescriptors, AI_TASK_REGISTRY } from './tasks.js';
+import { PipelineLoader, resolveModelId } from './pipeline-loader.js';
+import { AI_TASK_REGISTRY, defaultModelFor, listTaskDescriptors, modelEnvKey } from './tasks.js';
 
 const taskList = Object.keys(AI_TASK_REGISTRY) as Array<keyof typeof AI_TASK_REGISTRY>;
 
+/**
+ * Stubs ConfigService with the keys the unit under test reads.
+ * @param overrides - env keys to override in the stubbed parsed config
+ * @returns the ConfigService double
+ */
 function configStub(overrides: Record<string, string | undefined> = {}) {
   const base: Record<string, string | undefined> = {
+    AI_FEATURE_EXTRACTION_MODEL: undefined,
+    AI_QUESTION_ANSWERING_MODEL: undefined,
     AI_SENTIMENT_MODEL: undefined,
     AI_SUMMARIZE_MODEL: undefined,
-    AI_QUESTION_ANSWERING_MODEL: undefined,
     AI_TOKEN_CLASSIFICATION_MODEL: undefined,
     AI_ZERO_SHOT_CLASSIFICATION_MODEL: undefined,
-    AI_FEATURE_EXTRACTION_MODEL: undefined,
     ...overrides,
   };
   return {
+    // eslint-disable-next-line security/detect-object-injection -- test stub: config keys are compile-time constants of the stub
     get: (key: string) => base[key],
   } as never;
 }
@@ -31,6 +37,7 @@ function configStub(overrides: Record<string, string | undefined> = {}) {
 describe('tasks registry', () => {
   it('maps every task to a default model and env key', () => {
     for (const task of taskList) {
+      // eslint-disable-next-line security/detect-object-injection -- task iterates AI_TASKS (AiTask[])
       expect(defaultModelFor(task)).toBe(AI_TASK_REGISTRY[task].defaultModel);
       expect(modelEnvKey(task)).toBe(`AI_${task.replace(/-/g, '_').toUpperCase()}_MODEL`);
     }

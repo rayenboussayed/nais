@@ -1,23 +1,27 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { createRoute } from '@tanstack/react-router';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
-import { Route as rootRoute } from './__root';
-import { apiFetch, ApiError } from '../lib/api';
+import { ApiError, apiFetch } from '../lib/api';
 import { useLanguages } from '../lib/languages';
 import { useAiTasks } from '../lib/tasks';
+import { Route as rootRoute } from './__root';
 
 export const Route = createRoute({
+  component: Studio,
   getParentRoute: () => rootRoute,
   path: '/studio',
-  component: Studio,
 });
 
 type RunState =
-  | { kind: 'idle' }
+  | { cached: boolean; kind: 'done'; result: Record<string, unknown> }
   | { kind: 'busy' }
   | { kind: 'error'; message: string }
-  | { kind: 'done'; cached: boolean; result: Record<string, unknown> };
+  | { kind: 'idle' };
 
+/**
+ * Studio page: per-task AI console against the general-purpose AI endpoints.
+ * @returns the rendered studio
+ */
 export function Studio() {
   const { data: tasks = [] } = useAiTasks();
   const { data: languages = [] } = useLanguages();
@@ -36,19 +40,23 @@ export function Studio() {
 
   const selected = useMemo(() => tasks.find((entry) => entry.task === task), [tasks, task]);
 
+  /**
+   * Builds the task-shaped request payload from the form state.
+   * @returns the payload to POST to /api/ai/<task>
+   */
   function buildPayload(): Record<string, unknown> {
     switch (task) {
-      case 'translate':
-        return { text: text.trim(), targetLanguage };
       case 'question-answering':
-        return { question: question.trim(), context: text.trim() };
+        return { context: text.trim(), question: question.trim() };
+      case 'translate':
+        return { targetLanguage, text: text.trim() };
       case 'zero-shot-classification':
         return {
-          text: text.trim(),
           candidateLabels: candidateLabels
             .split(',')
             .map((label) => label.trim())
             .filter(Boolean),
+          text: text.trim(),
         };
       default:
         return { text: text.trim() };
@@ -69,6 +77,10 @@ export function Studio() {
     return true;
   }, [text, task, question, candidateLabels]);
 
+  /**
+   * Submits the task form and renders the result.
+   * @param event - the form submit event
+   */
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSubmit || run.kind === 'busy') return;
@@ -76,11 +88,11 @@ export function Studio() {
 
     try {
       const result = await apiFetch<Record<string, unknown>>(`/api/ai/${task}`, {
-        method: 'POST',
         body: JSON.stringify(buildPayload()),
+        method: 'POST',
       });
       const cached = typeof result.cached === 'boolean' ? result.cached : false;
-      setRun({ kind: 'done', cached, result });
+      setRun({ cached, kind: 'done', result });
     } catch (cause) {
       if (cause instanceof ApiError) {
         setRun({ kind: 'error', message: cause.apiMessage ?? cause.message });
@@ -90,8 +102,12 @@ export function Studio() {
     }
   }
 
+  /**
+   * Copies the result to the clipboard.
+   */
   async function copyResult() {
     if (run.kind !== 'done') return;
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins -- browser global, not Node's experimental navigator
     await navigator.clipboard.writeText(JSON.stringify(run.result, null, 2));
   }
 
@@ -110,12 +126,12 @@ export function Studio() {
           </label>
           <select
             id="studio-task"
-            value={task}
             onChange={(event) => {
               setTask(event.target.value);
               setRun({ kind: 'idle' });
             }}
             style={{ width: 'auto' }}
+            value={task}
           >
             {tasks.map((entry) => (
               <option key={entry.task} value={entry.task}>
@@ -140,9 +156,9 @@ export function Studio() {
             </label>
             <select
               id="studio-target"
-              value={targetLanguage}
               onChange={(event) => setTargetLanguage(event.target.value)}
               style={{ width: 'auto' }}
+              value={targetLanguage}
             >
               {languages.map((language) => (
                 <option key={language.id} value={language.iso6391}>
@@ -158,10 +174,10 @@ export function Studio() {
             <label htmlFor="studio-question">Question</label>
             <input
               id="studio-question"
-              type="text"
-              placeholder="Who was Jim Henson?"
-              value={question}
               onChange={(event) => setQuestion(event.target.value)}
+              placeholder="Who was Jim Henson?"
+              type="text"
+              value={question}
             />
           </div>
         )}
@@ -171,9 +187,9 @@ export function Studio() {
             <label htmlFor="studio-labels">Candidate labels (comma separated)</label>
             <input
               id="studio-labels"
+              onChange={(event) => setCandidateLabels(event.target.value)}
               type="text"
               value={candidateLabels}
-              onChange={(event) => setCandidateLabels(event.target.value)}
             />
           </div>
         )}
@@ -181,14 +197,14 @@ export function Studio() {
         <label htmlFor="studio-text">{task === 'question-answering' ? 'Context' : 'Text'}</label>
         <textarea
           id="studio-text"
-          rows={8}
+          onChange={(event) => setText(event.target.value)}
           placeholder={
             task === 'question-answering'
               ? 'Paste the context the question is about…'
               : 'Type or paste the text…'
           }
+          rows={8}
           value={text}
-          onChange={(event) => setText(event.target.value)}
         />
 
         {run.kind === 'error' && (
@@ -198,7 +214,7 @@ export function Studio() {
         )}
 
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <button type="submit" className="button" disabled={!canSubmit || run.kind === 'busy'}>
+          <button className="button" disabled={!canSubmit || run.kind === 'busy'} type="submit">
             {run.kind === 'busy' ? 'Running…' : 'Run'}
           </button>
           {run.kind === 'done' && (
@@ -207,9 +223,9 @@ export function Studio() {
                 {run.cached ? 'cached' : 'model'}
               </span>
               <button
-                type="button"
                 className="button button-ghost button-small"
                 onClick={copyResult}
+                type="button"
               >
                 Copy JSON
               </button>
@@ -219,7 +235,7 @@ export function Studio() {
       </form>
 
       {run.kind === 'done' && (
-        <section className="panel stack" aria-label="Result">
+        <section aria-label="Result" className="panel stack">
           <span className="muted">Result</span>
           <pre className="result-area mono" style={{ whiteSpace: 'pre-wrap' }}>
             {JSON.stringify(run.result, null, 2)}

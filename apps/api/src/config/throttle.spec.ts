@@ -1,8 +1,14 @@
 import type { ExecutionContext } from '@nestjs/common';
+
 import { describe, expect, it } from 'vitest';
 
 import { skipHealthProbe } from './throttle.js';
 
+/**
+ * Builds an ExecutionContext for the http path.
+ * @param url - the request path, when any
+ * @returns the context double
+ */
 function httpContext(url?: string): ExecutionContext {
   return {
     getType: () => 'http',

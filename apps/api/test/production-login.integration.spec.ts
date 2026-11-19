@@ -1,16 +1,16 @@
-import path from 'node:path';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
+import { FastifyAdapter } from '@nestjs/platform-fastify';
+import { Test } from '@nestjs/testing';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { FastifyAdapter } from '@nestjs/platform-fastify';
-import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { Test } from '@nestjs/testing';
+import path from 'node:path';
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
-import { startTempCluster, type TempCluster } from './pg-temp.js';
 import { TEST_BASIC_AUTH_ENV } from './auth.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
 
 describe('production login (integration)', () => {
   let cluster: TempCluster;
@@ -59,10 +59,10 @@ describe('production login (integration)', () => {
 
   it('issues the session cookie with Secure in production', async () => {
     const response = await app.inject({
+      body: JSON.stringify({ password: 'admin-password', username: 'admin' }),
+      headers: { 'content-type': 'application/json' },
       method: 'POST',
       url: '/api/auth/login',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'admin-password' }),
     });
     expect(response.statusCode).toBe(200);
 

@@ -10,9 +10,9 @@ import { PipelineLoader } from './pipeline-loader.js';
  * (registry + cache-aside + audit) and the lazy ONNX pipeline loader.
  */
 @Module({
-  imports: [TranslateModule],
   controllers: [AiController],
-  providers: [AiService, PipelineLoader],
   exports: [AiService, PipelineLoader],
+  imports: [TranslateModule],
+  providers: [AiService, PipelineLoader],
 })
 export class AiModule {}

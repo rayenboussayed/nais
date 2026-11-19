@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { validateEnv } from './env.js';
 
 const baseEnv = {
-  NODE_ENV: 'development',
   DATABASE_URL: 'postgresql://trainslator:change-me@localhost:5432/trainslator',
+  NODE_ENV: 'development',
   SESSION_SECRET: 'a'.repeat(64),
 } as NodeJS.ProcessEnv;
 
@@ -45,8 +45,8 @@ describe('validateEnv', () => {
   it('fails fast in production without BASIC_AUTH_PASSWORD_HASH', () => {
     expect(() =>
       validateEnv({
-        NODE_ENV: 'production',
         DATABASE_URL: 'postgresql://u:p@db:5432/trainslator',
+        NODE_ENV: 'production',
         SESSION_SECRET: 'a'.repeat(64),
       }),
     ).toThrow(/BASIC_AUTH_PASSWORD_HASH/);
@@ -55,15 +55,15 @@ describe('validateEnv', () => {
   it('requires SESSION_SECRET in every environment, including development', () => {
     expect(() =>
       validateEnv({
-        NODE_ENV: 'development',
         DATABASE_URL: 'postgresql://u:p@db:5432/trainslator',
+        NODE_ENV: 'development',
       }),
     ).toThrow(/SESSION_SECRET/);
     expect(() =>
       validateEnv({
-        NODE_ENV: 'production',
-        DATABASE_URL: 'postgresql://u:p@db:5432/trainslator',
         BASIC_AUTH_PASSWORD_HASH: 'scrypt$16384$8$1$' + 'a'.repeat(32) + '$' + 'b'.repeat(128),
+        DATABASE_URL: 'postgresql://u:p@db:5432/trainslator',
+        NODE_ENV: 'production',
       }),
     ).toThrow(/SESSION_SECRET/);
   });
@@ -75,9 +75,10 @@ describe('validateEnv', () => {
   it('rejects a malformed BASIC_AUTH_PASSWORD_HASH in production', () => {
     expect(() =>
       validateEnv({
-        NODE_ENV: 'production',
-        DATABASE_URL: 'postgresql://u:p@db:5432/trainslator',
+        // eslint-disable-next-line sonarjs/no-hardcoded-passwords -- test fixture: deliberately malformed hash to exercise validation
         BASIC_AUTH_PASSWORD_HASH: 'not-a-scrypt-hash',
+        DATABASE_URL: 'postgresql://u:p@db:5432/trainslator',
+        NODE_ENV: 'production',
         SESSION_SECRET: 'a'.repeat(64),
       }),
     ).toThrow(/BASIC_AUTH_PASSWORD_HASH/);
@@ -86,9 +87,9 @@ describe('validateEnv', () => {
   it('rejects a SESSION_SECRET that is not 64 lowercase hex chars', () => {
     expect(() =>
       validateEnv({
-        NODE_ENV: 'production',
-        DATABASE_URL: 'postgresql://u:p@db:5432/trainslator',
         BASIC_AUTH_PASSWORD_HASH: 'scrypt$16384$8$1$aaaa$bbbb',
+        DATABASE_URL: 'postgresql://u:p@db:5432/trainslator',
+        NODE_ENV: 'production',
         SESSION_SECRET:
           'not-hex-but-long-enough-to-trick-a-length-check-000000000000000000000000000000000000',
       }),
@@ -97,12 +98,12 @@ describe('validateEnv', () => {
 
   it('accepts a complete production env', () => {
     const env = validateEnv({
-      NODE_ENV: 'production',
-      DATABASE_URL: 'postgresql://u:p@db:5432/trainslator',
       BASIC_AUTH_PASSWORD_HASH: 'scrypt$16384$8$1$aaaa$bbbb',
-      SESSION_SECRET: 'a'.repeat(64),
-      PG_BOSS_URL: 'postgresql://u:p@db:5432/trainslator_pgboss',
       CORS_ORIGINS: 'https://admin.example.com',
+      DATABASE_URL: 'postgresql://u:p@db:5432/trainslator',
+      NODE_ENV: 'production',
+      PG_BOSS_URL: 'postgresql://u:p@db:5432/trainslator_pgboss',
+      SESSION_SECRET: 'a'.repeat(64),
     });
     expect(env.PG_BOSS_URL).toContain('trainslator_pgboss');
   });

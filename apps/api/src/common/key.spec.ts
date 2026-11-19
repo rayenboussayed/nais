@@ -1,9 +1,13 @@
 import { createHash } from 'node:crypto';
-
 import { describe, expect, it } from 'vitest';
 
 import { translationKeyFor } from './key.js';
 
+/**
+ * Computes the expected cache key to compare against.
+ * @param text - the source text
+ * @returns the expected sha512-base64url key
+ */
 function expectedKey(text: string): string {
   return createHash('sha512').update(text.normalize('NFC').trim()).digest('base64url');
 }

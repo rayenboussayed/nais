@@ -1,9 +1,9 @@
+import type { AiTaskDescriptor, KeysetList, Language } from '@trainslator/shared';
+
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import type { AiTaskDescriptor, KeysetList, Language } from '@trainslator/shared';
 
 import { apiFetch } from '../lib/api';
 import { Studio } from './studio';
@@ -15,44 +15,39 @@ vi.mock('../lib/api', async (importOriginal) => {
 
 const languages: Language[] = [
   {
+    createdAt: '2026-11-18T00:00:00.000Z',
+    deletedAt: null,
+    dir: 'ltr',
     id: '10000000-0000-4000-8000-000000000001',
+    iso6391: 'fr',
+    isSource: false,
     name: 'French',
     nativeName: 'Français',
-    iso6391: 'fr',
-    dir: 'ltr',
-    isSource: false,
-    createdAt: '2026-11-18T00:00:00.000Z',
     updatedAt: '2026-11-18T00:00:00.000Z',
-    deletedAt: null,
   },
 ];
 
 const tasks: AiTaskDescriptor[] = [
   {
-    task: 'translate',
-    provider: 'ollama',
-    model: 'bonsai-2:2b',
-    label: 'Translate',
     description: 'Translate into a language',
+    label: 'Translate',
+    model: 'bonsai-2:2b',
+    provider: 'ollama',
+    task: 'translate',
   },
   {
-    task: 'sentiment',
-    provider: 'transformers',
-    model: 'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
-    label: 'Sentiment',
     description: 'Binary sentiment',
+    label: 'Sentiment',
+    model: 'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
+    provider: 'transformers',
+    task: 'sentiment',
   },
 ];
 
-function wrapper() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } },
-  });
-  return function TestWrapper({ children }: { children: React.ReactNode }) {
-    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
-  };
-}
-
+/**
+ * Mocks one apiFetch responder implementation.
+ * @param responder - computes the canned response per call
+ */
 function mockFetchOnce(responder: (url: string, body: unknown) => unknown) {
   vi.mocked(apiFetch).mockImplementation(async (url, init) => {
     const path = typeof url === 'string' ? url : String(url);
@@ -62,6 +57,19 @@ function mockFetchOnce(responder: (url: string, body: unknown) => unknown) {
       return { items: languages, next: null } as KeysetList<Language> as never;
     return responder(path, body) as never;
   });
+}
+
+/**
+ * Test wrapper: renders children under a throwaway QueryClient.
+ * @returns the wrapper component
+ */
+function wrapper() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { gcTime: 0, retry: false } },
+  });
+  return function TestWrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  };
 }
 
 describe('Studio', () => {
@@ -75,7 +83,7 @@ describe('Studio', () => {
 
   it('lists the tasks from the service and submits a sentiment call', async () => {
     mockFetchOnce((url, body) => {
-      if (url === '/api/ai/sentiment') return { label: 'POSITIVE', score: 0.9, cached: false };
+      if (url === '/api/ai/sentiment') return { cached: false, label: 'POSITIVE', score: 0.9 };
       throw new Error(`unexpected ${url} ${JSON.stringify(body)}`);
     });
 
@@ -93,12 +101,12 @@ describe('Studio', () => {
     await waitFor(() => {
       expect(screen.queryByText(/"POSITIVE"/)).toBeTruthy();
     });
-    expect(screen.queryByText(/"cached": false/)).toBeTruthy();
+    expect(screen.getByText(/"cached": false/)).toBeTruthy();
   });
 
   it('shows the cached badge on a cache-hit answer', async () => {
     mockFetchOnce((url) => {
-      if (url === '/api/ai/sentiment') return { label: 'POSITIVE', score: 0.9, cached: true };
+      if (url === '/api/ai/sentiment') return { cached: true, label: 'POSITIVE', score: 0.9 };
       throw new Error(`unexpected ${url}`);
     });
 

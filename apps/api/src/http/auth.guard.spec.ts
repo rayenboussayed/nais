@@ -1,37 +1,54 @@
-import type { ConfigService } from '@nestjs/config';
 import type { ExecutionContext } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
+
 import { describe, expect, it } from 'vitest';
 
 import type { Env } from '../config/env.js';
-import { SESSION_COOKIE_NAME, signSession } from '../auth/session.js';
-import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from '../../test/auth.js';
 
+import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from '../../test/auth.js';
+import { SESSION_COOKIE_NAME, signSession } from '../auth/session.js';
 import { HttpAuthGuard } from './auth.guard.js';
 
+/**
+ * Stubs ConfigService with the keys the unit under test reads.
+ * @param overrides - env keys to override in the stubbed parsed config
+ * @returns the ConfigService double
+ */
 function configStub(overrides: Partial<Record<keyof Env, string | undefined>> = {}) {
   const base: Record<string, string | undefined> = {
-    NODE_ENV: 'development',
-    PORT: '3000',
     DATABASE_URL: 'postgresql://u:p@127.0.0.1:1/x',
+    NODE_ENV: 'development',
     OLLAMA_BASE_URL: 'http://127.0.0.1:1',
+    PORT: '3000',
     ...TEST_BASIC_AUTH_ENV,
     ...overrides,
   };
   return {
+    // eslint-disable-next-line security/detect-object-injection -- test stub: config keys are compile-time constants of the stub
     get: (key: string) => base[key],
   } as unknown as ConfigService<Env, true>;
 }
 
+/**
+ * Builds an ExecutionContext for the http path.
+ * @param headers - the request headers
+ * @param url - the request path
+ * @returns the context double
+ */
 function httpContext(
   headers: Record<string, string | string[] | undefined>,
   url = '/api/languages',
 ): ExecutionContext {
   return {
     getType: () => 'http',
-    switchToHttp: () => ({ getRequest: () => ({ url, headers }) }),
+    switchToHttp: () => ({ getRequest: () => ({ headers, url }) }),
   } as unknown as ExecutionContext;
 }
 
+/**
+ * Builds an ExecutionContext for a websocket context.
+ * @returns the context double
+ */
 function wsContext(): ExecutionContext {
   return { getType: () => 'ws' } as unknown as ExecutionContext;
 }

@@ -1,15 +1,17 @@
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+
 import { Logger } from '@nestjs/common';
 import { ConsoleLogger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
-import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { ConfigService } from '@nestjs/config';
+
+import type { Env } from './config/env.js';
 
 import { AppModule } from './app.module.js';
 import { configureApp } from './bootstrap.js';
-import { resolveTrustProxy } from './config/fastify.js';
 import { validateEnv } from './config/env.js';
-import type { Env } from './config/env.js';
+import { resolveTrustProxy } from './config/fastify.js';
 
 /** Wires pipes/filters already registered in modules, starts the HTTP listener and enables shutdown hooks. */
 async function bootstrap(): Promise<void> {
@@ -35,5 +37,6 @@ void bootstrap().catch((error: unknown) => {
   // Nest logs its own boot failure; this adds the fatal line and a non-zero exit.
   const message = error instanceof Error ? error.message : String(error);
   Logger.error(message, 'Bootstrap');
+  // eslint-disable-next-line n/no-process-exit -- failed bootstrap must kill the process even when pg-boss holds timers
   process.exit(1);
 });

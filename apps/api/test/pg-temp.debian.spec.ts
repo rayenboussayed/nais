@@ -1,5 +1,4 @@
 import { existsSync, readdirSync } from 'node:fs';
-
 import { describe, expect, it } from 'vitest';
 
 import { resolvePgBin, startTempCluster } from './pg-temp.js';
@@ -11,6 +10,7 @@ describe('resolvePgBin without injection', () => {
       return;
     }
     const dir = resolvePgBin();
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- test harness: path from resolvePgBin (PG_BIN or the Debian layout), not from caller input
     expect(existsSync(`${dir}/initdb`)).toBe(true);
   });
 });

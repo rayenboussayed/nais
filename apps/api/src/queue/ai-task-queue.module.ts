@@ -4,11 +4,12 @@ import { ConfigModule } from '@nestjs/config';
 import { PgBossModule } from '@wavezync/nestjs-pgboss';
 
 import type { Env } from '../config/env.js';
+
 import { AiModule } from '../ai/ai.module.js';
 import { LanguagesModule } from '../languages/languages.module.js';
 import { TranslationsModule } from '../translations/translations.module.js';
-import { AiTaskWorker } from './ai-task.worker.js';
 import { TranslateGateway } from '../ws/translate.gateway.js';
+import { AiTaskWorker } from './ai-task.worker.js';
 
 /**
  * Async AI plumbing: the socket.io gateway clients talk to and the pg-boss
@@ -16,20 +17,20 @@ import { TranslateGateway } from '../ws/translate.gateway.js';
  * Drizzle pool and the boss connection are separate.
  */
 @Module({
+  exports: [TranslateGateway],
   imports: [
     ConfigModule,
     AiModule,
     LanguagesModule,
     TranslationsModule,
     PgBossModule.forRootAsync({
+      inject: [ConfigService],
       // pg-boss gets its own connection via the env transform (PG_BOSS_URL defaults to DATABASE_URL there).
       useFactory: (config: ConfigService<Env, true>) => ({
         connectionString: config.get('PG_BOSS_URL', { infer: true }),
       }),
-      inject: [ConfigService],
     }),
   ],
   providers: [TranslateGateway, AiTaskWorker],
-  exports: [TranslateGateway],
 })
 export class AiTaskQueueModule {}

@@ -11,7 +11,7 @@ EXPLAIN (ANALYZE, BUFFERS) SELECT text FROM translations
 WHERE language_id = '<uuid>' AND key = 'bench-1000' AND deleted_at IS NULL;
 ```
 
-```
+```text
 Index Scan using translations_language_key_unique on translations  (cost=0.41..8.43 rows=1 width=82) (actual time=0.020..0.021 rows=1 loops=1)
   Index Cond: ((language_id = '...'::uuid) AND ((key)::text = 'bench-15000'::text))
   Buffers: shared hit=4
@@ -33,7 +33,7 @@ WHERE language_id = '<uuid>' AND namespace = 'dynamic' AND deleted_at IS NULL
 ORDER BY created_at DESC LIMIT 25;
 ```
 
-```
+```text
 Limit  (cost=0.29..2.22 rows=25 width=117) (actual time=0.017..0.037 rows=25 loops=1)
   ->  Index Scan Backward using translations_language_namespace_created_idx on translations  (cost=0.29..1549.29 rows=20000 width=117) (actual time=0.016..0.032 rows=25 loops=1)
         Index Cond: ((language_id = '...'::uuid) AND (namespace = 'dynamic'::translation_namespace))

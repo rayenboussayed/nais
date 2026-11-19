@@ -1,7 +1,7 @@
-import { mkdtempSync, rmSync, readdirSync, existsSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { execFileSync, spawn } from 'node:child_process';
 
 /**
  * Throwaway PostgreSQL cluster for integration tests. Creates a fresh
@@ -12,49 +12,38 @@ import { execFileSync, spawn } from 'node:child_process';
  */
 
 export interface TempCluster {
+  dbName: string;
+  destroy(): void;
+  socketDir: string;
   /** Connection URL for node-postgres: unix socket via host=<socketDir>. */
   url(db?: string): string;
-  dbName: string;
-  socketDir: string;
-  destroy(): void;
 }
 
-/** Default readiness probe: pg_isready against the socket dir. */
-function defaultPgIsReady(pgBin: string, socketDir: string, port: string): () => boolean {
-  return () => {
-    try {
-      execFileSync(join(pgBin, 'pg_isready'), ['-h', socketDir, '-p', port, '-U', 'postgres'], {
-        stdio: 'ignore',
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  };
-}
-
-/** Locates the postgres binaries: PG_BIN override, else the newest Debian-bin dir, else PATH. Exported for tests. */
+/**
+ * Locates the postgres binaries: PG_BIN override, else the newest Debian-bin dir, else PATH.
+ * @returns the directory holding the postgres binaries
+ */
 export function resolvePgBin(): string {
   if (process.env.PG_BIN) return process.env.PG_BIN;
-  try {
-    const candidates = readdirSync('/usr/lib/postgresql', { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .sort()
-      .reverse();
-    for (const version of candidates) {
-      const dir = join('/usr/lib/postgresql', version, 'bin');
-      if (existsSync(join(dir, 'initdb'))) return dir;
+  const debianEntries = (() => {
+    try {
+      return readdirSync('/usr/lib/postgresql', { withFileTypes: true });
+    } catch {
+      return []; // /usr/lib/postgresql absent: fall through to the PATH lookup
     }
-  } catch {
-    // fall through to PATH
+  })();
+  const candidates = debianEntries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort()
+    .reverse();
+  for (const version of candidates) {
+    const dir = join('/usr/lib/postgresql', version, 'bin');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- test harness: path from the fixed Debian layout constant, not caller input
+    if (existsSync(join(dir, 'initdb'))) return dir;
   }
-  try {
-    const found = execFileSync('which', ['initdb'], { encoding: 'utf8' }).trim();
-    if (found) return dirname(found);
-  } catch {
-    // initdb is not on PATH either
-  }
+  const onPath = which('initdb');
+  if (onPath) return dirname(onPath);
   throw new Error('PostgreSQL binaries not found; set PG_BIN or install postgresql');
 }
 
@@ -62,6 +51,7 @@ export function resolvePgBin(): string {
  * @param dbName - name of the test database to create
  * @param isReady - readiness probe; defaults to pg_isready against the socket
  * @param timeoutMs - readiness wait limit in milliseconds (PG_TEST_TIMEOUT_MS env honored when omitted)
+ * @returns the temporary cluster handle (teardown via {@link TempCluster.destroy})
  */
 export function startTempCluster(
   dbName = 'trainslator_test',
@@ -92,8 +82,8 @@ export function startTempCluster(
       'start',
     ],
     {
-      stdio: 'ignore',
       detached: true,
+      stdio: 'ignore',
     },
   );
   proc.unref();
@@ -108,7 +98,7 @@ export function startTempCluster(
       destroy();
       throw new Error(`postgres test cluster did not start; see ${logFile}`);
     }
-    execFileSync('sleep', ['0.1']);
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
   }
 
   try {
@@ -120,10 +110,18 @@ export function startTempCluster(
     throw error;
   }
 
+  /**
+   * Connection URL for one database on this cluster.
+   * @param db - the database to point at (defaults to the cluster's own db)
+   * @returns the node-postgres connection URL for the socket dir
+   */
   function url(db = dbName): string {
     return `postgresql://postgres@/${encodeURIComponent(db)}?host=${encodeURIComponent(socketDir)}&port=${port}`;
   }
 
+  /**
+   *
+   */
   function destroy() {
     try {
       // -w: wait for the postmaster to actually stop before we remove the
@@ -133,11 +131,49 @@ export function startTempCluster(
         ['-D', dataDir, '-m', 'immediate', '-w', '-t', '10', 'stop'],
         { stdio: 'ignore', timeout: 12_000 },
       );
-    } catch {
-      // The cluster may never have started; removal below is still required.
+    } catch (stopError: unknown) {
+      // Best effort: the cluster may never have started; removal below still runs.
+      process.emitWarning(
+        'pg_ctl stop failed during test-cluster teardown; removing the directory anyway',
+        { detail: stopError instanceof Error ? stopError.message : String(stopError) },
+      );
     }
-    rmSync(socketDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    rmSync(socketDir, { force: true, maxRetries: 10, recursive: true, retryDelay: 200 });
   }
 
-  return { url, dbName, socketDir, destroy };
+  return { dbName, destroy, socketDir, url };
+}
+
+/**
+ * Default readiness probe: pg_isready against the socket dir.
+ * @param pgBin - directory holding pg_isready
+ * @param socketDir - the unix socket directory
+ * @param port - the cluster port
+ * @returns the readiness probe callback
+ */
+function defaultPgIsReady(pgBin: string, socketDir: string, port: string): () => boolean {
+  return () => {
+    try {
+      execFileSync(join(pgBin, 'pg_isready'), ['-h', socketDir, '-p', port, '-U', 'postgres'], {
+        stdio: 'ignore',
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+}
+
+/**
+ * @param bin - binary name to locate on PATH
+ * @returns the absolute path, or undefined when not present
+ */
+function which(bin: string): string | undefined {
+  try {
+    // eslint-disable-next-line sonarjs/no-os-command-from-path -- `which` itself is the PATH lookup; the tool under test is found via the environment by design
+    const found = execFileSync('which', [bin], { encoding: 'utf8' }).trim();
+    return found === '' ? undefined : found;
+  } catch {
+    return undefined;
+  }
 }

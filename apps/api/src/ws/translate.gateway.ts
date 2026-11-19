@@ -1,16 +1,4 @@
-import {
-  Ack,
-  ConnectedSocket,
-  MessageBody,
-  SubscribeMessage,
-  WebSocketGateway,
-  WebSocketServer,
-} from '@nestjs/websockets';
 import type { OnGatewayInit } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import type { Server, Socket } from 'socket.io';
-
 import type {
   AiTask,
   AiTaskJob,
@@ -21,28 +9,41 @@ import type {
   WsTranslationErrorEvent,
   WsTranslationEvent,
 } from '@trainslator/shared';
+import type { Server, Socket } from 'socket.io';
+
+import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
-  aiTaskJobSchema,
+  Ack,
+  ConnectedSocket,
+  MessageBody,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+} from '@nestjs/websockets';
+import {
   aiRequestSchemas,
+  aiTaskJobSchema,
   wsAiMessageSchema,
   wsTranslateMessageSchema,
 } from '@trainslator/shared';
 import { PgBossService } from '@wavezync/nestjs-pgboss';
 
 import type { Env } from '../config/env.js';
-import { authenticateHeaders, firstHeader } from '../auth/authenticate.js';
-import { isOriginAllowed, parseAllowedOrigins, buildGatewayOptions } from '../auth/origin.js';
-import { RateLimiter } from '../common/rate-limit.js';
-import { translationKeyFor } from '../common/key.js';
+
 import { AiService } from '../ai/ai.service.js';
+import { authenticateHeaders, firstHeader } from '../auth/authenticate.js';
+import { buildGatewayOptions, isOriginAllowed, parseAllowedOrigins } from '../auth/origin.js';
+import { translationKeyFor } from '../common/key.js';
+import { RateLimiter } from '../common/rate-limit.js';
 import { LanguagesService } from '../languages/languages.service.js';
-import { TranslationsService } from '../translations/translations.service.js';
 import { AI_TASK_QUEUE } from '../queue/ai-task-queue.constants.js';
+import { TranslationsService } from '../translations/translations.service.js';
 
 /** Gateway options; import time constant derived from the environment. */
 const gatewayOptions = buildGatewayOptions(process.env.CORS_ORIGINS);
 
-type OutboundEvent = 'translation' | 'translation-error' | 'ai-result' | 'ai-error';
+type OutboundEvent = 'ai-error' | 'ai-result' | 'translation' | 'translation-error';
 
 /**
  * socket.io gateway for the async AI flow. Clients emit `translate` (legacy,
@@ -54,12 +55,12 @@ type OutboundEvent = 'translation' | 'translation-error' | 'ai-result' | 'ai-err
  */
 @WebSocketGateway(gatewayOptions)
 export class TranslateGateway implements OnGatewayInit {
-  @WebSocketServer() private readonly server!: Server;
-
-  private readonly limiter = new RateLimiter(10, 60_000);
   /** Per-IP backstop: caps handshake attempts per minute regardless of credential. */
   private readonly connectLimiter = new RateLimiter(60, 60_000);
+
+  private readonly limiter = new RateLimiter(10, 60_000);
   private readonly logger = new Logger(TranslateGateway.name);
+  @WebSocketServer() private readonly server!: Server;
 
   constructor(
     private readonly translations: TranslationsService,
@@ -73,6 +74,7 @@ export class TranslateGateway implements OnGatewayInit {
    * Installs the handshake middleware: browser origins must be same-origin or
    * allowlisted (SameSite=Lax does not protect WebSockets); unauthenticated
    * clients are rejected before any frame is processed.
+   * @param server - the socket.io server to attach the handshake middleware to
    */
   afterInit(server: Server): void {
     const extraOrigins = parseAllowedOrigins(this.config.get('CORS_ORIGINS', { infer: true }));
@@ -105,82 +107,33 @@ export class TranslateGateway implements OnGatewayInit {
         }
         socket.data.username = auth.username;
         next();
+        // eslint-disable-next-line promise/no-callback-in-promise -- socket.io middleware: next() is the handshake callback, not a promise convention
       })().catch(() => next(new Error('unauthorized')));
     });
   }
 
-  /** Emits an event to one connected client; used by the ai-task worker. */
+  /**
+   * Emits an event to one connected client; used by the ai-task worker.
+   * @param socketId - the target socket id assigned by socket.io
+   * @param event - the outbound event name
+   * @param payload - the event payload
+   */
   emitTo(
     socketId: string,
     event: OutboundEvent,
-    payload: WsTranslationEvent | WsTranslationErrorEvent | WsAiResultEvent | WsAiErrorEvent,
+    payload: WsAiErrorEvent | WsAiResultEvent | WsTranslationErrorEvent | WsTranslationEvent,
   ): void {
     this.server.to(socketId).emit(event, payload);
-  }
-
-  /**
-   * Handles a `translate` message with the legacy acknowledgement contract.
-   * Validation is free; every accepted frame costs one token.
-   */
-  @SubscribeMessage('translate')
-  async translate(
-    @MessageBody() data: unknown,
-    @ConnectedSocket() client: Socket,
-    @Ack() ack: (response: WsTranslateAck) => Promise<void> | void,
-  ): Promise<void> {
-    const parsed = wsTranslateMessageSchema.safeParse(data);
-    if (!parsed.success) {
-      return ack({ statusCode: 400, requestId: extractRequestId(data), data: null });
-    }
-    const message = parsed.data;
-    try {
-      const identity = this.identityOf(client);
-      if (!this.limiter.hit(identity)) {
-        return ack({
-          statusCode: 429,
-          requestId: message.requestId,
-          data: null,
-          retryAfterMs: 60_000,
-        });
-      }
-
-      const language = await this.languages.findByIso(message.targetLanguage);
-      if (!language) {
-        return ack({ statusCode: 404, requestId: message.requestId, data: null });
-      }
-
-      const cached = await this.translations.findByLanguageAndKey(
-        language.id,
-        translationKeyFor(message.text),
-      );
-      if (cached) {
-        return ack({
-          statusCode: 200,
-          requestId: message.requestId,
-          data: cached.text,
-        });
-      }
-
-      await this.enqueue(
-        'translate',
-        { text: message.text, targetLanguage: message.targetLanguage },
-        message.requestId,
-        client.id,
-      );
-
-      return ack({ statusCode: 202, requestId: message.requestId, data: null });
-    } catch (error) {
-      this.logger.error(
-        `translate handler failed: ${error instanceof Error ? error.name : 'unknown error'}`,
-      );
-      return ack({ statusCode: 500, requestId: message.requestId, data: null });
-    }
   }
 
   /**
    * Handles an `ai` message: `{ task, input, requestId }`. The task's input
    * schema applies; cache hits answer inline with the result (200), misses go
    * to the shared `ai-task` queue and are delivered as `ai-result`.
+   * @param data - the raw message body (validated before use)
+   * @param client - the sending socket
+   * @param ack - the acknowledgement callback to invoke with the result envelope
+   * @returns nothing; resolves once the ack or the queue handoff has happened
    */
   @SubscribeMessage('ai')
   async onAiMessage(
@@ -190,7 +143,7 @@ export class TranslateGateway implements OnGatewayInit {
   ): Promise<void> {
     const parsed = wsAiMessageSchema.safeParse(data);
     if (!parsed.success) {
-      return ack({ statusCode: 400, requestId: null, cached: null, result: null });
+      return ack({ cached: null, requestId: null, result: null, statusCode: 400 });
     }
     const message = parsed.data;
     const task = message.task;
@@ -198,35 +151,36 @@ export class TranslateGateway implements OnGatewayInit {
       const identity = this.identityOf(client);
       if (!this.limiter.hit(identity)) {
         return ack({
-          statusCode: 429,
-          requestId: message.requestId,
           cached: null,
+          requestId: message.requestId,
           result: null,
           retryAfterMs: 60_000,
+          statusCode: 429,
         });
       }
 
       // Per-task input validation; translate also needs the catalogue peek.
+      // eslint-disable-next-line security/detect-object-injection -- task narrowed to AiTask by aiTaskSchema before this point
       const inputParse = aiRequestSchemas[task].safeParse(message.input);
       if (!inputParse.success) {
         return ack({
-          statusCode: 400,
-          requestId: message.requestId,
           cached: null,
+          requestId: message.requestId,
           result: null,
+          statusCode: 400,
         });
       }
       const input = inputParse.data as Record<string, unknown>;
 
       if (task === 'translate') {
-        const translateInput = input as { text: string; targetLanguage: string };
+        const translateInput = input as { targetLanguage: string; text: string };
         const language = await this.languages.findByIso(translateInput.targetLanguage);
         if (!language) {
           return ack({
-            statusCode: 404,
-            requestId: message.requestId,
             cached: null,
+            requestId: message.requestId,
             result: null,
+            statusCode: 404,
           });
         }
         const cached = await this.translations.findByLanguageAndKey(
@@ -235,20 +189,20 @@ export class TranslateGateway implements OnGatewayInit {
         );
         if (cached) {
           return ack({
-            statusCode: 200,
-            requestId: message.requestId,
             cached: true,
-            result: { text: cached.text, cached: true },
+            requestId: message.requestId,
+            result: { cached: true, text: cached.text },
+            statusCode: 200,
           });
         }
       } else {
         const peek = await this.ai.peekCache(task, input);
         if (peek) {
           return ack({
-            statusCode: 200,
-            requestId: message.requestId,
             cached: true,
+            requestId: message.requestId,
             result: peek,
+            statusCode: 200,
           });
         }
       }
@@ -256,27 +210,85 @@ export class TranslateGateway implements OnGatewayInit {
       await this.enqueue(task, input, message.requestId, client.id);
 
       return ack({
-        statusCode: 202,
-        requestId: message.requestId,
         cached: null,
+        requestId: message.requestId,
         result: null,
+        statusCode: 202,
       });
     } catch (error) {
       this.logger.error(
         `ai handler failed: ${error instanceof Error ? error.name : 'unknown error'}`,
       );
       return ack({
-        statusCode: 500,
-        requestId: message.requestId,
         cached: null,
+        requestId: message.requestId,
         result: null,
+        statusCode: 500,
       });
     }
   }
 
-  /** The handshake middleware always sets socket.data.username. */
-  private identityOf(client: Socket): string {
-    return client.data.username as string;
+  /**
+   * Handles a `translate` message with the legacy acknowledgement contract.
+   * Validation is free; every accepted frame costs one token.
+   * @param data - the raw message body (validated before use)
+   * @param client - the sending socket
+   * @param ack - the acknowledgement callback to invoke with the result envelope
+   * @returns nothing; resolves once the ack or the queue handoff has happened
+   */
+  @SubscribeMessage('translate')
+  async translate(
+    @MessageBody() data: unknown,
+    @ConnectedSocket() client: Socket,
+    @Ack() ack: (response: WsTranslateAck) => Promise<void> | void,
+  ): Promise<void> {
+    const parsed = wsTranslateMessageSchema.safeParse(data);
+    if (!parsed.success) {
+      return ack({ data: null, requestId: extractRequestId(data), statusCode: 400 });
+    }
+    const message = parsed.data;
+    try {
+      const identity = this.identityOf(client);
+      if (!this.limiter.hit(identity)) {
+        return ack({
+          data: null,
+          requestId: message.requestId,
+          retryAfterMs: 60_000,
+          statusCode: 429,
+        });
+      }
+
+      const language = await this.languages.findByIso(message.targetLanguage);
+      if (!language) {
+        return ack({ data: null, requestId: message.requestId, statusCode: 404 });
+      }
+
+      const cached = await this.translations.findByLanguageAndKey(
+        language.id,
+        translationKeyFor(message.text),
+      );
+      if (cached) {
+        return ack({
+          data: cached.text,
+          requestId: message.requestId,
+          statusCode: 200,
+        });
+      }
+
+      await this.enqueue(
+        'translate',
+        { targetLanguage: message.targetLanguage, text: message.text },
+        message.requestId,
+        client.id,
+      );
+
+      return ack({ data: null, requestId: message.requestId, statusCode: 202 });
+    } catch (error) {
+      this.logger.error(
+        `translate handler failed: ${error instanceof Error ? error.name : 'unknown error'}`,
+      );
+      return ack({ data: null, requestId: message.requestId, statusCode: 500 });
+    }
   }
 
   private async enqueue(
@@ -285,16 +297,29 @@ export class TranslateGateway implements OnGatewayInit {
     requestId: string,
     socketId: string,
   ): Promise<void> {
-    const job: AiTaskJob = aiTaskJobSchema.parse({ task, input, requestId, socketId });
+    const job: AiTaskJob = aiTaskJobSchema.parse({ input, requestId, socketId, task });
     // retryLimit 0: a poison job should fail, not call the model up to 3 times.
     await this.pgBoss.scheduleJob(AI_TASK_QUEUE, job, { retryLimit: 0 });
   }
+
+  /**
+   * The handshake middleware always sets socket.data.username.
+   * @param client - the connected socket
+   * @returns the username captured at handshake time
+   */
+  private identityOf(client: Socket): string {
+    return client.data.username as string;
+  }
 }
 
-const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Pulls a valid uuid requestId out of a garbage payload, else null. */
-function extractRequestId(data: unknown): string | null {
+/**
+ * Pulls a valid uuid requestId out of a garbage payload, else null.
+ * @param data - the raw message body of any shape
+ * @returns the requestId when it is a valid uuid, else null
+ */
+function extractRequestId(data: unknown): null | string {
   if (typeof data !== 'object' || data === null) return null;
   const candidate = (data as Record<string, unknown>).requestId;
   return typeof candidate === 'string' && UUID_RE.test(candidate) ? candidate : null;

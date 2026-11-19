@@ -18,9 +18,9 @@ describe('iso6391Schema', () => {
 describe('paginationSchema', () => {
   it('applies defaults', () => {
     expect(paginationSchema.parse({})).toEqual({
-      pageSize: 20,
-      orderBy: 'desc',
       onlyDeleted: false,
+      orderBy: 'desc',
+      pageSize: 20,
     });
   });
 
@@ -50,8 +50,8 @@ describe('paginationSchema', () => {
   it('rejects an invalid cursor timestamp', () => {
     expect(() =>
       paginationSchema.parse({
-        lastId: '123e4567-e89b-42d3-a456-426655440000',
         lastCreatedAt: 'not-a-timestamp',
+        lastId: '123e4567-e89b-42d3-a456-426655440000',
       }),
     ).toThrow();
   });
@@ -63,8 +63,8 @@ describe('paginationSchema', () => {
 
   it('parses a valid cursor and query string', () => {
     const parsed = paginationSchema.parse({
-      lastId: '123e4567-e89b-42d3-a456-426655440000',
       lastCreatedAt: '2026-11-18T00:00:00.000Z',
+      lastId: '123e4567-e89b-42d3-a456-426655440000',
       q: 'hello',
     });
     expect(parsed.lastId).toBe('123e4567-e89b-42d3-a456-426655440000');

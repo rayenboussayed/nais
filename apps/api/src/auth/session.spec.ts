@@ -1,5 +1,4 @@
 import { createHmac } from 'node:crypto';
-
 import { describe, expect, it } from 'vitest';
 
 import { SESSION_COOKIE_NAME, signSession, verifySession } from './session.js';
@@ -19,7 +18,7 @@ describe('signSession/verifySession', () => {
     const { value } = signSession('admin', SECRET);
     const [, signature] = value.split('.');
     const forgedPayload = Buffer.from(
-      JSON.stringify({ u: 'root', exp: Date.now() + 10_000 }),
+      JSON.stringify({ exp: Date.now() + 10_000, u: 'root' }),
     ).toString('base64url');
     expect(verifySession(`${forgedPayload}.${signature}`, SECRET)).toBeNull();
   });
@@ -64,7 +63,7 @@ describe('signSession/verifySession', () => {
     const forged = `${payload}.${'a'.repeat(43)}`;
     expect(verifySession(forged, SECRET)).toBeNull();
 
-    const badType = Buffer.from(JSON.stringify({ u: 5, exp: Date.now() + 1000 })).toString(
+    const badType = Buffer.from(JSON.stringify({ exp: Date.now() + 1000, u: 5 })).toString(
       'base64url',
     );
     const forged2 = `${badType}.${'a'.repeat(43)}`;

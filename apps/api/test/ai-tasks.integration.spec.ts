@@ -1,20 +1,20 @@
-import path from 'node:path';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
+import { FastifyAdapter } from '@nestjs/platform-fastify';
+import { Test } from '@nestjs/testing';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { FastifyAdapter } from '@nestjs/platform-fastify';
-import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { Test } from '@nestjs/testing';
+import path from 'node:path';
 import { Pool } from 'pg';
 import { io } from 'socket.io-client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { type PipelineFn, PipelineLoader } from '../src/ai/pipeline-loader.js';
 import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
 import * as schema from '../src/database/schema.js';
 import { seedLanguages } from '../src/database/seed.js';
-import { PipelineLoader, type PipelineFn } from '../src/ai/pipeline-loader.js';
-import { startTempCluster, type TempCluster } from './pg-temp.js';
 import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
 
 /**
  * End-to-end over a throwaway PostgreSQL cluster with the ONNX pipelines
@@ -24,34 +24,39 @@ import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
  */
 
 const STUB_OUTPUTS: Record<string, unknown> = {
+  'feature-extraction': { tolist: () => [[0.1, 0.2, 0.3]] },
+  'question-answering': { answer: 'a nice puppet', end: 25, score: 0.57, start: 12 },
   sentiment: [{ label: 'POSITIVE', score: 0.91 }],
   summarize: [{ summary_text: 'Paris is about ninety kilometres from Orly.' }],
-  'question-answering': { answer: 'a nice puppet', score: 0.57, start: 12, end: 25 },
   'token-classification': [
-    { word: 'Sarah', entity_group: 'PER', score: 0.99, start: 11, end: 16 },
-    { word: 'London', entity_group: 'LOC', score: 0.98, start: 33, end: 39 },
+    { end: 16, entity_group: 'PER', score: 0.99, start: 11, word: 'Sarah' },
+    { end: 39, entity_group: 'LOC', score: 0.98, start: 33, word: 'London' },
   ],
   'zero-shot-classification': {
-    sequence: 'my phone broke',
     labels: ['mobile', 'billing'],
     scores: [0.88, 0.12],
+    sequence: 'my phone broke',
   },
-  'feature-extraction': { tolist: () => [[0.1, 0.2, 0.3]] },
 };
 
+/**
+ * Stubs the transformers pipeline: records the tasks it loads and returns canned outputs.
+ * @returns the loader stub and its call tracker
+ */
 function fakeLoader() {
   const calls = new Map<string, number>();
   return {
     calls,
-    modelFor: (task: string) => `stub/${task}`,
     load: async (task: string): Promise<PipelineFn> => {
       calls.set(task, (calls.get(task) ?? 0) + 1);
       return async () => {
+        // eslint-disable-next-line security/detect-object-injection -- task iterates the stubbed task list (AiTask)
         const output = STUB_OUTPUTS[task];
         if (output === undefined) throw new Error(`no stub for task ${task}`);
         return output;
       };
     },
+    modelFor: (task: string) => `stub/${task}`,
   };
 }
 
@@ -112,36 +117,36 @@ describe('AI service (integration, throwaway PostgreSQL, stubbed pipelines)', ()
 
   it('lists the task registry with providers and models', async () => {
     const response = await app.inject({
+      headers: basicAuthHeaders(),
       method: 'GET',
       url: '/api/ai/tasks',
-      headers: basicAuthHeaders(),
     });
     expect(response.statusCode).toBe(200);
     const body = response.json() as {
-      items: Array<{ task: string; provider: string; model: string }>;
+      items: Array<{ model: string; provider: string; task: string }>;
     };
     const byTask = new Map(body.items.map((entry) => [entry.task, entry]));
     expect(byTask.get('translate')?.provider).toBe('ollama');
     expect(byTask.get('sentiment')?.provider).toBe('transformers');
     expect(byTask.get('sentiment')?.model).toBe('stub/sentiment'); // stubbed loader reports its effective model
-    expect(body.items.length).toBe(7);
+    expect(body.items).toHaveLength(7);
   });
 
   it('runs a sentiment call, caches it, and serves the cache on the second call', async () => {
     const request = {
-      method: 'POST',
-      url: '/api/ai/sentiment',
       headers: basicAuthHeaders(),
+      method: 'POST',
       payload: { text: 'I love this' },
+      url: '/api/ai/sentiment',
     } as Parameters<typeof app.inject>[0];
 
     const first = await app.inject(request);
     expect(first.statusCode).toBe(200);
-    expect(first.json()).toMatchObject({ label: 'POSITIVE', score: 0.91, cached: false });
+    expect(first.json()).toMatchObject({ cached: false, label: 'POSITIVE', score: 0.91 });
 
     const second = await app.inject(request);
     expect(second.statusCode).toBe(200);
-    expect(second.json()).toMatchObject({ label: 'POSITIVE', score: 0.91, cached: true });
+    expect(second.json()).toMatchObject({ cached: true, label: 'POSITIVE', score: 0.91 });
 
     // exactly one pipeline invocation despite two HTTP calls
     expect(loader.calls.get('sentiment')).toBe(1);
@@ -152,32 +157,32 @@ describe('AI service (integration, throwaway PostgreSQL, stubbed pipelines)', ()
       [
         'summarize',
         { text: 'Eiffel Tower is in Paris. It is a tall iron lattice tower.' },
-        { text: expect.stringContaining('Paris'), cached: false },
+        { cached: false, text: expect.stringContaining('Paris') },
       ],
       [
         'question-answering',
-        { question: 'Who was Jim Henson?', context: 'Jim Henson was a nice puppet.' },
+        { context: 'Jim Henson was a nice puppet.', question: 'Who was Jim Henson?' },
         { answer: 'a nice puppet', cached: false },
       ],
       ['token-classification', { text: 'Sarah lives in London' }, { cached: false }],
       [
         'zero-shot-classification',
-        { text: 'my phone broke', candidateLabels: ['billing', 'mobile'] },
-        { labels: ['mobile', 'billing'], cached: false },
+        { candidateLabels: ['billing', 'mobile'], text: 'my phone broke' },
+        { cached: false, labels: ['mobile', 'billing'] },
       ],
       [
         'feature-extraction',
         { text: 'embed me' },
-        { dimensions: 3, cached: false, embedding: [0.1, 0.2, 0.3] },
+        { cached: false, dimensions: 3, embedding: [0.1, 0.2, 0.3] },
       ],
     ];
 
     for (const [task, payload, expected] of cases) {
       const response = await app.inject({
-        method: 'POST',
-        url: `/api/ai/${task}`,
         headers: basicAuthHeaders(),
+        method: 'POST',
         payload,
+        url: `/api/ai/${task}`,
       });
       expect(response.statusCode, task).toBe(200);
       expect(response.json(), task).toMatchObject(expected);
@@ -186,20 +191,20 @@ describe('AI service (integration, throwaway PostgreSQL, stubbed pipelines)', ()
 
   it('rejects invalid per-task input at the schema boundary', async () => {
     const response = await app.inject({
-      method: 'POST',
-      url: '/api/ai/question-answering',
       headers: basicAuthHeaders(),
+      method: 'POST',
       payload: { question: 'who?' },
+      url: '/api/ai/question-answering',
     });
     expect(response.statusCode).toBe(400);
   });
 
   it('rejects an unknown task with 404', async () => {
     const response = await app.inject({
-      method: 'POST',
-      url: '/api/ai/definitely-not-a-task',
       headers: basicAuthHeaders(),
+      method: 'POST',
       payload: { text: 'hi' },
+      url: '/api/ai/definitely-not-a-task',
     });
     expect(response.statusCode).toBe(404);
   });
@@ -213,9 +218,9 @@ describe('AI service (integration, throwaway PostgreSQL, stubbed pipelines)', ()
     const port = address.port;
 
     const socket = io(`http://127.0.0.1:${port}`, {
-      transports: ['websocket'],
-      reconnection: false,
       extraHeaders: basicAuthHeaders(),
+      reconnection: false,
+      transports: ['websocket'],
     });
     try {
       await new Promise<void>((resolve, reject) => {
@@ -227,9 +232,9 @@ describe('AI service (integration, throwaway PostgreSQL, stubbed pipelines)', ()
         socket.timeout(5_000).emit(
           'ai',
           {
-            task: 'sentiment',
             input: { text: 'a completely unique sentence for the WS test' },
             requestId: crypto.randomUUID(),
+            task: 'sentiment',
           },
           (error: Error | null, response?: { statusCode: number }) => {
             if (error) reject(error);
@@ -239,10 +244,10 @@ describe('AI service (integration, throwaway PostgreSQL, stubbed pipelines)', ()
       });
       expect(ack.statusCode).toBe(202);
 
-      const event = await new Promise<{ task: string; result: { label: string } }>(
+      const event = await new Promise<{ result: { label: string }; task: string }>(
         (resolve, reject) => {
           const timer = setTimeout(() => reject(new Error('no ai-result event')), 5000);
-          socket.on('ai-result', (payload: { task: string; result: { label: string } }) => {
+          socket.on('ai-result', (payload: { result: { label: string }; task: string }) => {
             clearTimeout(timer);
             resolve(payload);
           });
@@ -261,7 +266,6 @@ describe('AI service (integration, throwaway PostgreSQL, stubbed pipelines)', ()
       releaseGate = resolve;
     });
     const gatedLoader = {
-      modelFor: () => 'stub/sentiment',
       load: async () => {
         const output = [{ label: 'POSITIVE', score: 0.91 }];
         return async () => {
@@ -269,6 +273,7 @@ describe('AI service (integration, throwaway PostgreSQL, stubbed pipelines)', ()
           return output;
         };
       },
+      modelFor: () => 'stub/sentiment',
     };
 
     const { AppModule } = await import('../src/app.module.js');
@@ -283,10 +288,10 @@ describe('AI service (integration, throwaway PostgreSQL, stubbed pipelines)', ()
     await gatedApp.init();
     try {
       const request = {
-        method: 'POST',
-        url: '/api/ai/sentiment',
         headers: basicAuthHeaders(),
+        method: 'POST',
         payload: { text: 'gate test' },
+        url: '/api/ai/sentiment',
       } as Parameters<typeof app.inject>[0];
 
       const a = gatedApp.inject(request);

@@ -1,19 +1,19 @@
-import path from 'node:path';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
 import { FastifyAdapter } from '@nestjs/platform-fastify';
-import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
-import { Pool } from 'pg';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { eq } from 'drizzle-orm';
+import path from 'node:path';
+import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
 import * as schema from '../src/database/schema.js';
-import { startTempCluster, type TempCluster } from './pg-temp.js';
 import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
-import { startOllamaStub, type OllamaStub } from './ollama-stub.js';
+import { type OllamaStub, startOllamaStub } from './ollama-stub.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
 
 // Module scope: the test wants the model budget at 100ms. Assigned before
 // AppModule is imported (lazily, inside beforeEach), so the config factory
@@ -76,11 +76,11 @@ describe('translate with a hanging model (integration)', () => {
     const response = await app.inject({
       headers: basicAuthHeaders(),
       method: 'POST',
+      payload: { targetLanguage: 'fr', text: 'this hangs' },
       url: '/api/translate',
-      payload: { text: 'this hangs', targetLanguage: 'fr' },
     });
     expect(response.statusCode).toBe(504);
-    expect(response.json()).toEqual({ statusCode: 504, message: 'Translation timed out' });
+    expect(response.json()).toEqual({ message: 'Translation timed out', statusCode: 504 });
 
     const pool = new Pool({ connectionString: cluster.url() });
     try {

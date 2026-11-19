@@ -1,67 +1,35 @@
+import type { AiUsageEvent } from '@nestjs/ai';
+import type { TranslateRequest, TranslateResponse } from '@trainslator/shared';
+
+import { AiService } from '@nestjs/ai';
 import {
+  BadGatewayException,
   GatewayTimeoutException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
-  BadGatewayException,
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { and, eq, isNull, lt } from 'drizzle-orm';
 
-import { eq, and, isNull, lt } from 'drizzle-orm';
-
-import type { TranslateRequest, TranslateResponse } from '@trainslator/shared';
-
-import type { AiUsageEvent } from '@nestjs/ai';
-import { AiService } from '@nestjs/ai';
-
-import { DRIZZLE } from '../database/drizzle.module.js';
+import type { Env } from '../config/env.js';
 import type { Database } from '../database/drizzle.module.js';
-import { aiMessages, aiMessagePrompts, languages, translations } from '../database/schema.js';
 
 import { Inflight } from '../common/inflight.js';
 import { translationKeyFor } from '../common/key.js';
+import { DRIZZLE } from '../database/drizzle.module.js';
+import { aiMessagePrompts, aiMessages, languages, translations } from '../database/schema.js';
 import {
-  TRANSLATE_HUMAN_PROMPT,
   buildHumanPrompt,
   buildSystemPrompt,
   stripEnclosingQuotes,
+  TRANSLATE_HUMAN_PROMPT,
 } from './prompts.js';
-import type { Env } from '../config/env.js';
 
 /** Result of a translate call; mirrors the shared response contract. */
 type TranslateOutcome = TranslateResponse;
-
-/** Whether the error looks like an upstream timeout, walking the cause chain. */
-export function isTimeoutError(error: unknown): boolean {
-  let current: unknown = error;
-  for (let hop = 0; hop < 10; hop += 1) {
-    if (!(current instanceof Error)) return false;
-    if (
-      current.name === 'AbortError' ||
-      current.name === 'TimeoutError' ||
-      current.name === 'ResilienceTimeoutError' ||
-      /timed?\s*out|ETIMEDOUT|TIMEOUT/i.test(current.message)
-    ) {
-      return true;
-    }
-    const next = current.cause;
-    if (next === undefined || next === current) return false;
-    current = next;
-  }
-  return false;
-}
-
-function toUsageRecord(usage: AiUsageEvent['usage']): Record<string, number> {
-  return {
-    inputTokens: usage.inputTokens,
-    outputTokens: usage.outputTokens,
-    totalTokens: usage.totalTokens,
-    cachedInputTokens: usage.cachedInputTokens,
-    reasoningTokens: usage.reasoningTokens,
-  };
-}
 
 /**
  * The translation pipeline: cache-aside read from `translations`, Ollama call
@@ -70,8 +38,14 @@ function toUsageRecord(usage: AiUsageEvent['usage']): Record<string, number> {
  */
 @Injectable()
 export class TranslateService implements OnModuleInit {
-  private readonly logger = new Logger(TranslateService.name);
   private readonly inflight = new Inflight<string, TranslateOutcome>();
+  private readonly logger = new Logger(TranslateService.name);
+
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly ai: AiService,
+    private readonly config: ConfigService<Env, true>,
+  ) {}
 
   /** Marks stale `processing` audit rows as failed; covers a crash mid-pipeline. Fails soft: a boot without a writable audit table must not take the service down. */
   async onModuleInit(): Promise<void> {
@@ -96,15 +70,8 @@ export class TranslateService implements OnModuleInit {
     }
   }
 
-  constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
-    private readonly ai: AiService,
-    private readonly config: ConfigService<Env, true>,
-  ) {}
-
   /**
    * Translates `input.text` into `input.targetLanguage` (ISO 639-1).
-   *
    * @param input - validated request body
    * @returns the translation and whether it came from the catalogue cache
    * @throws NotFoundException for an unknown target language
@@ -147,13 +114,13 @@ export class TranslateService implements OnModuleInit {
       )
       .limit(1);
     if (cached[0]) {
-      return { text: cached[0].text, cached: true };
+      return { cached: true, text: cached[0].text };
     }
 
     const model = this.config.get('OLLAMA_TEXT_MODEL', { infer: true });
     const inserted = await this.db
       .insert(aiMessages)
-      .values({ provider: 'ollama', model, status: 'processing' })
+      .values({ model, provider: 'ollama', status: 'processing' })
       .returning({ id: aiMessages.id });
     const message = inserted[0];
     if (!message) throw new Error('ai_messages insert returned no row');
@@ -165,11 +132,11 @@ export class TranslateService implements OnModuleInit {
 
     try {
       const output = await this.ai.generateText({
-        model: 'default',
-        label: 'translate',
         instructions: buildSystemPrompt(language.name),
-        prompt,
+        label: 'translate',
         maxOutputTokens: 4096,
+        model: 'default',
+        prompt,
       });
 
       const content = stripEnclosingQuotes(output.text);
@@ -185,7 +152,7 @@ export class TranslateService implements OnModuleInit {
       await this.db.transaction(async (tx) => {
         const inserted = await tx
           .insert(translations)
-          .values({ languageId: language.id, namespace: 'dynamic', key, text: content })
+          .values({ key, languageId: language.id, namespace: 'dynamic', text: content })
           .onConflictDoNothing()
           .returning({ text: translations.text });
         let finalText = inserted[0]?.text ?? content;
@@ -204,22 +171,22 @@ export class TranslateService implements OnModuleInit {
           finalText = final[0]?.text ?? content;
         }
         await tx.insert(aiMessagePrompts).values([
-          { messageId: message.id, role: 'system', prompt: buildSystemPrompt(language.name) },
-          { messageId: message.id, role: 'human', prompt },
+          { messageId: message.id, prompt: buildSystemPrompt(language.name), role: 'system' },
+          { messageId: message.id, prompt, role: 'human' },
         ]);
         await tx
           .update(aiMessages)
           .set({
-            status: 'completed',
             response: finalText,
-            usage: toUsageRecord(output.usage),
+            status: 'completed',
             updatedAt: new Date(),
+            usage: toUsageRecord(output.usage),
           })
           .where(eq(aiMessages.id, message.id));
         persistedText = finalText;
       });
 
-      return { text: persistedText, cached: false };
+      return { cached: false, text: persistedText };
     } catch (error) {
       this.logger.error(
         `translation failed for key=${key.slice(0, 12)}… (${isTimeoutError(error) ? 'timeout' : 'upstream'})`,
@@ -241,4 +208,43 @@ export class TranslateService implements OnModuleInit {
       throw new BadGatewayException('Translation failed');
     }
   }
+}
+
+/**
+ * Whether the error looks like an upstream timeout, walking the cause chain.
+ * @param error - the unknown thrown value
+ * @returns true when the error (or its cause chain) is a timeout
+ */
+export function isTimeoutError(error: unknown): boolean {
+  let current: unknown = error;
+  for (let hop = 0; hop < 10; hop += 1) {
+    if (!(current instanceof Error)) return false;
+    if (
+      current.name === 'AbortError' ||
+      current.name === 'TimeoutError' ||
+      current.name === 'ResilienceTimeoutError' ||
+      /timed?\s*out|ETIMEDOUT/i.test(current.message)
+    ) {
+      return true;
+    }
+    const next = current.cause;
+    if (next === undefined || next === current) return false;
+    current = next;
+  }
+  return false;
+}
+
+/**
+ * Maps the AiService usage event to the audit payload.
+ * @param usage - the usage event from `@nestjs/ai`
+ * @returns the auditable usage record
+ */
+function toUsageRecord(usage: AiUsageEvent['usage']): Record<string, number> {
+  return {
+    cachedInputTokens: usage.cachedInputTokens,
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    reasoningTokens: usage.reasoningTokens,
+    totalTokens: usage.totalTokens,
+  };
 }

@@ -5,13 +5,20 @@ import type { Database } from '../database/drizzle.module.js';
 import { LanguagesService } from './languages.service.js';
 
 const valid = {
+  dir: 'ltr',
+  iso6391: 'tz',
+  isSource: false,
   name: 'Testese',
   nativeName: 'Teste',
-  iso6391: 'tz',
-  dir: 'ltr',
-  isSource: false,
 } as const;
 
+/**
+ * Builds a DB double whose insert/update chains resolve or throw on demand.
+ * @param returning - rows the insert/update "returns"
+ * @param insertError - when set, the insert throws this instead
+ * @param updateError - when set, the update throws this instead
+ * @returns the Database double
+ */
 function databaseReturning(returning: unknown, insertError?: unknown, updateError?: unknown) {
   return {
     insert: () => ({
@@ -27,15 +34,15 @@ function databaseReturning(returning: unknown, insertError?: unknown, updateErro
         where: () => ({
           limit: async () => [
             {
+              createdAt: new Date(),
+              deletedAt: null,
+              dir: 'ltr',
               id: '123e4567-e89b-42d3-a456-426655440000',
+              iso6391: 'tz',
+              isSource: false,
               name: 'Before',
               nativeName: 'Before',
-              iso6391: 'tz',
-              dir: 'ltr',
-              isSource: false,
-              createdAt: new Date(),
               updatedAt: new Date(),
-              deletedAt: null,
             },
           ],
         }),

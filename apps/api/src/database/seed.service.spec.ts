@@ -1,15 +1,22 @@
 import type { ConfigService } from '@nestjs/config';
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./seed', () => ({
   seedLanguages: vi.fn().mockResolvedValue({ upserted: 7 }),
 }));
 
-import { LanguageSeedService } from './seed.service.js';
-import { seedLanguages } from './seed.js';
-import type { Database } from './drizzle.module.js';
 import type { Env } from '../config/env.js';
+import type { Database } from './drizzle.module.js';
 
+import { seedLanguages } from './seed.js';
+import { LanguageSeedService } from './seed.service.js';
+
+/**
+ * Builds the seed service with a stubbed NODE_ENV.
+ * @param nodeEnv - the NODE_ENV value to stub
+ * @returns the seed service double
+ */
 function serviceWithNodeEnv(nodeEnv: string) {
   // Test doubles: no Nest container or live database is needed.
   const db = {} as unknown as Database;

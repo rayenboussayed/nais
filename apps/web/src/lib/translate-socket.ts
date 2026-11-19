@@ -1,29 +1,23 @@
-import { io, type Socket } from 'socket.io-client';
 import type {
   WsTranslateAck,
+  WsTranslateMessage,
   WsTranslationErrorEvent,
   WsTranslationEvent,
-  WsTranslateMessage,
 } from '@trainslator/shared';
 
+import { io, type Socket } from 'socket.io-client';
+
 /** Lazily-created shared socket; same-origin, cookie auth via the WS handshake. */
-let socket: Socket | null = null;
+let socket: null | Socket = null;
 
-function getSocket(): Socket {
-  if (!socket) {
-    socket = io({ withCredentials: true });
-  }
-  return socket;
-}
-
-type TranslateResult = Pick<WsTranslationEvent, 'text' | 'cached'>;
+export type TranslateAccept = Pick<WsTranslateMessage, 'requestId'>;
 
 export interface TranslateCallbacks {
   onDone: (result: TranslateResult) => void;
   onError: (message: string) => void;
 }
 
-export type TranslateAccept = Pick<WsTranslateMessage, 'requestId'>;
+type TranslateResult = Pick<WsTranslationEvent, 'cached' | 'text'>;
 
 /**
  * Runs one translate request over the WebSocket channel.
@@ -32,6 +26,10 @@ export type TranslateAccept = Pick<WsTranslateMessage, 'requestId'>;
  * 202 enqueues the job and the result arrives as a `translation` event.
  * 400/404/429/500 acks surface as constant errors. Nothing from the wire is
  * trusted beyond the parsed envelope.
+ * @param text - the source text
+ * @param targetLanguage - the iso639-1 target language
+ * @param callbacks - the done/error handlers
+ * @returns the request id to correlate the ack with the result event
  */
 export function translateText(
   text: string,
@@ -64,7 +62,7 @@ export function translateText(
 
   const onTranslation = (event: WsTranslationEvent) => {
     if (event.requestId !== requestId) return;
-    done({ text: event.text, cached: event.cached });
+    done({ cached: event.cached, text: event.text });
   };
 
   const onTranslationError = (event: WsTranslationErrorEvent) => {
@@ -79,7 +77,7 @@ export function translateText(
     .timeout(10_000)
     .emit(
       'translate',
-      { text, targetLanguage, requestId },
+      { requestId, targetLanguage, text },
       (emitError: Error | null, ack?: WsTranslateAck) => {
         if (emitError) {
           error('Could not reach the translation service.');
@@ -96,20 +94,20 @@ export function translateText(
               error('No answer from the translation service.');
               return;
             }
-            done({ text: ack.data, cached: true });
+            done({ cached: true, text: ack.data });
             return;
           case 202:
             return; // the `translation` event will land later
-          case 429:
-            error(
-              `Rate limit reached. Retry in ${Math.ceil((ack.retryAfterMs ?? 60_000) / 1000)}s.`,
-            );
-            return;
           case 400:
             error('The request was invalid.');
             return;
           case 404:
             error('That language is not supported.');
+            return;
+          case 429:
+            error(
+              `Rate limit reached. Retry in ${Math.ceil((ack.retryAfterMs ?? 60_000) / 1000)}s.`,
+            );
             return;
           default:
             error('The translation failed. Please try again.');
@@ -118,4 +116,15 @@ export function translateText(
     );
 
   return { requestId };
+}
+
+/**
+ * Returns the lazily-created shared socket.
+ * @returns the shared socket
+ */
+function getSocket(): Socket {
+  if (!socket) {
+    socket = io({ withCredentials: true });
+  }
+  return socket;
 }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { translationNamespaceSchema } from './enums';
 import { iso6391Schema, isoDateTimeSchema } from './common';
+import { translationNamespaceSchema } from './enums';
 
 /** Maximum length of the source or translated text accepted by the API. */
 export const MAX_TRANSLATION_TEXT_LENGTH = 50_000;
@@ -10,34 +10,34 @@ const textSchema = z.string().trim().min(1).max(MAX_TRANSLATION_TEXT_LENGTH);
 
 /** Request body for `POST /api/translate`. */
 export const translateRequestSchema = z.object({
-  text: textSchema,
   /** Two-letter ISO 639-1 code of the language to translate into; must exist in the seeded languages. */
   targetLanguage: iso6391Schema,
+  text: textSchema,
 });
 
 /** Response body for a successful translation. */
 export const translateResponseSchema = z.object({
-  text: z.string(),
   /** True when served from the translations table without calling the model. */
   cached: z.boolean(),
+  text: z.string(),
 });
 
 /** Translation row as exposed by the admin API. */
 export const translationSchema = z.object({
+  createdAt: isoDateTimeSchema,
+  deletedAt: isoDateTimeSchema.nullable(),
   id: z.uuid(),
-  languageId: z.uuid(),
-  namespace: translationNamespaceSchema,
   /**
    * `dynamic` rows carry `sha512(nfcTrimmedText)` as base64url (server-derived by the
    * translate pipeline); `static` rows carry a human-authored key. Keys are immutable
    * per row and unique per `(languageId, key)`.
    */
   key: z.string(),
-  text: z.string(),
+  languageId: z.uuid(),
+  namespace: translationNamespaceSchema,
   parentId: z.uuid().nullable(),
-  createdAt: isoDateTimeSchema,
+  text: z.string(),
   updatedAt: isoDateTimeSchema,
-  deletedAt: isoDateTimeSchema.nullable(),
 });
 
 /**
@@ -47,25 +47,25 @@ export const translationSchema = z.object({
  */
 export const createTranslationSchema = z.discriminatedUnion('namespace', [
   z.object({
-    namespace: z.literal('static'),
-    languageId: z.uuid(),
-    text: textSchema,
     key: z.string().trim().min(1).max(255),
+    languageId: z.uuid(),
+    namespace: z.literal('static'),
     parentId: z.uuid().optional(),
+    text: textSchema,
   }),
   z.object({
-    namespace: z.literal('dynamic'),
     languageId: z.uuid(),
+    namespace: z.literal('dynamic'),
     text: textSchema,
   }),
 ]);
 
 const updateTranslationBaseSchema = z.object({
+  key: z.string().trim().min(1).max(255).optional(),
   languageId: z.uuid().optional(),
   namespace: translationNamespaceSchema.optional(),
-  text: textSchema.optional(),
-  key: z.string().trim().min(1).max(255).optional(),
   parentId: z.uuid().nullable().optional(),
+  text: textSchema.optional(),
 });
 
 /** Body of the REST PATCH endpoint; `id` comes from the route. */
@@ -93,13 +93,19 @@ export const wsTranslateMessageSchema = translateRequestSchema.extend({
 
 /** Server-to-client event emitted when an async translation completes. */
 export const wsTranslationEventSchema = z.object({
+  cached: z.boolean(),
   requestId: z.uuid(),
   text: z.string(),
-  cached: z.boolean(),
 });
 
 /** Server ack for the `translate` message: receipt, not the result (that comes via `translation`). */
 export const wsTranslateAckSchema = z.object({
+  /** The translation on cache hit (200); null otherwise. */
+  data: z.string().nullable(),
+  /** Correlation id from the request; null when the client sent an unparseable message. */
+  requestId: z.union([z.uuid(), z.null()]),
+  /** Present only on 429: how long to wait before retrying, in milliseconds. */
+  retryAfterMs: z.number().int().nonnegative().optional(),
   statusCode: z.union([
     z.literal(200),
     z.literal(202),
@@ -108,26 +114,20 @@ export const wsTranslateAckSchema = z.object({
     z.literal(429),
     z.literal(500),
   ]),
-  /** Correlation id from the request; null when the client sent an unparseable message. */
-  requestId: z.union([z.uuid(), z.null()]),
-  /** The translation on cache hit (200); null otherwise. */
-  data: z.string().nullable(),
-  /** Present only on 429: how long to wait before retrying, in milliseconds. */
-  retryAfterMs: z.number().int().nonnegative().optional(),
 });
 
 /** Server-to-client event emitted when an async translation fails. */
 export const wsTranslationErrorEventSchema = z.object({
-  requestId: z.uuid(),
   message: z.string(),
+  requestId: z.uuid(),
 });
 
+export type CreateTranslationInput = z.infer<typeof createTranslationSchema>;
 export type TranslateRequest = z.infer<typeof translateRequestSchema>;
 export type TranslateResponse = z.infer<typeof translateResponseSchema>;
 export type Translation = z.infer<typeof translationSchema>;
-export type CreateTranslationInput = z.infer<typeof createTranslationSchema>;
 export type UpdateTranslationInput = z.infer<typeof updateTranslationSchema>;
-export type WsTranslateMessage = z.infer<typeof wsTranslateMessageSchema>;
-export type WsTranslationEvent = z.infer<typeof wsTranslationEventSchema>;
-export type WsTranslationErrorEvent = z.infer<typeof wsTranslationErrorEventSchema>;
 export type WsTranslateAck = z.infer<typeof wsTranslateAckSchema>;
+export type WsTranslateMessage = z.infer<typeof wsTranslateMessageSchema>;
+export type WsTranslationErrorEvent = z.infer<typeof wsTranslationErrorEventSchema>;
+export type WsTranslationEvent = z.infer<typeof wsTranslationEventSchema>;

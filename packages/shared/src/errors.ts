@@ -6,9 +6,9 @@ import { z } from 'zod';
  * or the array produced when a validation source reports multiple issues.
  */
 export const apiErrorSchema = z.object({
-  statusCode: z.number().int().min(100).max(599),
-  message: z.union([z.string(), z.array(z.string())]),
   error: z.string().optional(),
+  message: z.union([z.string(), z.array(z.string())]),
+  statusCode: z.number().int().min(100).max(599),
 });
 
 export type ApiError = z.infer<typeof apiErrorSchema>;

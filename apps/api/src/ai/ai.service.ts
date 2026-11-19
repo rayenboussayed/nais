@@ -1,3 +1,5 @@
+import type { AiTask } from '@trainslator/shared';
+
 import {
   BadGatewayException,
   GatewayTimeoutException,
@@ -8,33 +10,31 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-
-import { eq, and, lt } from 'drizzle-orm';
-
-import type { AiTask } from '@trainslator/shared';
-import { aiTaskSchema, aiRequestSchemas, aiResultSchemas } from '@trainslator/shared';
-
-import { DRIZZLE } from '../database/drizzle.module.js';
-import type { Database } from '../database/drizzle.module.js';
-import { aiCache, aiMessages } from '../database/schema.js';
-import { Inflight } from '../common/inflight.js';
-import { Semaphore } from '../common/semaphore.js';
-import { inputHashFor, taskKeyFor } from '../common/key.js';
-import { isTimeoutError, TranslateService } from '../translate/translate.service.js';
-import type { Env } from '../config/env.js';
-import { AI_TASK_REGISTRY, listTaskDescriptors, modelEnvKey } from './tasks.js';
+import { aiRequestSchemas, aiResultSchemas, aiTaskSchema } from '@trainslator/shared';
 import { AI_TASKS } from '@trainslator/shared';
+import { and, eq, lt } from 'drizzle-orm';
+
+import type { Env } from '../config/env.js';
+import type { Database } from '../database/drizzle.module.js';
+
+import { Inflight } from '../common/inflight.js';
+import { inputHashFor, taskKeyFor } from '../common/key.js';
+import { Semaphore } from '../common/semaphore.js';
+import { DRIZZLE } from '../database/drizzle.module.js';
+import { aiCache, aiMessages } from '../database/schema.js';
+import { isTimeoutError, TranslateService } from '../translate/translate.service.js';
 import { PipelineLoader } from './pipeline-loader.js';
+import { AI_TASK_REGISTRY, listTaskDescriptors, modelEnvKey } from './tasks.js';
 
 const AUDIT_RESPONSE_CAP = 10_000;
 
 export interface AiRunEnvelope {
-  task: AiTask;
-  /** Task-shaped result object; always carries `cached`. */
-  result: Record<string, unknown>;
   cached: boolean;
   /** Effective model id the result came from (or would come from on miss). */
   model: string;
+  /** Task-shaped result object; always carries `cached`. */
+  result: Record<string, unknown>;
+  task: AiTask;
 }
 
 /**
@@ -45,8 +45,8 @@ export interface AiRunEnvelope {
  */
 @Injectable()
 export class AiService implements OnModuleInit {
-  private readonly logger = new Logger(AiService.name);
   private readonly inflight = new Inflight<string, AiRunEnvelope>();
+  private readonly logger = new Logger(AiService.name);
   private readonly modelGate: Semaphore;
 
   constructor(
@@ -56,6 +56,32 @@ export class AiService implements OnModuleInit {
     private readonly config: ConfigService<Env, true>,
   ) {
     this.modelGate = new Semaphore(this.config.get('AI_MAX_CONCURRENCY', { infer: true }));
+  }
+
+  /**
+   * Public descriptor list for `GET /api/ai/tasks`.
+   * @returns one descriptor per registered task with its effective model
+   */
+  listTasks() {
+    return listTaskDescriptors((task) => this.modelFor(task)).map((descriptor) => ({
+      description: descriptor.description,
+      label: descriptor.label,
+      model: descriptor.model,
+      provider: descriptor.provider,
+      task: descriptor.task,
+    }));
+  }
+
+  /**
+   * Effective model id for a task (env override or registry default).
+   * @param task - the task whose effective model to resolve
+   * @returns the effective model id
+   */
+  modelFor(task: AiTask): string {
+    if (task === 'translate') {
+      return this.config.get('OLLAMA_TEXT_MODEL', { infer: true });
+    }
+    return this.loader.modelFor(task);
   }
 
   /**
@@ -93,55 +119,35 @@ export class AiService implements OnModuleInit {
     }
   }
 
-  /** Public descriptor list for `GET /api/ai/tasks`. */
-  listTasks() {
-    return listTaskDescriptors((task) => this.modelFor(task)).map((descriptor) => ({
-      task: descriptor.task,
-      provider: descriptor.provider,
-      model: descriptor.model,
-      label: descriptor.label,
-      description: descriptor.description,
-    }));
-  }
-
   /**
    * Read-only cache probe for inline 200 answers; never loads the model or
    * writes audit rows. Returns the cached task result or null.
+   * @param task - the task to look up in `ai_cache`
+   * @param input - the task input to key the cache on
+   * @returns the cached result with `cached: true`, or null on a miss
    */
   async peekCache(
     task: Exclude<AiTask, 'translate'>,
     input: Record<string, unknown>,
-  ): Promise<Record<string, unknown> | null> {
+  ): Promise<null | Record<string, unknown>> {
     const model = this.loader.modelFor(task);
     const cacheKey = taskKeyFor(task, model, input);
     const rows = await this.db
       .select({ result: aiCache.result })
       .from(aiCache)
-      .where(
-        and(
-          eq(aiCache.task, task),
-          eq(aiCache.model, model),
-          eq(aiCache.key, cacheKey),
-        ),
-      )
+      .where(and(eq(aiCache.task, task), eq(aiCache.model, model), eq(aiCache.key, cacheKey)))
       .limit(1);
     const row = rows[0];
     return row ? { ...row.result, cached: true } : null;
-  }
-
-  /** Effective model id for a task (env override or registry default). */
-  modelFor(task: AiTask): string {
-    if (task === 'translate') {
-      return this.config.get('OLLAMA_TEXT_MODEL', { infer: true });
-    }
-    return this.loader.modelFor(task);
   }
 
   /**
    * Runs a task. `translate` is served by the catalogue-cached translate
    * pipeline; every other task runs a dedicated ONNX pipeline with an
    * `ai_cache`-aside lookup.
-   *
+   * @param taskRaw - the task id from the wire (validated before use)
+   * @param inputRaw - the task input from the wire (validated before use)
+   * @returns the task result envelope (inline result + audit metadata)
    * @throws NotFoundException for an unknown task
    * @throws BadRequestException (via the caller's zod validation) for bad input
    * @throws BadGatewayException | GatewayTimeoutException when the model fails
@@ -154,6 +160,7 @@ export class AiService implements OnModuleInit {
     const task = parsedTask.data;
     if (task === 'translate') return this.runTranslate(inputRaw);
 
+    // eslint-disable-next-line security/detect-object-injection -- task narrowed to AiTask by aiTaskSchema above
     const input = aiRequestSchemas[task].parse(inputRaw) as unknown as Record<string, unknown>;
     const model = this.loader.modelFor(task);
     const cacheKey = taskKeyFor(task, model, input);
@@ -161,16 +168,10 @@ export class AiService implements OnModuleInit {
     const cached = await this.db
       .select({ result: aiCache.result })
       .from(aiCache)
-      .where(
-        and(
-          eq(aiCache.task, task),
-          eq(aiCache.model, model),
-          eq(aiCache.key, cacheKey),
-        ),
-      )
+      .where(and(eq(aiCache.task, task), eq(aiCache.model, model), eq(aiCache.key, cacheKey)))
       .limit(1);
     if (cached[0]) {
-      return { task, result: { ...cached[0].result, cached: true }, cached: true, model };
+      return { cached: true, model, result: { ...cached[0].result, cached: true }, task };
     }
 
     return this.inflight.run(`${task}:${cacheKey}`, () =>
@@ -178,17 +179,139 @@ export class AiService implements OnModuleInit {
     );
   }
 
+  private arrayItems(raw: unknown, task: AiTask): Array<Record<string, unknown>> {
+    if (!Array.isArray(raw)) {
+      throw new BadGatewayException(`The ${task} model returned an unexpected shape`);
+    }
+    return raw as Array<Record<string, unknown>>;
+  }
+
+  private firstItem(raw: unknown, task: AiTask): Record<string, unknown> {
+    const items = this.arrayItems(raw, task);
+    const first = items[0];
+    if (!first) throw new BadGatewayException(`The ${task} model returned no output`);
+    return first;
+  }
+
+  private firstVector(listed: unknown): null | number[] {
+    if (!Array.isArray(listed) || listed.length === 0) return null;
+    const first = listed[0] as unknown;
+    if (Array.isArray(first) && first.length > 0 && typeof first[0] === 'number') {
+      return first as number[];
+    }
+    if (typeof first === 'number') return listed as number[];
+    return null;
+  }
+
+  /**
+   * Calls the pipeline with task-specific arguments.
+   * @param pipeline - the loaded transformers.js pipeline callable
+   * @param task - the task being invoked
+   * @param input - the validated task input
+   * @returns the raw pipeline output (normalization happens in the caller)
+   */
+  private async invokePipeline(
+    pipeline: (input: unknown, ...rest: unknown[]) => Promise<unknown>,
+    task: Exclude<AiTask, 'translate'>,
+    input: Record<string, unknown>,
+  ): Promise<unknown> {
+    switch (task) {
+      case 'feature-extraction':
+        return pipeline(input.text as string, { normalize: true, pooling: 'mean' });
+      case 'question-answering':
+        return pipeline(input.question as string, input.context as string);
+      case 'sentiment':
+        return pipeline(input.text as string);
+      case 'summarize':
+        return pipeline(input.text as string, { max_new_tokens: 100 });
+      case 'token-classification':
+        return pipeline(input.text as string, { aggregation_strategy: 'simple' });
+      case 'zero-shot-classification':
+        return pipeline(input.text as string, input.candidateLabels as string[]);
+    }
+  }
+
+  /**
+   * Normalizes raw pipeline output into the task's shared result schema.
+   * @param task - the task the output belongs to
+   * @param raw - the raw pipeline output
+   * @returns the schema-validated result object
+   */
+  private normalizeResult(
+    task: Exclude<AiTask, 'translate'>,
+    raw: unknown,
+  ): Record<string, unknown> {
+    switch (task) {
+      case 'feature-extraction': {
+        const embedding = this.tensorToArray(raw);
+        return aiResultSchemas['feature-extraction'].parse({
+          cached: false,
+          dimensions: embedding.length,
+          embedding,
+        });
+      }
+      case 'question-answering': {
+        const item = this.singleItem(raw, task);
+        return aiResultSchemas['question-answering'].parse({
+          answer: String(item.answer ?? ''),
+          cached: false,
+          end: Number(item.end ?? 0),
+          score: Number(item.score ?? 0),
+          start: Number(item.start ?? 0),
+        });
+      }
+      case 'sentiment': {
+        const first = this.firstItem(raw, task);
+        return aiResultSchemas.sentiment.parse({
+          cached: false,
+          label: String(first.label ?? ''),
+          score: Number(first.score ?? 0),
+        });
+      }
+      case 'summarize': {
+        const first = this.firstItem(raw, task);
+        return aiResultSchemas.summarize.parse({
+          cached: false,
+          text: String(first.summary_text ?? '').trim(),
+        });
+      }
+      case 'token-classification': {
+        const items = this.arrayItems(raw, task);
+        return aiResultSchemas['token-classification'].parse({
+          cached: false,
+          entities: items.map((item) => ({
+            end: Number(item.end ?? 0),
+            entity_group: String(item.entity_group ?? item.entity ?? ''),
+            score: Number(item.score ?? 0),
+            start: Number(item.start ?? 0),
+            word: String(item.word ?? ''),
+          })),
+        });
+      }
+      case 'zero-shot-classification': {
+        // The pipeline returns a single object for a single input string.
+        const item = this.singleItem(raw, task);
+        return aiResultSchemas['zero-shot-classification'].parse({
+          cached: false,
+          labels: Array.isArray(item.labels) ? item.labels.map((label) => String(label)) : [],
+          scores: Array.isArray(item.scores) ? item.scores.map((score) => Number(score ?? 0)) : [],
+          sequence: String(item.sequence ?? ''),
+        });
+      }
+    }
+  }
+
   private async runTranslate(inputRaw: unknown): Promise<AiRunEnvelope> {
     const input = aiRequestSchemas.translate.parse(inputRaw);
     const response = await this.translateService.translate({
-      text: input.text,
       targetLanguage: input.targetLanguage,
+      text: input.text,
     });
     return {
-      task: 'translate',
-      result: { text: response.text, cached: response.cached },
       cached: response.cached,
       model: this.modelFor('translate'),
+      result: { cached: response.cached, text: response.text },
+      task: 'translate',
     };
   }
 
@@ -198,20 +321,21 @@ export class AiService implements OnModuleInit {
     cacheKey: string,
     input: Record<string, unknown>,
   ): Promise<AiRunEnvelope> {
+    // eslint-disable-next-line security/detect-object-injection -- task narrowed to AiTask by aiTaskSchema at run() entry
     const provider = AI_TASK_REGISTRY[task].provider;
     const inserted = await this.db
       .insert(aiMessages)
       .values({
-        task,
-        provider,
         model,
-        status: 'processing',
         // Privacy posture: the audit stores a hash of the input plus its shape — never the raw text.
         payload: {
           inputHash: inputHashFor(input),
           inputKeys: Object.keys(input).sort(),
           requestBytes: Buffer.byteLength(JSON.stringify(input), 'utf8'),
         },
+        provider,
+        status: 'processing',
+        task,
       })
       .returning({ id: aiMessages.id });
     const message = inserted[0];
@@ -232,20 +356,14 @@ export class AiService implements OnModuleInit {
       await this.db.transaction(async (tx) => {
         const insertedRows = await tx
           .insert(aiCache)
-          .values({ task, model, key: cacheKey, result })
+          .values({ key: cacheKey, model, result, task })
           .onConflictDoNothing()
           .returning({ id: aiCache.id });
         if (insertedRows.length === 0) {
           const winner = await tx
             .select({ result: aiCache.result })
             .from(aiCache)
-            .where(
-              and(
-                eq(aiCache.task, task),
-                eq(aiCache.model, model),
-                eq(aiCache.key, cacheKey),
-              ),
-            )
+            .where(and(eq(aiCache.task, task), eq(aiCache.model, model), eq(aiCache.key, cacheKey)))
             .limit(1);
           const winnerResult = winner[0]?.result;
           if (winnerResult) finalResult = winnerResult as Record<string, unknown>;
@@ -253,14 +371,14 @@ export class AiService implements OnModuleInit {
         await tx
           .update(aiMessages)
           .set({
-            status: 'completed',
             response: JSON.stringify(finalResult).slice(0, AUDIT_RESPONSE_CAP),
+            status: 'completed',
             updatedAt: new Date(),
           })
           .where(eq(aiMessages.id, message.id));
       });
 
-      return { task, result: { ...finalResult, cached: false }, cached: false, model };
+      return { cached: false, model, result: { ...finalResult, cached: false }, task };
     } catch (error) {
       await this.db
         .update(aiMessages)
@@ -282,100 +400,6 @@ export class AiService implements OnModuleInit {
     }
   }
 
-  /** Calls the pipeline with task-specific arguments. */
-  private async invokePipeline(
-    pipeline: (input: unknown, ...rest: unknown[]) => Promise<unknown>,
-    task: Exclude<AiTask, 'translate'>,
-    input: Record<string, unknown>,
-  ): Promise<unknown> {
-    switch (task) {
-      case 'sentiment':
-        return pipeline(input.text as string);
-      case 'summarize':
-        return pipeline(input.text as string, { max_new_tokens: 100 });
-      case 'question-answering':
-        return pipeline(input.question as string, input.context as string);
-      case 'token-classification':
-        return pipeline(input.text as string, { aggregation_strategy: 'simple' });
-      case 'zero-shot-classification':
-        return pipeline(input.text as string, input.candidateLabels as string[]);
-      case 'feature-extraction':
-        return pipeline(input.text as string, { pooling: 'mean', normalize: true });
-    }
-  }
-
-  /** Normalizes raw pipeline output into the task's shared result schema. */
-  private normalizeResult(
-    task: Exclude<AiTask, 'translate'>,
-    raw: unknown,
-  ): Record<string, unknown> {
-    switch (task) {
-      case 'sentiment': {
-        const first = this.firstItem(raw, task);
-        return aiResultSchemas.sentiment.parse({
-          label: String(first.label ?? ''),
-          score: Number(first.score ?? 0),
-          cached: false,
-        });
-      }
-      case 'summarize': {
-        const first = this.firstItem(raw, task);
-        return aiResultSchemas.summarize.parse({
-          text: String(first.summary_text ?? '').trim(),
-          cached: false,
-        });
-      }
-      case 'question-answering': {
-        const item = this.singleItem(raw, task);
-        return aiResultSchemas['question-answering'].parse({
-          answer: String(item.answer ?? ''),
-          score: Number(item.score ?? 0),
-          start: Number(item.start ?? 0),
-          end: Number(item.end ?? 0),
-          cached: false,
-        });
-      }
-      case 'token-classification': {
-        const items = this.arrayItems(raw, task);
-        return aiResultSchemas['token-classification'].parse({
-          entities: items.map((item) => ({
-            word: String(item.word ?? ''),
-            entity_group: String(item.entity_group ?? item.entity ?? ''),
-            score: Number(item.score ?? 0),
-            start: Number(item.start ?? 0),
-            end: Number(item.end ?? 0),
-          })),
-          cached: false,
-        });
-      }
-      case 'zero-shot-classification': {
-        // The pipeline returns a single object for a single input string.
-        const item = this.singleItem(raw, task);
-        return aiResultSchemas['zero-shot-classification'].parse({
-          sequence: String(item.sequence ?? ''),
-          labels: Array.isArray(item.labels) ? item.labels.map((label) => String(label)) : [],
-          scores: Array.isArray(item.scores) ? item.scores.map((score) => Number(score ?? 0)) : [],
-          cached: false,
-        });
-      }
-      case 'feature-extraction': {
-        const embedding = this.tensorToArray(raw);
-        return aiResultSchemas['feature-extraction'].parse({
-          embedding,
-          dimensions: embedding.length,
-          cached: false,
-        });
-      }
-    }
-  }
-
-  private firstItem(raw: unknown, task: AiTask): Record<string, unknown> {
-    const items = this.arrayItems(raw, task);
-    const first = items[0];
-    if (!first) throw new BadGatewayException(`The ${task} model returned no output`);
-    return first;
-  }
-
   private singleItem(raw: unknown, task: AiTask): Record<string, unknown> {
     if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
       throw new BadGatewayException(`The ${task} model returned an unexpected shape`);
@@ -383,21 +407,18 @@ export class AiService implements OnModuleInit {
     return raw as Record<string, unknown>;
   }
 
-  private arrayItems(raw: unknown, task: AiTask): Array<Record<string, unknown>> {
-    if (!Array.isArray(raw)) {
-      throw new BadGatewayException(`The ${task} model returned an unexpected shape`);
-    }
-    return raw as Array<Record<string, unknown>>;
-  }
-
-  /** Extracts a flat embedding vector from a transformers.js Tensor-like object. */
+  /**
+   * Extracts a flat embedding vector from a transformers.js Tensor-like object.
+   * @param raw - the tensor-like object returned by feature-extraction
+   * @returns the flat embedding vector as plain numbers
+   */
   private tensorToArray(raw: unknown): number[] {
     if (typeof raw !== 'object' || raw === null) {
       throw new BadGatewayException('The feature-extraction model returned an unexpected shape');
     }
     const tensor = raw as {
+      data?: Array<number> | ArrayLike<number> | Float32Array | { length: number };
       tolist?: () => unknown;
-      data?: { length: number } | Float32Array | Array<number> | ArrayLike<number>;
     };
     if (typeof tensor.tolist === 'function') {
       const listed = tensor.tolist();
@@ -407,23 +428,17 @@ export class AiService implements OnModuleInit {
     const data = tensor.data;
     if (data && ArrayLikeCheck(data)) {
       // Number() also accepts BigInt entries from int8/uint8 quantized tensors.
-      return Array.from(data as ArrayLike<number | bigint>, (value) => Number(value));
+      return Array.from(data as ArrayLike<bigint | number>, (value) => Number(value));
     }
     throw new BadGatewayException('The feature-extraction model returned an unexpected shape');
   }
-
-  private firstVector(listed: unknown): number[] | null {
-    if (!Array.isArray(listed) || listed.length === 0) return null;
-    const first = listed[0] as unknown;
-    if (Array.isArray(first) && first.length > 0 && typeof first[0] === 'number') {
-      return first as number[];
-    }
-    if (typeof first === 'number') return listed as number[];
-    return null;
-  }
 }
 
-/** ArrayLike narrowing with an explicit check of the length property. */
+/**
+ * ArrayLike narrowing with an explicit check of the length property.
+ * @param value - the unknown value narrowed to ArrayLike
+ * @returns true when the value has a numeric `length` property
+ */
 function ArrayLikeCheck(value: unknown): boolean {
   return (
     typeof value === 'object' &&
@@ -433,9 +448,13 @@ function ArrayLikeCheck(value: unknown): boolean {
   );
 }
 
-/** Accepted model ids: "org/model" from the Hub, or absolute/relative local paths; nothing else. */
+/**
+ * Accepted model ids: "org/model" from the Hub, or absolute/relative local paths; nothing else.
+ * @param model - the model id from `AI_<TASK>_MODEL` or the registry default
+ * @returns true when the id is a Hub id or a local path
+ */
 function isValidModelId(model: string): boolean {
-  const orgAndName = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
-  const localPath = /^(\.{0,2}\/|\/)[^\0]*$/;
+  const orgAndName = /^[A-Z0-9][\w.-]*\/[A-Z0-9][\w.-]*$/i;
+  const localPath = /^\.{0,2}\/[^\0]*$/;
   return orgAndName.test(model) || localPath.test(model);
 }

@@ -1,3 +1,6 @@
+import type { LoginRequest } from '@trainslator/shared';
+import type { FastifyReply } from 'fastify';
+
 import {
   Body,
   Controller,
@@ -11,15 +14,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { FastifyReply } from 'fastify';
-
-import type { LoginRequest } from '@trainslator/shared';
 import { loginRequestSchema } from '@trainslator/shared';
 
 import type { Env } from '../config/env.js';
+
+import { RateLimiter } from '../common/rate-limit.js';
 import { SESSION_COOKIE_NAME, signSession } from './session.js';
 import { DUMMY_SCRYPT_HASH, verifyScryptPassword } from './validator.js';
-import { RateLimiter } from '../common/rate-limit.js';
 
 const COOKIE_MAX_AGE_SECONDS = 12 * 60 * 60;
 
@@ -38,9 +39,13 @@ export class AuthController {
    * from password). On success, sets the `trainslator_session` cookie:
    * HttpOnly, SameSite=Lax, Path=/, Max-Age=12h, plus Secure in production.
    * Rate-limited to 5 attempts per minute per client IP.
+   * @param body - the login body (username + password)
+   * @param ip - the client IP used for the rate limiter
+   * @param reply - the Fastify reply used to set the cookie
+   * @returns the authenticated username
    */
-  @Post('login')
   @HttpCode(HttpStatus.OK)
+  @Post('login')
   async login(
     @Body({ schema: loginRequestSchema }) body: LoginRequest,
     @Ip() ip: string,
@@ -50,7 +55,7 @@ export class AuthController {
     // probing for the misconfiguration is indistinguishable from a wrong guess.
     if (!this.limiter.hit(ip)) {
       throw new HttpException(
-        { statusCode: 429, message: 'Too many login attempts' },
+        { message: 'Too many login attempts', statusCode: 429 },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -60,7 +65,7 @@ export class AuthController {
     if (!secret) {
       this.logger.error('login refused: SESSION_SECRET is not configured');
       throw new HttpException(
-        { statusCode: 500, message: 'Service unavailable' },
+        { message: 'Service unavailable', statusCode: 500 },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -74,7 +79,7 @@ export class AuthController {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const { value, maxAge } = signSession(body.username, secret, COOKIE_MAX_AGE_SECONDS * 1000);
+    const { maxAge, value } = signSession(body.username, secret, COOKIE_MAX_AGE_SECONDS * 1000);
     const secure = this.config.get('NODE_ENV', { infer: true }) === 'production' ? '; Secure' : '';
     reply.header(
       'Set-Cookie',
@@ -83,9 +88,12 @@ export class AuthController {
     return { username: body.username };
   }
 
-  /** POST `/api/auth/logout` — clears the session cookie (Secure in production, matching login). */
-  @Post('logout')
+  /**
+   * POST `/api/auth/logout` — clears the session cookie (Secure in production, matching login).
+   * @param reply - the Fastify reply used to clear the cookie
+   */
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Post('logout')
   logout(@Res({ passthrough: true }) reply: FastifyReply): void {
     const secure = this.config.get('NODE_ENV', { infer: true }) === 'production' ? '; Secure' : '';
     reply.header(

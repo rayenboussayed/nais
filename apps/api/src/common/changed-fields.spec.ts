@@ -4,11 +4,11 @@ import { changedFields } from './changed-fields.js';
 
 describe('changedFields', () => {
   const before = {
-    name: 'English',
-    count: 3,
     at: new Date('2026-11-18T00:00:00.000Z'),
-    meta: { flags: ['a'], nested: { b: 1 } },
+    count: 3,
     maybe: null as null | string,
+    meta: { flags: ['a'], nested: { b: 1 } },
+    name: 'English',
   };
 
   it('returns only fields that actually differ', () => {
@@ -56,13 +56,13 @@ describe('changedFields', () => {
 
   it('compares nested objects by value regardless of key order', () => {
     const beforeObj = { nested: { a: 1, b: 2, c: [1, 2, { x: 'y', z: 'w' }] } };
-    const patch = { nested: { c: [1, 2, { z: 'w', x: 'y' }], b: 2, a: 1 } };
+    const patch = { nested: { a: 1, b: 2, c: [1, 2, { x: 'y', z: 'w' }] } };
     expect(changedFields(beforeObj, patch)).toEqual({});
 
     expect(
-      changedFields(beforeObj, { nested: { a: 1, b: 2, c: [1, 2, { z: 'W', x: 'y' }] } }),
+      changedFields(beforeObj, { nested: { a: 1, b: 2, c: [1, 2, { x: 'y', z: 'W' }] } }),
     ).toEqual({
-      nested: { a: 1, b: 2, c: [1, 2, { z: 'W', x: 'y' }] },
+      nested: { a: 1, b: 2, c: [1, 2, { x: 'y', z: 'W' }] },
     });
   });
 

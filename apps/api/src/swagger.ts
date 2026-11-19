@@ -1,4 +1,5 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 /**
@@ -6,13 +7,14 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
  * /api/docs-json). Called by the bootstrap and by integration specs so both
  * paths serve identical routes. Both endpoints sit behind the onRequest
  * auth hook.
+ * @param app - the Nest application to serve Swagger on
  */
 export function setupSwagger(app: NestFastifyApplication): void {
   const docConfig = new DocumentBuilder()
     .setTitle('trainslator')
     .setDescription('Standalone AI translation service: cached, model-backed, admin-editable')
     .setVersion('0.1.0')
-    .addBasicAuth({ type: 'http', scheme: 'basic', name: 'trainslator' })
+    .addBasicAuth({ name: 'trainslator', scheme: 'basic', type: 'http' })
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, docConfig);
   SwaggerModule.setup('api/docs', app, documentFactory, {

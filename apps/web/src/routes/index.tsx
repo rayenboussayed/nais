@@ -1,38 +1,45 @@
-import { useState } from 'react';
 import { createRoute } from '@tanstack/react-router';
+import { useState } from 'react';
 
-import { Route as rootRoute } from './__root';
-import { translateText } from '../lib/translate-socket';
 import { useLanguages } from '../lib/languages';
+import { translateText } from '../lib/translate-socket';
+import { Route as rootRoute } from './__root';
 
 export const Route = createRoute({
+  component: Playground,
   getParentRoute: () => rootRoute,
   path: '/',
-  component: Playground,
 });
 
 interface HistoryItem {
+  at: number;
+  cached: boolean;
   id: string;
   source: string;
   targetLanguage: string;
   translation: string;
-  cached: boolean;
-  at: number;
 }
 
+/**
+ * Playground page: live translate form against the REST API.
+ * @returns the rendered playground
+ */
 export function Playground() {
   const { data: languages, isLoading } = useLanguages();
   const [text, setText] = useState('');
   const [targetLanguage, setTargetLanguage] = useState('en');
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<null | string>(null);
   const [resultCached, setResultCached] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<null | string>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   const selected = languages?.find((language) => language.iso6391 === targetLanguage);
   const targetDir = selected?.dir ?? 'ltr';
 
+  /**
+   * Submits the form and renders the translation.
+   */
   function run() {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
@@ -41,19 +48,19 @@ export function Playground() {
     setResult(null);
 
     translateText(trimmed, targetLanguage, {
-      onDone: ({ text: translated, cached }) => {
+      onDone: ({ cached, text: translated }) => {
         setResult(translated);
         setResultCached(cached);
         setBusy(false);
         setHistory((items) =>
           [
             {
+              at: Date.now(),
+              cached,
               id: crypto.randomUUID(),
               source: trimmed,
               targetLanguage,
               translation: translated,
-              cached,
-              at: Date.now(),
             },
             ...items,
           ].slice(0, 50),
@@ -66,8 +73,12 @@ export function Playground() {
     });
   }
 
+  /**
+   * Copies the translation to the clipboard.
+   */
   async function copy() {
     if (!result) return;
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins -- browser global, not Node's experimental navigator
     await navigator.clipboard.writeText(result);
   }
 
@@ -80,11 +91,11 @@ export function Playground() {
             Translate into
           </label>
           <select
-            id="target"
-            value={targetLanguage}
-            onChange={(event) => setTargetLanguage(event.target.value)}
             disabled={isLoading}
+            id="target"
+            onChange={(event) => setTargetLanguage(event.target.value)}
             style={{ width: 'auto' }}
+            value={targetLanguage}
           >
             {(languages ?? []).map((language) => (
               <option key={language.id} value={language.iso6391}>
@@ -96,21 +107,21 @@ export function Playground() {
       </div>
 
       <div className="translate-grid">
-        <section className="panel stack" aria-label="Source text">
+        <section aria-label="Source text" className="panel stack">
           <label htmlFor="source">Source text</label>
           <textarea
             id="source"
-            rows={12}
-            placeholder="Type or paste the text to translate…"
-            value={text}
             onChange={(event) => setText(event.target.value)}
+            placeholder="Type or paste the text to translate…"
+            rows={12}
+            value={text}
           />
-          <button type="button" className="button" onClick={run} disabled={busy || !text.trim()}>
+          <button className="button" disabled={busy || !text.trim()} onClick={run} type="button">
             {busy ? 'Translating…' : 'Translate'}
           </button>
         </section>
 
-        <section className="panel stack" aria-label="Translation">
+        <section aria-label="Translation" className="panel stack">
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <span className="muted">Translation</span>
             {result !== null && (
@@ -118,7 +129,7 @@ export function Playground() {
                 <span className={`badge ${resultCached ? 'badge-ok' : ''}`}>
                   {resultCached ? 'cached' : 'model'}
                 </span>
-                <button type="button" className="button button-ghost button-small" onClick={copy}>
+                <button className="button button-ghost button-small" onClick={copy} type="button">
                   Copy
                 </button>
               </div>
@@ -129,7 +140,7 @@ export function Playground() {
               {error}
             </div>
           )}
-          <div className="result-area" dir={targetDir} aria-live="polite">
+          <div aria-live="polite" className="result-area" dir={targetDir}>
             {busy && <span className="muted">Translating…</span>}
             {!busy && result === null && (
               <span className="muted">The translation will appear here.</span>
@@ -139,13 +150,13 @@ export function Playground() {
         </section>
       </div>
 
-      <section className="panel stack" aria-label="History">
+      <section aria-label="History" className="panel stack">
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0, fontSize: '1rem' }}>Session history</h2>
+          <h2 style={{ fontSize: '1rem', margin: 0 }}>Session history</h2>
           <button
-            type="button"
             className="button button-ghost button-small"
             onClick={() => setHistory([])}
+            type="button"
           >
             Clear
           </button>
@@ -158,15 +169,15 @@ export function Playground() {
           <div className="history-list">
             {history.map((item) => (
               <button
-                key={item.id}
-                type="button"
                 className="history-item"
+                key={item.id}
                 onClick={() => {
                   setText(item.source);
                   setTargetLanguage(item.targetLanguage);
                   setResult(item.translation);
                   setResultCached(item.cached);
                 }}
+                type="button"
               >
                 <small>
                   {item.targetLanguage} · {item.cached ? 'cached' : 'model'} ·{' '}

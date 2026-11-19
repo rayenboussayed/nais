@@ -1,7 +1,6 @@
-import { z } from 'zod';
-
 import { cursorPairRefine, paginationBaseSchema } from '@trainslator/shared';
 import { translationNamespaceSchema } from '@trainslator/shared';
+import { z } from 'zod';
 
 /** List query for `/api/translations`: pagination plus catalogue filters. */
 export const translationsListQuerySchema = paginationBaseSchema

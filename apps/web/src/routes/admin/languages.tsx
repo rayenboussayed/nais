@@ -1,79 +1,133 @@
-import { useState, type FormEvent } from 'react';
-import { createRoute } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-
+import { createRoute } from '@tanstack/react-router';
 import {
   createLanguageSchema,
-  updateLanguageBodySchema,
   type KeysetList,
   type Language,
+  updateLanguageBodySchema,
 } from '@trainslator/shared';
+import { type FormEvent, useState } from 'react';
 
-import { Route as adminRoute } from '../admin';
-import { apiFetch, ApiError, toQueryString } from '../../lib/api';
-import { formatTimestamp, useCursorStack } from '../../lib/admin';
 import { AdminSearch, Modal, Pagination } from '../../components/AdminBits';
+import { formatTimestamp, useCursorStack } from '../../lib/admin';
+import { ApiError, apiFetch, toQueryString } from '../../lib/api';
+import { Route as adminRoute } from '../admin';
 
 export const Route = createRoute({
+  component: LanguagesAdmin,
   getParentRoute: () => adminRoute,
   path: '/languages',
-  component: LanguagesAdmin,
 });
 
 const PAGE_SIZE = 50;
 
-type Editing = { mode: 'create' } | { mode: 'edit'; row: Language } | null;
+type Editing = null | { mode: 'create' } | { mode: 'edit'; row: Language };
 
 const emptyDraft = {
+  dir: 'ltr' as 'ltr' | 'rtl',
+  iso6391: '',
+  isSource: false,
   name: '',
   nativeName: '',
-  iso6391: '',
-  dir: 'ltr' as 'ltr' | 'rtl',
-  isSource: false,
 };
 
+/**
+ * Admin list of languages: search, keyset pagination, create/edit/soft-delete.
+ * @returns the rendered admin page
+ */
 function LanguagesAdmin() {
   const queryClient = useQueryClient();
-  const { current, canBack, next, back, reset } = useCursorStack();
+  const { back, canBack, current, next, reset } = useCursorStack();
 
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<Editing>(null);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<null | string>(null);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
 
   const params = {
     pageSize: String(PAGE_SIZE),
     ...(q ? { q } : {}),
-    ...(current ? { lastId: current.lastId, lastCreatedAt: current.lastCreatedAt } : {}),
+    ...(current ? { lastCreatedAt: current.lastCreatedAt, lastId: current.lastId } : {}),
   };
 
   const { data, isFetching } = useQuery({
-    queryKey: ['admin', 'languages', params],
-    queryFn: () => apiFetch<KeysetList<Language>>(`/api/languages${toQueryString(params)}`),
     placeholderData: (previous) => previous,
+    queryFn: () => apiFetch<KeysetList<Language>>(`/api/languages${toQueryString(params)}`),
+    queryKey: ['admin', 'languages', params],
   });
 
   const rows = data?.items ?? [];
 
+  /**
+   *
+   */
   function openCreate() {
     setDraft(emptyDraft);
     setFormError(null);
     setEditing({ mode: 'create' });
   }
 
+  /**
+   * Opens the edit form for a row.
+   * @param row - the language to edit
+   */
   function openEdit(row: Language) {
     setDraft({
+      dir: row.dir,
+      iso6391: row.iso6391,
+      isSource: row.isSource,
       name: row.name,
       nativeName: row.nativeName,
-      iso6391: row.iso6391,
-      dir: row.dir,
-      isSource: row.isSource,
     });
     setFormError(null);
     setEditing({ mode: 'edit', row });
   }
 
+  /**
+   * Validates and posts the create form.
+   * @returns the error message to show, or null on success
+   */
+  async function submitCreate(): Promise<null | string> {
+    const parsed = createLanguageSchema.safeParse(draft);
+    if (!parsed.success) {
+      return parsed.error.issues[0]?.message ?? 'Invalid input';
+    }
+    await apiFetch('/api/languages', {
+      body: JSON.stringify(parsed.data),
+      method: 'POST',
+    });
+    return null;
+  }
+
+  /**
+   * Diffs the draft against the edited row, validates and patches it.
+   * @param row - the language row being edited
+   * @returns the error message to show, or null on success
+   */
+  async function submitUpdate(row: Language): Promise<null | string> {
+    const body: Record<string, unknown> = {};
+    if (draft.name !== row.name) body.name = draft.name;
+    if (draft.nativeName !== row.nativeName) body.nativeName = draft.nativeName;
+    if (draft.iso6391 !== row.iso6391) body.iso6391 = draft.iso6391;
+    if (draft.dir !== row.dir) body.dir = draft.dir;
+    if (draft.isSource !== row.isSource) body.isSource = draft.isSource;
+
+    const parsed = updateLanguageBodySchema.safeParse(body);
+    if (!parsed.success) {
+      return parsed.error.issues[0]?.message ?? 'Invalid input';
+    }
+    await apiFetch(`/api/languages/${row.id}`, {
+      body: JSON.stringify(parsed.data),
+      method: 'PATCH',
+    });
+    return null;
+  }
+
+  /**
+   * Submits the create/edit form.
+   * @param event - the form submit event
+   */
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || !editing) return;
@@ -81,33 +135,11 @@ function LanguagesAdmin() {
     setFormError(null);
 
     try {
-      if (editing.mode === 'create') {
-        const parsed = createLanguageSchema.safeParse(draft);
-        if (!parsed.success) {
-          setFormError(parsed.error.issues[0]?.message ?? 'Invalid input');
-          return;
-        }
-        await apiFetch('/api/languages', {
-          method: 'POST',
-          body: JSON.stringify(parsed.data),
-        });
-      } else {
-        const body: Record<string, unknown> = {};
-        if (draft.name !== editing.row.name) body.name = draft.name;
-        if (draft.nativeName !== editing.row.nativeName) body.nativeName = draft.nativeName;
-        if (draft.iso6391 !== editing.row.iso6391) body.iso6391 = draft.iso6391;
-        if (draft.dir !== editing.row.dir) body.dir = draft.dir;
-        if (draft.isSource !== editing.row.isSource) body.isSource = draft.isSource;
-
-        const parsed = updateLanguageBodySchema.safeParse(body);
-        if (!parsed.success) {
-          setFormError(parsed.error.issues[0]?.message ?? 'Invalid input');
-          return;
-        }
-        await apiFetch(`/api/languages/${editing.row.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(parsed.data),
-        });
+      const error =
+        editing.mode === 'create' ? await submitCreate() : await submitUpdate(editing.row);
+      if (error) {
+        setFormError(error);
+        return;
       }
 
       setEditing(null);
@@ -123,6 +155,10 @@ function LanguagesAdmin() {
     }
   }
 
+  /**
+   * Soft-deletes a row after confirmation.
+   * @param row - the language to delete
+   */
   async function remove(row: Language) {
     if (!window.confirm(`Soft-delete ${row.nativeName} (${row.iso6391})?`)) return;
     try {
@@ -136,18 +172,18 @@ function LanguagesAdmin() {
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h1 style={{ margin: 0, fontSize: '1.25rem' }}>Languages</h1>
+        <h1 style={{ fontSize: '1.25rem', margin: 0 }}>Languages</h1>
         <div className="row">
           <AdminSearch
-            value={q}
+            ariaLabel="Search languages"
             onChange={(value) => {
               reset();
               setQ(value);
             }}
             placeholder="Search name…"
-            ariaLabel="Search languages"
+            value={q}
           />
-          <button type="button" className="button" onClick={openCreate}>
+          <button className="button" onClick={openCreate} type="button">
             New language
           </button>
         </div>
@@ -176,18 +212,18 @@ function LanguagesAdmin() {
                 <td>{row.isSource ? <span className="badge badge-ok">source</span> : '—'}</td>
                 <td className="muted">{formatTimestamp(row.updatedAt)}</td>
                 <td>
-                  <div className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+                  <div className="row" style={{ flexWrap: 'nowrap', gap: 6 }}>
                     <button
-                      type="button"
                       className="button button-ghost button-small"
                       onClick={() => openEdit(row)}
+                      type="button"
                     >
                       Edit
                     </button>
                     <button
-                      type="button"
                       className="button button-danger button-small"
                       onClick={() => remove(row)}
+                      type="button"
                     >
                       Delete
                     </button>
@@ -197,7 +233,7 @@ function LanguagesAdmin() {
             ))}
             {rows.length === 0 && !isFetching && (
               <tr>
-                <td colSpan={7} className="muted" style={{ textAlign: 'center', padding: 32 }}>
+                <td className="muted" colSpan={7} style={{ padding: 32, textAlign: 'center' }}>
                   No languages found.
                 </td>
               </tr>
@@ -207,62 +243,62 @@ function LanguagesAdmin() {
       </div>
 
       <Pagination
-        isFetching={isFetching}
         canBack={canBack}
         hasNext={Boolean(data?.next)}
+        isFetching={isFetching}
         onBack={back}
         onNext={() => data?.next && next(data.next)}
       />
 
       {editing && (
         <Modal
-          title={editing.mode === 'create' ? 'New language' : `Edit ${editing.row.nativeName}`}
-          formError={formError}
           busy={busy}
+          formError={formError}
           onClose={() => setEditing(null)}
           onSubmit={submit}
+          title={editing.mode === 'create' ? 'New language' : `Edit ${editing.row.nativeName}`}
         >
           <div className="form-grid">
             <div>
               <label htmlFor="edit-name">Name</label>
               <input
                 id="edit-name"
+                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
                 type="text"
                 value={draft.name}
-                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
               />
             </div>
             <div>
               <label htmlFor="edit-native">Native name</label>
               <input
-                id="edit-native"
-                type="text"
                 dir={draft.dir}
-                value={draft.nativeName}
+                id="edit-native"
                 onChange={(event) => setDraft({ ...draft, nativeName: event.target.value })}
+                type="text"
+                value={draft.nativeName}
               />
             </div>
             <div>
               <label htmlFor="edit-iso">ISO 639-1</label>
               <input
                 id="edit-iso"
-                type="text"
                 maxLength={2}
-                placeholder="en"
-                value={draft.iso6391}
                 onChange={(event) =>
                   setDraft({ ...draft, iso6391: event.target.value.toLowerCase() })
                 }
+                placeholder="en"
+                type="text"
+                value={draft.iso6391}
               />
             </div>
             <div>
               <label htmlFor="edit-dir">Direction</label>
               <select
                 id="edit-dir"
-                value={draft.dir}
                 onChange={(event) =>
                   setDraft({ ...draft, dir: event.target.value as 'ltr' | 'rtl' })
                 }
+                value={draft.dir}
               >
                 <option value="ltr">ltr</option>
                 <option value="rtl">rtl</option>
@@ -271,10 +307,10 @@ function LanguagesAdmin() {
             <div className="full">
               <label className="checkbox-line" htmlFor="edit-isSource">
                 <input
-                  id="edit-isSource"
-                  type="checkbox"
                   checked={draft.isSource}
+                  id="edit-isSource"
                   onChange={(event) => setDraft({ ...draft, isSource: event.target.checked })}
+                  type="checkbox"
                 />
                 Source language (used as the translation source)
               </label>

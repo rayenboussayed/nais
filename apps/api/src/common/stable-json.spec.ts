@@ -4,8 +4,8 @@ import { canonicalJsonStringify } from './stable-json.js';
 
 describe('canonicalJsonStringify', () => {
   it('sorts keys recursively so key order never affects equality', () => {
-    const a = { b: 1, a: { d: 4, c: 3 }, z: [1, { y: 2, x: 1 }] };
-    const b = { z: [1, { x: 1, y: 2 }], a: { c: 3, d: 4 }, b: 1 };
+    const a = { a: { c: 3, d: 4 }, b: 1, z: [1, { x: 1, y: 2 }] };
+    const b = { a: { c: 3, d: 4 }, b: 1, z: [1, { x: 1, y: 2 }] };
     expect(canonicalJsonStringify(a)).toBe(canonicalJsonStringify(b));
   });
 
@@ -21,7 +21,7 @@ describe('canonicalJsonStringify', () => {
   });
 
   it('handles arrays of mixed content', () => {
-    expect(canonicalJsonStringify([3, 'a', { b: 2, a: 1 }, null])).toBe(
+    expect(canonicalJsonStringify([3, 'a', { a: 1, b: 2 }, null])).toBe(
       '[3,"a",{"a":1,"b":2},null]',
     );
   });

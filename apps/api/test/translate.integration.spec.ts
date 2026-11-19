@@ -1,21 +1,21 @@
-import path from 'node:path';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
-import { eq, and, isNull } from 'drizzle-orm';
+import { FastifyAdapter } from '@nestjs/platform-fastify';
+import { Test } from '@nestjs/testing';
+import { and, eq, isNull } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { FastifyAdapter } from '@nestjs/platform-fastify';
-import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { Test } from '@nestjs/testing';
+import path from 'node:path';
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
+import { translationKeyFor } from '../src/common/key.js';
 import * as schema from '../src/database/schema.js';
 import { seedLanguages } from '../src/database/seed.js';
-import { translationKeyFor } from '../src/common/key.js';
-import { startTempCluster, type TempCluster } from './pg-temp.js';
 import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
-import { startOllamaStub, type OllamaStub } from './ollama-stub.js';
+import { type OllamaStub, startOllamaStub } from './ollama-stub.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
 
 describe('translate pipeline (integration, throwaway PostgreSQL + stubbed Ollama)', () => {
   let cluster: TempCluster;
@@ -52,7 +52,7 @@ describe('translate pipeline (integration, throwaway PostgreSQL + stubbed Ollama
 
   beforeEach(async () => {
     // Reset the stub so tests don't leak behavior into each other.
-    stub.setBehavior({ status: 200, completion: '[fr] bonjour', delayMs: 0 });
+    stub.setBehavior({ completion: '[fr] bonjour', delayMs: 0, status: 200 });
 
     const { AppModule } = await import('../src/app.module.js');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -67,12 +67,18 @@ describe('translate pipeline (integration, throwaway PostgreSQL + stubbed Ollama
     await app.close();
   });
 
+  /**
+   * Calls POST /api/translate and returns the raw injected response.
+   * @param text - the source text
+   * @param targetLanguage - the target language
+   * @returns the raw response
+   */
   async function translate(text: string, targetLanguage = 'fr') {
     return app.inject({
       headers: basicAuthHeaders(),
       method: 'POST',
+      payload: { targetLanguage, text },
       url: '/api/translate',
-      payload: { text, targetLanguage },
     });
   }
 
@@ -81,7 +87,7 @@ describe('translate pipeline (integration, throwaway PostgreSQL + stubbed Ollama
 
     const response = await translate('hello world');
     expect(response.statusCode).toBe(201);
-    expect(response.json()).toEqual({ text: '[fr] bonjour le monde', cached: false });
+    expect(response.json()).toEqual({ cached: false, text: '[fr] bonjour le monde' });
 
     const pool = new Pool({ connectionString: cluster.url() });
     try {
@@ -135,7 +141,7 @@ describe('translate pipeline (integration, throwaway PostgreSQL + stubbed Ollama
     const hitsBefore = stub.hitCount();
 
     const second = await translate('hello world, again');
-    expect(second.json()).toEqual({ text: '[fr] bonjour', cached: true });
+    expect(second.json()).toEqual({ cached: true, text: '[fr] bonjour' });
     expect(stub.hitCount()).toBe(hitsBefore);
   });
 
@@ -235,15 +241,15 @@ describe('translate pipeline (integration, throwaway PostgreSQL + stubbed Ollama
 
     const response = await translate('empty answer case');
     expect(response.statusCode).toBe(502);
-    expect(response.json()).toEqual({ statusCode: 502, message: 'Translation failed' });
+    expect(response.json()).toEqual({ message: 'Translation failed', statusCode: 502 });
   });
 
   it('returns 502 with a constant message when the model fails, and audits the failure', async () => {
-    stub.setBehavior({ status: 500, delayMs: 0 });
+    stub.setBehavior({ delayMs: 0, status: 500 });
 
     const response = await translate('upstream will fail');
     expect(response.statusCode).toBe(502);
-    expect(response.json()).toEqual({ statusCode: 502, message: 'Translation failed' });
+    expect(response.json()).toEqual({ message: 'Translation failed', statusCode: 502 });
 
     const pool = new Pool({ connectionString: cluster.url() });
     try {

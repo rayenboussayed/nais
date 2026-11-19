@@ -1,6 +1,3 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
-
 import type {
   AiFeatureExtractionResult,
   AiQuestionAnsweringResult,
@@ -11,21 +8,24 @@ import type {
   AiZeroShotClassificationResult,
   TranslateResponse,
 } from '@trainslator/shared';
+
+import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
-  aiSentimentRequestSchema,
-  aiSummarizeRequestSchema,
-  aiQuestionAnsweringRequestSchema,
   aiFeatureExtractionRequestSchema,
-  aiTokenClassificationRequestSchema,
-  aiZeroShotClassificationRequestSchema,
-  aiTranslateRequestSchema,
-  aiSentimentResultSchema,
-  aiSummarizeResultSchema,
-  aiQuestionAnsweringResultSchema,
-  aiTokenClassificationResultSchema,
-  aiZeroShotClassificationResultSchema,
   aiFeatureExtractionResultSchema,
+  aiQuestionAnsweringRequestSchema,
+  aiQuestionAnsweringResultSchema,
+  aiSentimentRequestSchema,
+  aiSentimentResultSchema,
+  aiSummarizeRequestSchema,
+  aiSummarizeResultSchema,
   aiTaskDescriptorSchema,
+  aiTokenClassificationRequestSchema,
+  aiTokenClassificationResultSchema,
+  aiTranslateRequestSchema,
+  aiZeroShotClassificationRequestSchema,
+  aiZeroShotClassificationResultSchema,
 } from '@trainslator/shared';
 
 import { AiService } from './ai.service.js';
@@ -41,49 +41,29 @@ const MODEL_THROTTLE = { default: { limit: 10, ttl: 60_000 } } as const;
 export class AiController {
   constructor(private readonly ai: AiService) {}
 
-  /** GET `/api/ai/tasks` — the registry of supported tasks, their providers and models. */
-  @Get('tasks')
-  tasks(): { items: AiTaskDescriptor[] } {
-    return { items: this.ai.listTasks().map((entry) => aiTaskDescriptorSchema.parse(entry)) };
-  }
-
-  /** POST `/api/ai/translate` — same behaviour as `POST /api/translate`, via the general pipeline. */
-  @Post('translate')
-  @Throttle(MODEL_THROTTLE)
+  /**
+   * POST `/api/ai/feature-extraction`.
+   * @param body - the validated request body (task input schema)
+   * @returns the parsed task result
+   */
   @HttpCode(HttpStatus.OK)
-  async translate(
-    @Body({ schema: aiTranslateRequestSchema }) body: { text: string; targetLanguage: string },
-  ): Promise<TranslateResponse> {
-    const envelope = await this.ai.run('translate', body);
-    return { text: String(envelope.result.text ?? ''), cached: envelope.cached };
-  }
-
-  /** POST `/api/ai/sentiment`. */
-  @Post('sentiment')
+  @Post('feature-extraction')
   @Throttle(MODEL_THROTTLE)
-  @HttpCode(HttpStatus.OK)
-  async sentiment(
-    @Body({ schema: aiSentimentRequestSchema }) body: Record<string, unknown>,
-  ): Promise<AiSentimentResult> {
-    const envelope = await this.ai.run('sentiment', body);
-    return aiSentimentResultSchema.parse(envelope.result);
+  async featureExtraction(
+    @Body({ schema: aiFeatureExtractionRequestSchema }) body: Record<string, unknown>,
+  ): Promise<AiFeatureExtractionResult> {
+    const envelope = await this.ai.run('feature-extraction', body);
+    return aiFeatureExtractionResultSchema.parse(envelope.result);
   }
 
-  /** POST `/api/ai/summarize`. */
-  @Post('summarize')
-  @Throttle(MODEL_THROTTLE)
+  /**
+   * POST `/api/ai/question-answering`.
+   * @param body - the validated request body (task input schema)
+   * @returns the parsed task result
+   */
   @HttpCode(HttpStatus.OK)
-  async summarize(
-    @Body({ schema: aiSummarizeRequestSchema }) body: Record<string, unknown>,
-  ): Promise<AiSummarizeResult> {
-    const envelope = await this.ai.run('summarize', body);
-    return aiSummarizeResultSchema.parse(envelope.result);
-  }
-
-  /** POST `/api/ai/question-answering`. */
   @Post('question-answering')
   @Throttle(MODEL_THROTTLE)
-  @HttpCode(HttpStatus.OK)
   async questionAnswering(
     @Body({ schema: aiQuestionAnsweringRequestSchema }) body: Record<string, unknown>,
   ): Promise<AiQuestionAnsweringResult> {
@@ -91,10 +71,53 @@ export class AiController {
     return aiQuestionAnsweringResultSchema.parse(envelope.result);
   }
 
-  /** POST `/api/ai/token-classification`. */
+  /**
+   * POST `/api/ai/sentiment`.
+   * @param body - the validated request body (task input schema)
+   * @returns the parsed task result
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post('sentiment')
+  @Throttle(MODEL_THROTTLE)
+  async sentiment(
+    @Body({ schema: aiSentimentRequestSchema }) body: Record<string, unknown>,
+  ): Promise<AiSentimentResult> {
+    const envelope = await this.ai.run('sentiment', body);
+    return aiSentimentResultSchema.parse(envelope.result);
+  }
+
+  /**
+   * POST `/api/ai/summarize`.
+   * @param body - the validated request body (task input schema)
+   * @returns the parsed task result
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post('summarize')
+  @Throttle(MODEL_THROTTLE)
+  async summarize(
+    @Body({ schema: aiSummarizeRequestSchema }) body: Record<string, unknown>,
+  ): Promise<AiSummarizeResult> {
+    const envelope = await this.ai.run('summarize', body);
+    return aiSummarizeResultSchema.parse(envelope.result);
+  }
+
+  /**
+   * GET `/api/ai/tasks` — the registry of supported tasks, their providers and models.
+   * @returns the parsed task descriptors
+   */
+  @Get('tasks')
+  tasks(): { items: AiTaskDescriptor[] } {
+    return { items: this.ai.listTasks().map((entry) => aiTaskDescriptorSchema.parse(entry)) };
+  }
+
+  /**
+   * POST `/api/ai/token-classification`.
+   * @param body - the validated request body (task input schema)
+   * @returns the parsed task result
+   */
+  @HttpCode(HttpStatus.OK)
   @Post('token-classification')
   @Throttle(MODEL_THROTTLE)
-  @HttpCode(HttpStatus.OK)
   async tokenClassification(
     @Body({ schema: aiTokenClassificationRequestSchema }) body: Record<string, unknown>,
   ): Promise<AiTokenClassificationResult> {
@@ -102,25 +125,35 @@ export class AiController {
     return aiTokenClassificationResultSchema.parse(envelope.result);
   }
 
-  /** POST `/api/ai/zero-shot-classification`. */
+  /**
+   * POST `/api/ai/translate` — same behaviour as `POST /api/translate`, via the general pipeline.
+   * @param body - the validated request body
+   * @param body.text - the source text to translate
+   * @param body.targetLanguage - the iso639-1 target language
+   * @returns the catalogue-aware translation response
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post('translate')
+  @Throttle(MODEL_THROTTLE)
+  async translate(
+    @Body({ schema: aiTranslateRequestSchema }) body: { targetLanguage: string; text: string },
+  ): Promise<TranslateResponse> {
+    const envelope = await this.ai.run('translate', body);
+    return { cached: envelope.cached, text: String(envelope.result.text ?? '') };
+  }
+
+  /**
+   * POST `/api/ai/zero-shot-classification`.
+   * @param body - the validated request body (task input schema)
+   * @returns the parsed task result
+   */
+  @HttpCode(HttpStatus.OK)
   @Post('zero-shot-classification')
   @Throttle(MODEL_THROTTLE)
-  @HttpCode(HttpStatus.OK)
   async zeroShot(
     @Body({ schema: aiZeroShotClassificationRequestSchema }) body: Record<string, unknown>,
   ): Promise<AiZeroShotClassificationResult> {
     const envelope = await this.ai.run('zero-shot-classification', body);
     return aiZeroShotClassificationResultSchema.parse(envelope.result);
-  }
-
-  /** POST `/api/ai/feature-extraction`. */
-  @Post('feature-extraction')
-  @Throttle(MODEL_THROTTLE)
-  @HttpCode(HttpStatus.OK)
-  async featureExtraction(
-    @Body({ schema: aiFeatureExtractionRequestSchema }) body: Record<string, unknown>,
-  ): Promise<AiFeatureExtractionResult> {
-    const envelope = await this.ai.run('feature-extraction', body);
-    return aiFeatureExtractionResultSchema.parse(envelope.result);
   }
 }

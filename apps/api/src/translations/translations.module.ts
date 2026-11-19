@@ -6,7 +6,7 @@ import { TranslationsService } from './translations.service.js';
 /** Translation catalogue: REST CRUD + keyset pagination. */
 @Module({
   controllers: [TranslationsController],
-  providers: [TranslationsService],
   exports: [TranslationsService],
+  providers: [TranslationsService],
 })
 export class TranslationsModule {}

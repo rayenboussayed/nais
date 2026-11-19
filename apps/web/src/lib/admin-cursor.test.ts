@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
-import { renderHook, act } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { useCursorStack } from './admin';
 
 const first = {
-  lastId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   lastCreatedAt: '2026-11-18T00:00:01.000Z',
+  lastId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
 };
 const second = {
-  lastId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
   lastCreatedAt: '2026-11-18T00:00:02.000Z',
+  lastId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
 };
 
 describe('useCursorStack', () => {

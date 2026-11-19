@@ -5,6 +5,9 @@ import { canonicalJsonStringify } from './stable-json.js';
  * `undefined` values mean "not provided" and are ignored; everything else is
  * compared by value (Dates by timestamp, objects by stable JSON). Returns an
  * empty object when nothing changed.
+ * @param before - the current row shape
+ * @param patch - the candidate partial update
+ * @returns the subset of patch that actually differs
  */
 export function changedFields<T extends Record<string, unknown>>(
   before: T,
@@ -16,11 +19,18 @@ export function changedFields<T extends Record<string, unknown>>(
     // no unknown keys, even if a caller hands over an unvalidated patch.
     if (!Object.prototype.hasOwnProperty.call(before, key)) continue;
     if (value === undefined) continue;
+    // eslint-disable-next-line security/detect-object-injection -- key is a whitelisted own key of the `before` object two lines up
     if (!valuesEqual(before[key], value)) changed[key] = value;
   }
   return changed;
 }
 
+/**
+ * Value equality with Date/object awareness.
+ * @param a - the before value
+ * @param b - the patched value
+ * @returns true when the values are equal
+ */
 function valuesEqual(a: unknown, b: unknown): boolean {
   if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
   if (a === null || b === null || a === undefined || b === undefined) return a === b;

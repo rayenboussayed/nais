@@ -2,10 +2,11 @@ import type { ConfigService } from '@nestjs/config';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import type { Env } from '../config/env.js';
+
 import { authenticateHeaders, firstHeader } from '../auth/authenticate.js';
 import { isOriginAllowed, parseAllowedOrigins } from '../auth/origin.js';
 
-const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const MUTATING_METHODS = new Set(['DELETE', 'PATCH', 'POST', 'PUT']);
 
 /**
  * Origin backstop for browser-initiated mutations: any POST/PUT/PATCH/DELETE
@@ -16,6 +17,8 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
  *
  * Authentication itself lives in the Nest `HttpAuthGuard`, registered after
  * the throttler (see app.module.ts).
+ * @param fastify - the fastify instance to register the hooks on
+ * @param config - the parsed application env
  */
 export function registerHttpGuards(
   fastify: FastifyInstance,
@@ -29,8 +32,7 @@ export function registerHttpGuards(
     const origin = firstHeader(request.headers.origin);
     const host = firstHeader(request.headers.host);
     if (!isOriginAllowed(origin, host, allowedOrigins)) {
-      await reply.code(403).send({ statusCode: 403, message: 'Forbidden origin' });
-      return;
+      await reply.code(403).send({ message: 'Forbidden origin', statusCode: 403 });
     }
   });
 
@@ -45,8 +47,7 @@ export function registerHttpGuards(
       await reply
         .code(401)
         .header('WWW-Authenticate', 'Basic realm="trainslator"')
-        .send({ statusCode: 401, message: 'Unauthorized' });
-      return;
+        .send({ message: 'Unauthorized', statusCode: 401 });
     }
   });
 }

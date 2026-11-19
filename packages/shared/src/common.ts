@@ -26,6 +26,7 @@ export const iso6391Schema = z
  */
 export const cursorTimestampSchema = z
   .string()
+  // eslint-disable-next-line security/detect-unsafe-regex -- fixed-shape ISO 8601: literal separators, bounded quantifiers, no alternation overlap; linear by construction
   .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(?:Z|[+-]\d{2}(?::\d{2})?)$/)
   // ±HH (no minutes) is a legal PostgreSQL timestamptz offset literal but not
   // a shape V8's Date parses, so normalize before checking the instant exists.
@@ -36,23 +37,30 @@ export const cursorTimestampSchema = z
 
 /** Query-string keyset pagination base, before cross-field constraints. */
 export const paginationBaseSchema = z.object({
-  /** Case-insensitive contains match, LIKE-escaped server-side. */
-  q: z.string().trim().max(255).optional(),
-  /** Anchor row of the previous page (id half of the `(created_at, id)` keyset). */
-  lastId: z.uuid().optional(),
   /** Anchor row of the previous page (`created_at` half of the `(created_at, id)` keyset; µs-precision from the database). */
   lastCreatedAt: cursorTimestampSchema.optional(),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  orderBy: z.enum(['asc', 'desc']).default('desc'),
+  /** Anchor row of the previous page (id half of the `(created_at, id)` keyset). */
+  lastId: z.uuid().optional(),
   /** Only the boolean tokens listed here parse as true/false; anything else is rejected. */
   onlyDeleted: z
-    .stringbool({ truthy: ['true', '1', 'on', 'yes'], falsy: ['false', '0', 'off', 'no'] })
+    .stringbool({ falsy: ['false', '0', 'off', 'no'], truthy: ['true', '1', 'on', 'yes'] })
     .default(false),
+  orderBy: z.enum(['asc', 'desc']).default('desc'),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  /** Case-insensitive contains match, LIKE-escaped server-side. */
+  q: z.string().trim().max(255).optional(),
 });
 
-/** Cross-field rule: a cursor is a pair — provide both `lastId` and `lastCreatedAt`, or neither. */
+/**
+ * Cross-field rule: a cursor is a pair — provide both `lastId` and `lastCreatedAt`, or neither.
+ * @param value - the cursor object from the query parser
+ * @param value.lastId - the anchor row id, when a cursor is in play
+ * @param value.lastCreatedAt - the anchor row timestamp, when a cursor is in play
+ * @param ctx - the zod refinement context
+ */
 export const cursorPairRefine = (
-  value: { lastId?: string | undefined; lastCreatedAt?: string | undefined },
+  // eslint-disable-next-line sonarjs/no-redundant-optional -- exactOptionalPropertyTypes requires explicit `| undefined` when callers spread z.infer output into this object
+  value: { lastCreatedAt?: string | undefined; lastId?: string | undefined },
   ctx: z.RefinementCtx,
 ): void => {
   const hasId = value.lastId !== undefined;
@@ -60,8 +68,8 @@ export const cursorPairRefine = (
   if (hasId !== hasAt) {
     ctx.addIssue({
       code: 'custom',
-      path: ['lastId'],
       message: 'Provide both lastId and lastCreatedAt, or neither',
+      path: ['lastId'],
     });
   }
 };

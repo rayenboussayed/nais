@@ -10,10 +10,10 @@ import {
 describe('createLanguageSchema', () => {
   it('parses a full valid input and defaults isSource', () => {
     const parsed = createLanguageSchema.parse({
+      dir: 'rtl',
+      iso6391: 'ar',
       name: 'Arabic',
       nativeName: 'العربية',
-      iso6391: 'ar',
-      dir: 'rtl',
     });
     expect(parsed.isSource).toBe(false);
     expect(parsed.dir).toBe('rtl');
@@ -22,37 +22,37 @@ describe('createLanguageSchema', () => {
   it('rejects missing required fields', () => {
     expect(() => createLanguageSchema.parse({ name: 'Arabic' })).toThrow();
     expect(() =>
-      createLanguageSchema.parse({ name: 'Arabic', nativeName: 'العربية', iso6391: 'ar' }),
+      createLanguageSchema.parse({ iso6391: 'ar', name: 'Arabic', nativeName: 'العربية' }),
     ).toThrow();
   });
 
   it('rejects names longer than 255 characters', () => {
     expect(() =>
       createLanguageSchema.parse({
+        dir: 'ltr',
+        iso6391: 'en',
         name: 'x'.repeat(256),
         nativeName: 'y',
-        iso6391: 'en',
-        dir: 'ltr',
       }),
     ).toThrow();
   });
 
   it('rejects invalid enum and code values', () => {
     expect(() =>
-      createLanguageSchema.parse({ name: 'n', nativeName: 'n', iso6391: 'en', dir: 'up' }),
+      createLanguageSchema.parse({ dir: 'up', iso6391: 'en', name: 'n', nativeName: 'n' }),
     ).toThrow();
     expect(() =>
-      createLanguageSchema.parse({ name: 'n', nativeName: 'n', iso6391: 'eng', dir: 'ltr' }),
+      createLanguageSchema.parse({ dir: 'ltr', iso6391: 'eng', name: 'n', nativeName: 'n' }),
     ).toThrow();
   });
 
   it('trims surrounding whitespace from names', () => {
     expect(
       createLanguageSchema.parse({
+        dir: 'ltr',
+        iso6391: 'en',
         name: '  English  ',
         nativeName: ' English ',
-        iso6391: 'en',
-        dir: 'ltr',
       }).name,
     ).toBe('English');
   });
@@ -108,15 +108,15 @@ describe('updateLanguageSchema', () => {
 describe('languageSchema', () => {
   it('parses a stored row', () => {
     const parsed = languageSchema.parse({
+      createdAt: '2026-11-18T00:00:00.000Z',
+      deletedAt: null,
+      dir: 'ltr',
       id: '123e4567-e89b-42d3-a456-426655440000',
+      iso6391: 'en',
+      isSource: true,
       name: 'English',
       nativeName: 'English',
-      iso6391: 'en',
-      dir: 'ltr',
-      isSource: true,
-      createdAt: '2026-11-18T00:00:00.000Z',
       updatedAt: '2026-11-18T00:00:00.000Z',
-      deletedAt: null,
     });
     expect(parsed.isSource).toBe(true);
     expect(parsed.deletedAt).toBeNull();
@@ -125,15 +125,15 @@ describe('languageSchema', () => {
   it('rejects rows with a non-null malformed deletedAt', () => {
     expect(() =>
       languageSchema.parse({
+        createdAt: 'not-a-date',
+        deletedAt: null,
+        dir: 'ltr',
         id: '123e4567-e89b-42d3-a456-426655440000',
+        iso6391: 'en',
+        isSource: false,
         name: 'English',
         nativeName: 'English',
-        iso6391: 'en',
-        dir: 'ltr',
-        isSource: false,
-        createdAt: 'not-a-date',
         updatedAt: '2026-11-18T00:00:00.000Z',
-        deletedAt: null,
       }),
     ).toThrow();
   });

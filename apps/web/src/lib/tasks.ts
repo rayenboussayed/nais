@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-
 import type { AiTaskDescriptor } from '@trainslator/shared';
+
+import { useQuery } from '@tanstack/react-query';
 import { aiTaskDescriptorSchema } from '@trainslator/shared';
 
 import { apiFetch } from './api';
@@ -8,56 +8,68 @@ import { apiFetch } from './api';
 /** Local fallback so the Studio renders even if the tasks endpoint is unreachable. */
 const FALLBACK_TASKS: AiTaskDescriptor[] = [
   {
-    task: 'translate',
-    provider: 'ollama',
-    model: 'bonsai-2:2b',
-    label: 'Translate',
     description: 'Translate text into a target language.',
+    label: 'Translate',
+    model: 'bonsai-2:2b',
+    provider: 'ollama',
+    task: 'translate',
   },
   {
-    task: 'sentiment',
-    provider: 'transformers',
-    model: 'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
-    label: 'Sentiment',
     description: 'Binary SST-2 sentiment with a confidence score.',
+    label: 'Sentiment',
+    model: 'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
+    provider: 'transformers',
+    task: 'sentiment',
   },
   {
-    task: 'summarize',
-    provider: 'transformers',
-    model: 'Xenova/distilbart-cnn-6-6',
-    label: 'Summarize',
     description: 'Produce a short summary of longer text.',
+    label: 'Summarize',
+    model: 'Xenova/distilbart-cnn-6-6',
+    provider: 'transformers',
+    task: 'summarize',
   },
   {
-    task: 'question-answering',
-    provider: 'transformers',
-    model: 'Xenova/distilbert-base-uncased-distilled-squad',
-    label: 'Question answering',
     description: 'Extractive QA over a provided context.',
+    label: 'Question answering',
+    model: 'Xenova/distilbert-base-uncased-distilled-squad',
+    provider: 'transformers',
+    task: 'question-answering',
   },
   {
-    task: 'token-classification',
-    provider: 'transformers',
-    model: 'Xenova/bert-base-NER',
-    label: 'Named entities (NER)',
     description: 'CoNLL-2003 entity groups.',
+    label: 'Named entities (NER)',
+    model: 'Xenova/bert-base-NER',
+    provider: 'transformers',
+    task: 'token-classification',
   },
   {
-    task: 'zero-shot-classification',
-    provider: 'transformers',
-    model: 'Xenova/nli-deberta-v3-xsmall',
-    label: 'Zero-shot classification',
     description: 'Classify into arbitrary candidate labels without retraining.',
+    label: 'Zero-shot classification',
+    model: 'Xenova/nli-deberta-v3-xsmall',
+    provider: 'transformers',
+    task: 'zero-shot-classification',
   },
   {
-    task: 'feature-extraction',
-    provider: 'transformers',
-    model: 'onnx-community/all-MiniLM-L6-v2-ONNX',
-    label: 'Embeddings',
     description: 'Dense sentence embedding.',
+    label: 'Embeddings',
+    model: 'onnx-community/all-MiniLM-L6-v2-ONNX',
+    provider: 'transformers',
+    task: 'feature-extraction',
   },
 ];
 
+/**
+ * The task registry exposed by the service; falls back to a static list.
+ * @returns the query for the AI task registry
+ */
+export function useAiTasks() {
+  return useQuery({ queryFn: fetchTasks, queryKey: ['ai', 'tasks'], staleTime: Infinity });
+}
+
+/**
+ * Fetches and parses the registry; falls back to FALLBACK_TASKS on any failure.
+ * @returns the registry descriptors
+ */
 async function fetchTasks(): Promise<AiTaskDescriptor[]> {
   try {
     const response = await apiFetch<{ items: unknown[] }>('/api/ai/tasks');
@@ -69,9 +81,4 @@ async function fetchTasks(): Promise<AiTaskDescriptor[]> {
   } catch {
     return FALLBACK_TASKS;
   }
-}
-
-/** The task registry exposed by the service; falls back to a static list. */
-export function useAiTasks() {
-  return useQuery({ queryKey: ['ai', 'tasks'], queryFn: fetchTasks, staleTime: Infinity });
 }

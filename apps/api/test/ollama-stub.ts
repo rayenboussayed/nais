@@ -1,20 +1,21 @@
-import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-export interface StubBehavior {
-  /** Status to answer with; defaults to 200. Use 500 to exercise upstream failures. */
-  status?: number;
-  /** Milliseconds to wait before answering; used to exercise client timeouts. */
-  delayMs?: number;
-  /** Completion text returned on 200; defaults to `[fr] bonjour`. */
-  completion?: string;
-}
+import { createServer, type Server } from 'node:http';
 
 export interface OllamaStub {
-  url: string;
-  hitCount(): number;
   close(): Promise<void>;
+  hitCount(): number;
   setBehavior(behavior: StubBehavior): void;
+  url: string;
+}
+
+export interface StubBehavior {
+  /** Completion text returned on 200; defaults to `[fr] bonjour`. */
+  completion?: string;
+  /** Milliseconds to wait before answering; used to exercise client timeouts. */
+  delayMs?: number;
+  /** Status to answer with; defaults to 200. Use 500 to exercise upstream failures. */
+  status?: number;
 }
 
 /**
@@ -22,9 +23,11 @@ export interface OllamaStub {
  * `POST {base}/v1/chat/completions` → a canned chat completion. Implemented
  * against the real HTTP surface so the production code path (SDK, retries,
  * timeouts, usage accounting) is exercised end to end without a GPU.
+ * @param initial - the canned behavior (completion text, status)
+ * @returns the running stub
  */
 export async function startOllamaStub(initial: StubBehavior = {}): Promise<OllamaStub> {
-  let behavior: StubBehavior = { status: 200, completion: '[fr] bonjour', ...initial };
+  let behavior: StubBehavior = { completion: '[fr] bonjour', status: 200, ...initial };
   let hits = 0;
 
   const server: Server = createServer((req, res) => {
@@ -46,18 +49,18 @@ export async function startOllamaStub(initial: StubBehavior = {}): Promise<Ollam
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(
           JSON.stringify({
-            id: 'chatcmpl-stub',
-            object: 'chat.completion',
-            created: Math.floor(Date.now() / 1000),
-            model: 'bonsai-2:2b',
             choices: [
               {
-                index: 0,
-                message: { role: 'assistant', content: completion },
                 finish_reason: 'stop',
+                index: 0,
+                message: { content: completion, role: 'assistant' },
               },
             ],
-            usage: { prompt_tokens: 42, completion_tokens: 7, total_tokens: 49 },
+            created: Math.floor(Date.now() / 1000),
+            id: 'chatcmpl-stub',
+            model: 'bonsai-2:2b',
+            object: 'chat.completion',
+            usage: { completion_tokens: 7, prompt_tokens: 42, total_tokens: 49 },
           }),
         );
       };
@@ -77,14 +80,14 @@ export async function startOllamaStub(initial: StubBehavior = {}): Promise<Ollam
 
   const port = (server.address() as AddressInfo).port;
   return {
-    url: `http://127.0.0.1:${port}`,
-    hitCount: () => hits,
     close: () =>
       new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),
       ),
+    hitCount: () => hits,
     setBehavior(next) {
       behavior = { ...behavior, ...next };
     },
+    url: `http://127.0.0.1:${port}`,
   };
 }

@@ -6,7 +6,7 @@ import { LanguagesService } from './languages.service.js';
 /** Language catalogue: REST CRUD + keyset pagination. */
 @Module({
   controllers: [LanguagesController],
-  providers: [LanguagesService],
   exports: [LanguagesService],
+  providers: [LanguagesService],
 })
 export class LanguagesModule {}

@@ -68,29 +68,40 @@ native Standard Schema.
     are lazy singletons cached by effective model id; the first request pays
     the model download (verified: all six dedicated pipelines download and run in this repo). Tests stub `PipelineLoader` — the registry, cache round-trip and
     audit trail are covered without network.
-18. **ESM split: the API is ESM, the shared package is CJS.** apps/api is
+14. **ESM split: the API is ESM, the shared package is CJS.** apps/api is
     `type: module` (NestJS 12 emits ESM from NodeNext source); packages/shared
     stays `type: commonjs` because CJS transpilation is the safest default for
     a dual-consumer package — ESM importers interop fine (Node's cjs-module-
     lexer detects `exports.foo =` assignments; verified live). Any new shared
     export automatically works under both consumers.
 
-14. **onnxruntime-node ships native binaries in the package (548 MB).** Its
+15. **onnxruntime-node ships native binaries in the package (548 MB).** Its
     postinstall only prunes; this repo's npm install-scripts policy is left
     intact (`npm install-scripts ls` shows it as pending, and the runtime
     works fine — the Docker image installs with `--ignore-scripts` as usual).
-15. **WS gateway + pg-boss generalize together.** `translate` message stays
+16. **WS gateway + pg-boss generalize together.** `translate` message stays
     byte-compatible; the `ai` message carries `{ task, input, requestId }`
     with the same ack contract (200 inline/202/400/404/429/500). The worker
     emits `translation` for translate and `ai-result`/`ai-error` otherwise.
-16. **The test harness needs serial boots under CI load.** Each integration
+17. **The test harness needs serial boots under CI load.** Each integration
     spec boots a full Nest app + throwaway cluster; parallel workers push
     hooks past timeouts. `fileParallelism: false` in vitest.config.mts keeps
     the suite deterministic everywhere (~80s wall, green CI).
-17. **`.test.tsx` files must be in the test include glob.** Route component
+18. **`.test.tsx` files must be in the test include glob.** Route component
     tests existed but never ran (`.test.{ts,tsx}` was missing) — the global
     glob had silently excluded all `.tsx` tests. With them running, jsdom
     behavior tests assert playground/studio/admin rendering.
+
+19. **The strict flat config never gets a global rule disable.** eslint.config.mjs
+    layers js/recommended, n, deslint, de-morgan, sonarjs, security, regexp,
+    promise and perfectionist (recommended-natural) over the TS sources plus
+    json/markdown checks; unicorn/depend/stylistic/vitest are registered with
+    zero rules. Suppressions are only ever inline (`eslint-disable-next-line
+<rule> -- <reason>`) or via justified config (e.g. browser globals for
+    apps/web, `settings.node.version`, `tryExtensions`). Generated files keep
+    the generator's formatting: drizzle snapshots are in .prettierignore. The
+    prompt templates are `.txt` because `[Tr.: …]` is model-facing DSL, not
+    markdown — never HTML-comment-suppress lint inside a prompt file.
 
 ## Conventions
 

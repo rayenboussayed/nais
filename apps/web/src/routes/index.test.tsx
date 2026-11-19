@@ -1,9 +1,9 @@
+import type { KeysetList, Language } from '@trainslator/shared';
+
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import type { KeysetList, Language } from '@trainslator/shared';
 
 import { apiFetch } from '../lib/api';
 import { translateText } from '../lib/translate-socket';
@@ -20,12 +20,12 @@ vi.mock('../lib/translate-socket', () => ({
       text: string,
       targetLanguage: string,
       callbacks: {
-        onDone: (r: { text: string; cached: boolean }) => void;
+        onDone: (r: { cached: boolean; text: string }) => void;
         onError: (m: string) => void;
       },
     ) => {
       const result = `translated(${targetLanguage}): ${text}`;
-      callbacks.onDone({ text: result, cached: false });
+      callbacks.onDone({ cached: false, text: result });
       return { requestId: '123e4567-e89b-42d3-a456-426655440000' };
     },
   ),
@@ -33,34 +33,38 @@ vi.mock('../lib/translate-socket', () => ({
 
 const languages: Language[] = [
   {
+    createdAt: '2026-11-18T00:00:00.000Z',
+    deletedAt: null,
+    dir: 'ltr',
     id: '10000000-0000-4000-8000-000000000001',
+    iso6391: 'en',
+    isSource: true,
     name: 'English',
     nativeName: 'English',
-    iso6391: 'en',
-    dir: 'ltr',
-    isSource: true,
-    createdAt: '2026-11-18T00:00:00.000Z',
     updatedAt: '2026-11-18T00:00:00.000Z',
-    deletedAt: null,
   },
   {
+    createdAt: '2026-11-18T00:00:00.000Z',
+    deletedAt: null,
+    dir: 'ltr',
     id: '10000000-0000-4000-8000-000000000002',
+    iso6391: 'fr',
+    isSource: false,
     name: 'French',
     nativeName: 'Français',
-    iso6391: 'fr',
-    dir: 'ltr',
-    isSource: false,
-    createdAt: '2026-11-18T00:00:00.000Z',
     updatedAt: '2026-11-18T00:00:00.000Z',
-    deletedAt: null,
   },
 ];
 
 const page: KeysetList<Language> = { items: languages, next: null };
 
+/**
+ * Test wrapper: renders children under a throwaway QueryClient.
+ * @returns the wrapper component
+ */
 function wrapper() {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    defaultOptions: { queries: { gcTime: 0, retry: false } },
   });
   return function TestWrapper({ children }: { children: React.ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
@@ -100,7 +104,7 @@ describe('Playground', () => {
     );
 
     // History records the run
-    expect(screen.queryByText(/^en · /)).toBeTruthy();
+    expect(screen.getByText(/^en · /)).toBeTruthy();
   });
 
   it('does not call the model when the textarea is empty', async () => {

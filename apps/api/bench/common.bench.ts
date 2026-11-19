@@ -1,14 +1,14 @@
 import { describe, test } from 'vitest';
 
 import { changedFields as changedFieldsFn } from '../src/common/changed-fields.js';
+import { Inflight } from '../src/common/inflight.js';
+import { translationKeyFor as translationKeyForFn } from '../src/common/key.js';
+import { RateLimiter } from '../src/common/rate-limit.js';
 import {
   escapeLike as escapeLikeFn,
   keysetWhere as keysetWhereFn,
   timestamptzCursor,
 } from '../src/common/sql.js';
-import { translationKeyFor as translationKeyForFn } from '../src/common/key.js';
-import { Inflight } from '../src/common/inflight.js';
-import { RateLimiter } from '../src/common/rate-limit.js';
 
 // Resolve export getters once so the benchmark loop does not pay for them.
 const translationKeyFor = translationKeyForFn;
@@ -23,18 +23,21 @@ const changedFields = changedFieldsFn;
  */
 
 describe('translationKeyFor', () => {
+  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('hashes a typical source sentence', async ({ bench }) => {
     await bench('nfc + sha512 + base64url', () => {
       translationKeyFor('The quick brown fox jumps over the lazy dog');
     }).run();
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('hashes a long multi-line input', async ({ bench }) => {
     await bench('long input', () => {
       translationKeyFor('Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(40));
     }).run();
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('normalizes decomposed unicode before hashing', async ({ bench }) => {
     await bench('decomposed unicode', () => {
       translationKeyFor('cafe\u0301 au lait \u0301');
@@ -43,12 +46,14 @@ describe('translationKeyFor', () => {
 });
 
 describe('escapeLike', () => {
+  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('escapes a short search term', async ({ bench }) => {
     await bench('escapeLike short', () => {
       escapeLike('100%_guarantee');
     }).run();
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('escapes a long pattern', async ({ bench }) => {
     await bench('escapeLike long', () => {
       escapeLike('%'.repeat(256));
@@ -60,6 +65,7 @@ describe('keysetWhere', () => {
   const column = { name: 'created_at' } as never;
   const id = { name: 'id' } as never;
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('builds the ascending comparator', async ({ bench }) => {
     await bench('keyset asc', () => {
       keysetWhere(
@@ -72,6 +78,7 @@ describe('keysetWhere', () => {
     }).run();
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('builds the descending comparator', async ({ bench }) => {
     await bench('keyset desc', () => {
       keysetWhere(
@@ -84,6 +91,7 @@ describe('keysetWhere', () => {
     }).run();
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('builds the cursor expression', async ({ bench }) => {
     // bench only exercises the builder path; the SQL is covered by integration tests
     await bench('timestamptzCursor', () => {
@@ -94,28 +102,31 @@ describe('keysetWhere', () => {
 
 describe('changedFields', () => {
   const before = {
+    dir: 'ltr',
+    iso6391: 'en',
+    isSource: true,
     name: 'English',
     nativeName: 'English',
-    iso6391: 'en',
-    dir: 'ltr',
-    isSource: true,
     text: 'x'.repeat(500),
   };
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('returns an empty object for identical patches', async ({ bench }) => {
     await bench('no-op patch', () => {
       changedFields(before, { ...before });
     }).run();
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('returns changed fields for divergent patches', async ({ bench }) => {
     await bench('changed patch', () => {
-      changedFields(before, { ...before, name: 'German', isSource: false });
+      changedFields(before, { ...before, isSource: false, name: 'German' });
     }).run();
   });
 });
 
 describe('Inflight', () => {
+  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('registers and settles a deduped call', async ({ bench }) => {
     const inflight = new Inflight<string, number>();
     await bench('inflight run', async () => {
@@ -125,6 +136,7 @@ describe('Inflight', () => {
 });
 
 describe('RateLimiter', () => {
+  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('allows a hit within the window', async ({ bench }) => {
     const limiter = new RateLimiter(10, 60_000);
     await bench('hit within window', () => {
@@ -132,6 +144,7 @@ describe('RateLimiter', () => {
     }).run();
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('rejects a hit over the limit', async ({ bench }) => {
     const limiter = new RateLimiter(1, 60_000);
     limiter.hit('caller', 0);

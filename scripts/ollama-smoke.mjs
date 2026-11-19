@@ -1,12 +1,13 @@
-#!/usr/bin/env node
 // Verifies the Ollama endpoint advertises the configured text model.
 // Usage: OLLAMA_BASE_URL=http://localhost:11434 OLLAMA_TEXT_MODEL=bonsai-2:2b node scripts/ollama-smoke.mjs
+// eslint-disable-next-line deslint/no-hardcoded-localhost -- documented local default; overridden by OLLAMA_BASE_URL
 const base = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
 const model = process.env.OLLAMA_TEXT_MODEL ?? 'bonsai-2:2b';
 
 const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(10_000) });
 if (!res.ok) {
   console.error(`ollama responded with ${res.status}`);
+  // eslint-disable-next-line n/no-process-exit -- CLI smoke check: non-zero exit signals failure to the caller
   process.exit(1);
 }
 
@@ -17,4 +18,5 @@ const found = names.some((name) => name === model || name.startsWith(`${baseName
 
 console.log('models:', names.join(', ') || '(none)');
 console.log(found ? `ok: ${model} is available` : `missing: ${model}`);
+// eslint-disable-next-line n/no-process-exit -- CLI smoke check: exit code reports model presence to the caller
 process.exit(found ? 0 : 1);

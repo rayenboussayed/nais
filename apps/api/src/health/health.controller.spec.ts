@@ -1,15 +1,16 @@
-import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+
 import { ConfigModule } from '@nestjs/config';
+import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { validateEnv } from '../config/env.js';
-import { API_GLOBAL_PREFIX } from '../app.constants.js';
-import { HealthModule } from './health.module.js';
-import { DRIZZLE } from '../database/drizzle.module.js';
-import { startTempCluster } from '../../test/pg-temp.js';
 import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from '../../test/auth.js';
+import { startTempCluster } from '../../test/pg-temp.js';
+import { API_GLOBAL_PREFIX } from '../app.constants.js';
+import { validateEnv } from '../config/env.js';
+import { DRIZZLE } from '../database/drizzle.module.js';
+import { HealthModule } from './health.module.js';
 
 // NOTE: ConfigModule resolves loadEnv at module-decorator time, i.e. at
 // import. The health module is deliberately scoped to ConfigModule +
@@ -37,7 +38,7 @@ describe('GET /api/health (integration)', () => {
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
-        ConfigModule.forRoot({ isGlobal: true, cache: true, validate: validateEnv }),
+        ConfigModule.forRoot({ cache: true, isGlobal: true, validate: validateEnv }),
         HealthModule,
       ],
     }).compile();
@@ -60,9 +61,9 @@ describe('GET /api/health (integration)', () => {
 
   it('answers 404 with the ApiError shape for unknown routes', async () => {
     const response = await app.inject({
+      headers: basicAuthHeaders(),
       method: 'GET',
       url: '/api/nope',
-      headers: basicAuthHeaders(),
     });
     expect(response.statusCode).toBe(404);
     expect(response.json()).toMatchObject({ statusCode: 404 });
@@ -88,7 +89,7 @@ describe('GET /api/health with a dead database', () => {
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
-        ConfigModule.forRoot({ isGlobal: true, cache: true, validate: validateEnv }),
+        ConfigModule.forRoot({ cache: true, isGlobal: true, validate: validateEnv }),
         HealthModule,
       ],
     })

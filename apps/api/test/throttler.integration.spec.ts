@@ -1,16 +1,16 @@
-import path from 'node:path';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
+import { FastifyAdapter } from '@nestjs/platform-fastify';
+import { Test } from '@nestjs/testing';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { FastifyAdapter } from '@nestjs/platform-fastify';
-import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { Test } from '@nestjs/testing';
+import path from 'node:path';
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
-import { startTempCluster, type TempCluster } from './pg-temp.js';
 import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
 
 describe('HTTP rate limit (integration)', () => {
   let cluster: TempCluster;
@@ -62,17 +62,17 @@ describe('HTTP rate limit (integration)', () => {
   it('allows up to the configured limit then answers 429', async () => {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const ok = await app.inject({
+        headers: basicAuthHeaders(),
         method: 'GET',
         url: '/api/languages',
-        headers: basicAuthHeaders(),
       });
       expect(ok.statusCode, `attempt ${attempt + 1}`).toBe(200);
     }
 
     const limited = await app.inject({
+      headers: basicAuthHeaders(),
       method: 'GET',
       url: '/api/languages',
-      headers: basicAuthHeaders(),
     });
     expect(limited.statusCode).toBe(429);
   });

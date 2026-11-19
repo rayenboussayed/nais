@@ -1,12 +1,12 @@
+import type { KeysetList, Language } from '@trainslator/shared';
+
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { KeysetList, Language } from '@trainslator/shared';
-
-import { useLanguages } from './languages';
 import { apiFetch } from './api';
+import { useLanguages } from './languages';
 
 vi.mock('./api', async (importOriginal) => {
   const original = await importOriginal<typeof import('./api')>();
@@ -18,31 +18,35 @@ vi.mock('./api', async (importOriginal) => {
 
 const languages: Language[] = [
   {
+    createdAt: '2026-11-18T00:00:00.000Z',
+    deletedAt: null,
+    dir: 'ltr',
     id: '10000000-0000-4000-8000-000000000001',
+    iso6391: 'en',
+    isSource: true,
     name: 'English',
     nativeName: 'English',
-    iso6391: 'en',
-    dir: 'ltr',
-    isSource: true,
-    createdAt: '2026-11-18T00:00:00.000Z',
     updatedAt: '2026-11-18T00:00:00.000Z',
-    deletedAt: null,
   },
   {
+    createdAt: '2026-11-18T00:00:00.000Z',
+    deletedAt: null,
+    dir: 'rtl',
     id: '10000000-0000-4000-8000-000000000002',
+    iso6391: 'ar',
+    isSource: false,
     name: 'Arabic',
     nativeName: 'العربية',
-    iso6391: 'ar',
-    dir: 'rtl',
-    isSource: false,
-    createdAt: '2026-11-18T00:00:00.000Z',
     updatedAt: '2026-11-18T00:00:00.000Z',
-    deletedAt: null,
   },
 ];
 
+/**
+ * Probe component rendering the loaded languages.
+ * @returns the probe element
+ */
 function Probe() {
-  const { data = [], isLoading, isError } = useLanguages();
+  const { data = [], isError, isLoading } = useLanguages();
   if (isLoading) return <p>loading</p>;
   if (isError) return <p>error</p>;
   return (
@@ -54,6 +58,11 @@ function Probe() {
   );
 }
 
+/**
+ * Test wrapper bound to a specific QueryClient.
+ * @param client - the QueryClient to render under
+ * @returns the wrapper component
+ */
 function wrapper(client: QueryClient) {
   return function TestWrapper({ children }: { children: React.ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
@@ -73,8 +82,8 @@ describe('useLanguages', () => {
     const page1: KeysetList<Language> = {
       items: [languages[0] as Language],
       next: {
-        lastId: '10000000-0000-4000-8000-000000000001',
         lastCreatedAt: '2026-11-18T00:00:00.000Z',
+        lastId: '10000000-0000-4000-8000-000000000001',
       },
     };
     const page2: KeysetList<Language> = {
@@ -84,7 +93,7 @@ describe('useLanguages', () => {
     vi.mocked(apiFetch).mockResolvedValueOnce(page1).mockResolvedValueOnce(page2);
 
     const client = new QueryClient({
-      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+      defaultOptions: { queries: { gcTime: 0, retry: false } },
     });
 
     render(<Probe />, { wrapper: wrapper(client) });
@@ -92,7 +101,7 @@ describe('useLanguages', () => {
     await waitFor(() => {
       expect(screen.queryByText('en')).toBeTruthy();
     });
-    expect(screen.queryByText('ar')).toBeTruthy();
+    expect(screen.getByText('ar')).toBeTruthy();
     expect(vi.mocked(apiFetch)).toHaveBeenCalledTimes(2);
     const secondUrl = vi.mocked(apiFetch).mock.calls[1]?.[0];
     expect(secondUrl).toContain('lastId=');
@@ -102,7 +111,7 @@ describe('useLanguages', () => {
     vi.mocked(apiFetch).mockRejectedValueOnce(new Error('boom'));
 
     const client = new QueryClient({
-      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+      defaultOptions: { queries: { gcTime: 0, retry: false } },
     });
 
     render(<Probe />, { wrapper: wrapper(client) });

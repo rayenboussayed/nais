@@ -1,20 +1,20 @@
-import path from 'node:path';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
+import { FastifyAdapter } from '@nestjs/platform-fastify';
+import { Test } from '@nestjs/testing';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { eq } from 'drizzle-orm';
-import { FastifyAdapter } from '@nestjs/platform-fastify';
-import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { Test } from '@nestjs/testing';
+import path from 'node:path';
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
+import { translationKeyFor } from '../src/common/key.js';
 import * as schema from '../src/database/schema.js';
 import { seedLanguages } from '../src/database/seed.js';
-import { translationKeyFor } from '../src/common/key.js';
-import { startTempCluster, type TempCluster } from './pg-temp.js';
 import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
 
 describe('translations REST (integration, throwaway PostgreSQL)', () => {
   let cluster: TempCluster;
@@ -47,12 +47,12 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
     englishId = await lookUp('en');
 
     await db.insert(schema.translations).values([
-      { languageId: frenchId, namespace: 'static', key: 'home.title', text: 'Accueil' },
-      { languageId: englishId, namespace: 'static', key: 'home.title', text: 'Home' },
+      { key: 'home.title', languageId: frenchId, namespace: 'static', text: 'Accueil' },
+      { key: 'home.title', languageId: englishId, namespace: 'static', text: 'Home' },
       {
+        key: translationKeyFor('hello'),
         languageId: frenchId,
         namespace: 'dynamic',
-        key: translationKeyFor('hello'),
         text: 'bonjour',
       },
     ]);
@@ -82,12 +82,17 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
     await app.close();
   });
 
+  /**
+   * Calls POST /api/translations and returns the raw injected response.
+   * @param body - the create body
+   * @returns the raw response
+   */
   async function createTranslation(body: Record<string, unknown>) {
     return app.inject({
       headers: basicAuthHeaders(),
       method: 'POST',
-      url: '/api/translations',
       payload: body,
+      url: '/api/translations',
     });
   }
 
@@ -142,8 +147,8 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
 
   it('derives the key for dynamic rows and stores static rows as given', async () => {
     const dynamic = await createTranslation({
-      namespace: 'dynamic',
       languageId: frenchId,
+      namespace: 'dynamic',
       text: 'Good morning',
     });
     expect(dynamic.statusCode).toBe(201);
@@ -152,10 +157,10 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
     expect(dynamicBody.key).toBe(translationKeyFor('Good morning'));
 
     const staticCreated = await createTranslation({
-      namespace: 'static',
-      languageId: frenchId,
-      text: 'Bonjour aussi',
       key: 'greeting.also',
+      languageId: frenchId,
+      namespace: 'static',
+      text: 'Bonjour aussi',
     });
     expect(staticCreated.statusCode).toBe(201);
     expect((staticCreated.json() as { key: string }).key).toBe('greeting.also');
@@ -163,39 +168,39 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
 
   it('returns 409 on key collision in the same language', async () => {
     const created = await createTranslation({
-      namespace: 'static',
-      languageId: frenchId,
-      text: 'Accueil 2',
       key: 'home.title',
+      languageId: frenchId,
+      namespace: 'static',
+      text: 'Accueil 2',
     });
     expect(created.statusCode).toBe(409);
   });
 
   it('creates a static row under a parent and rejects a missing parent', async () => {
     const parent = await createTranslation({
-      namespace: 'static',
-      languageId: frenchId,
-      text: 'Parent row',
       key: 'parent.row',
+      languageId: frenchId,
+      namespace: 'static',
+      text: 'Parent row',
     });
     const parentId = (parent.json() as { id: string }).id;
 
     const child = await createTranslation({
-      namespace: 'static',
-      languageId: englishId,
-      text: 'Child row',
       key: 'child.row',
+      languageId: englishId,
+      namespace: 'static',
       parentId,
+      text: 'Child row',
     });
     expect(child.statusCode).toBe(201);
-    expect((child.json() as { parentId: string | null }).parentId).toBe(parentId);
+    expect((child.json() as { parentId: null | string }).parentId).toBe(parentId);
 
     const orphan = await createTranslation({
-      namespace: 'static',
-      languageId: englishId,
-      text: 'Orphan',
       key: 'orphan.row',
+      languageId: englishId,
+      namespace: 'static',
       parentId: '10000000-0000-4000-8000-000000000000',
+      text: 'Orphan',
     });
     expect(orphan.statusCode).toBe(400);
   });
@@ -213,40 +218,40 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
     const unchanged = await app.inject({
       headers: basicAuthHeaders(),
       method: 'PATCH',
-      url: `/api/translations/${target.id}`,
       payload: { text: 'Accueil' },
+      url: `/api/translations/${target.id}`,
     });
     expect(unchanged.statusCode).toBe(400);
 
     const updated = await app.inject({
       headers: basicAuthHeaders(),
       method: 'PATCH',
-      url: `/api/translations/${target.id}`,
       payload: { text: 'Accueil !' },
+      url: `/api/translations/${target.id}`,
     });
     expect(updated.statusCode).toBe(200);
     expect((updated.json() as { text: string }).text).toBe('Accueil !');
 
     const other = await createTranslation({
-      namespace: 'static',
-      languageId: frenchId,
-      text: 'Other row',
       key: 'other.row',
+      languageId: frenchId,
+      namespace: 'static',
+      text: 'Other row',
     });
     const otherId = (other.json() as { id: string }).id;
     const collision = await app.inject({
       headers: basicAuthHeaders(),
       method: 'PATCH',
-      url: `/api/translations/${otherId}`,
       payload: { key: 'home.title' },
+      url: `/api/translations/${otherId}`,
     });
     expect(collision.statusCode).toBe(409);
 
     const missing = await app.inject({
       headers: basicAuthHeaders(),
       method: 'PATCH',
-      url: '/api/translations/10000000-0000-4000-8000-000000000000',
       payload: { text: 'nope' },
+      url: '/api/translations/10000000-0000-4000-8000-000000000000',
     });
     expect(missing.statusCode).toBe(404);
   });
@@ -259,7 +264,7 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
       expect(response.statusCode).toBe(200);
       const body = response.json() as {
         items: Array<{ id: string }>;
-        next: { lastId: string; lastCreatedAt: string } | null;
+        next: null | { lastCreatedAt: string; lastId: string };
       };
       collected.push(...body.items.map((item) => item.id));
       if (!body.next) break;
@@ -288,10 +293,10 @@ describe('translations REST (integration, throwaway PostgreSQL)', () => {
 
   it('soft-deletes with 204, hides the row, 404 on re-delete, shows it under onlyDeleted', async () => {
     const created = await createTranslation({
-      namespace: 'static',
-      languageId: englishId,
-      text: 'Delete me',
       key: 'to.delete.row',
+      languageId: englishId,
+      namespace: 'static',
+      text: 'Delete me',
     });
     const id = (created.json() as { id: string }).id;
 

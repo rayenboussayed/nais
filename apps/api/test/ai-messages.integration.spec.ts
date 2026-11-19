@@ -1,18 +1,18 @@
-import path from 'node:path';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
+import { FastifyAdapter } from '@nestjs/platform-fastify';
+import { Test } from '@nestjs/testing';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { FastifyAdapter } from '@nestjs/platform-fastify';
-import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { Test } from '@nestjs/testing';
+import path from 'node:path';
 import { Pool } from 'pg';
-import { eq } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
 import * as schema from '../src/database/schema.js';
-import { startTempCluster, type TempCluster } from './pg-temp.js';
 import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
 
 describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
   let cluster: TempCluster;
@@ -29,24 +29,24 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
     await migrate(db, { migrationsFolder: path.join(__dirname, '..', 'drizzle') });
     await db.insert(schema.aiMessages).values([
       {
-        provider: 'ollama',
         model: 'bonsai-2:2b',
-        status: 'completed',
+        provider: 'ollama',
         response: 'Bonjour le monde',
+        status: 'completed',
         usage: { inputTokens: 10, outputTokens: 4 },
       },
       {
-        provider: 'ollama',
         model: 'bonsai-2:2b',
-        status: 'failed',
+        provider: 'ollama',
         response: null,
+        status: 'failed',
         usage: null,
       },
       {
-        provider: 'openai',
         model: 'gpt-test-1',
-        status: 'completed',
+        provider: 'openai',
         response: 'Hello world',
+        status: 'completed',
         usage: null,
       },
     ]);
@@ -57,8 +57,8 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
       .limit(1);
     if (!bonjour) throw new Error('seed returned no message');
     await db.insert(schema.aiMessagePrompts).values([
-      { messageId: bonjour.id, role: 'system', prompt: 'You are a translator.' },
-      { messageId: bonjour.id, role: 'human', prompt: 'Translate: hello' },
+      { messageId: bonjour.id, prompt: 'You are a translator.', role: 'system' },
+      { messageId: bonjour.id, prompt: 'Translate: hello', role: 'human' },
     ]);
     await pool.end();
   }, 60_000);
@@ -94,7 +94,7 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
       expect(response.statusCode).toBe(200);
       const body = response.json() as {
         items: Array<{ id: string }>;
-        next: { lastId: string; lastCreatedAt: string } | null;
+        next: null | { lastCreatedAt: string; lastId: string };
       };
       collected.push(...body.items.map((item) => item.id));
       if (!body.next) break;
@@ -111,7 +111,7 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
       url: '/api/ai-messages',
     });
     expect(response.statusCode).toBe(200);
-    const body = response.json() as { items: Array<{ provider: string; model: string }> };
+    const body = response.json() as { items: Array<{ model: string; provider: string }> };
     expect(body.items.length).toBeGreaterThanOrEqual(3);
     expect(body.items.some((item) => item.model === 'gpt-test-1')).toBe(true);
   });
@@ -152,7 +152,7 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
       method: 'GET',
       url: '/api/ai-messages',
     });
-    const items = (all.json() as { items: Array<{ id: string; response: string | null }> }).items;
+    const items = (all.json() as { items: Array<{ id: string; response: null | string }> }).items;
     const withResponse = items.find((item) => item.response === 'Bonjour le monde');
     if (!withResponse) throw new Error('seeded message not found');
 

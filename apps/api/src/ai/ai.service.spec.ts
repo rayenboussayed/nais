@@ -1,24 +1,50 @@
 import type { ConfigService } from '@nestjs/config';
 
-import type { Env } from '../config/env.js';
 import { BadGatewayException, GatewayTimeoutException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { Env } from '../config/env.js';
 import type { Database } from '../database/drizzle.module.js';
 import type { TranslateService } from '../translate/translate.service.js';
-
-import { AiService } from './ai.service.js';
 import type { PipelineLoader } from './pipeline-loader.js';
 
-/** Minimal chainable DB double; only the chains the pipeline uses are stubbed. */
+import { AiService } from './ai.service.js';
+
+/**
+ * Stubs ConfigService with the env keys the pipeline reads.
+ * @param overrides - env keys to override in the stubbed parsed config
+ * @returns a minimal ConfigService double
+ */
+function configStub(overrides: Record<string, string | undefined> = {}) {
+  const base: Record<string, string | undefined> = {
+    AI_MAX_CONCURRENCY: 2 as never, // validateEnv coerces in production; here we stub the parsed value
+    OLLAMA_TEXT_MODEL: 'bonsai-2:2b',
+    ...overrides,
+  };
+  return {
+    // eslint-disable-next-line security/detect-object-injection -- test stub: config keys are compile-time constants of the stub
+    get: (key: string) => base[key],
+  } as unknown as ConfigService<Env, true>;
+}
+
+/**
+ * Minimal chainable DB double; only the chains the pipeline uses are stubbed.
+ * @param root0 - the fixture set
+ * @param root0.cacheRows - rows served by the ai_cache select chain
+ * @param root0.auditReturning - rows returned by the audit-insert chain
+ * @param root0.txInsertReturning - what the in-tx insert returns ([] models a lost race)
+ * @param root0.txWinnerRow - the AI-cache row the in-tx re-read sees after a lost race
+ * @param root0.txWinnerRow.result - the winner's result payload
+ * @returns the Database double (carrying auditSets for assertions)
+ */
 function dbStub({
-  cacheRows = [],
   auditReturning = [{ id: 'msg-1' }],
+  cacheRows = [],
   txInsertReturning = [{ id: 'cache-1' }],
   txWinnerRow,
 }: {
-  cacheRows?: Array<Record<string, unknown>>;
   auditReturning?: Array<{ id: string }>;
+  cacheRows?: Array<Record<string, unknown>>;
   /** What ai_cache.insert().onConflictDoNothing().returning() yields ([] models a lost race). */
   txInsertReturning?: Array<{ id: string }>;
   /** The AI-cache row the in-tx re-read sees after a lost race. */
@@ -27,6 +53,14 @@ function dbStub({
   const auditSets: Array<Record<string, unknown>> = [];
   return {
     auditSets,
+    insert: () => ({
+      values: () => ({
+        onConflictDoNothing: async () => [],
+        returning: async () => auditReturning,
+        then: (onFulfilled?: (v: unknown) => unknown) =>
+          Promise.resolve([]).then(onFulfilled ?? ((v: unknown) => v)),
+      }),
+    }),
     select: () => ({
       from: () => ({
         where: () => ({
@@ -34,14 +68,8 @@ function dbStub({
         }),
       }),
     }),
-    insert: () => ({
-      values: () => ({
-        returning: async () => auditReturning,
-        onConflictDoNothing: async () => [],
-        then: (onFulfilled?: (v: unknown) => unknown) =>
-          Promise.resolve([]).then(onFulfilled ?? ((v: unknown) => v)),
-      }),
-    }),
+    transaction: async (fn: (tx: unknown) => Promise<void>) =>
+      fn(transactionStub({ auditSets, txInsertReturning, txWinnerRow })),
     update: () => ({
       set: (value: Record<string, unknown>) => {
         auditSets.push(value);
@@ -50,50 +78,76 @@ function dbStub({
         };
       },
     }),
-    transaction: async (fn: (tx: unknown) => Promise<void>) =>
-      fn({
-        insert: () => ({
-          values: () => ({
-            onConflictDoNothing: () => ({
-              returning: async () => txInsertReturning,
-            }),
-            then: (onFulfilled?: (v: unknown) => unknown) =>
-              Promise.resolve([]).then(onFulfilled ?? ((v: unknown) => v)),
-          }),
-        }),
-        select: () => ({
-          from: () => ({
-            where: () => ({
-              limit: async () => (txWinnerRow ? [txWinnerRow] : []),
-            }),
-          }),
-        }),
-        update: () => ({
-          set: (value: Record<string, unknown>) => {
-            auditSets.push(value);
-            return { where: () => Promise.resolve([]) };
-          },
-        }),
-      }),
   } as unknown as Database & { auditSets: Array<Record<string, unknown>> };
 }
 
-function configStub(overrides: Record<string, string | undefined> = {}) {
-  const base: Record<string, string | undefined> = {
-    OLLAMA_TEXT_MODEL: 'bonsai-2:2b',
-    AI_MAX_CONCURRENCY: 2 as never, // validateEnv coerces in production; here we stub the parsed value
-    ...overrides,
-  };
-  return {
-    get: (key: string) => base[key],
-  } as unknown as ConfigService<Env, true>;
+/**
+ * Task-shaped request payload for the registry-driven table test.
+ * @param task - the task id from the table
+ * @returns the request payload matching the task's input contract
+ */
+function payloadForTask(task: string) {
+  if (task === 'question-answering') return { context: 'c', question: 'q' };
+  if (task === 'zero-shot-classification') return { candidateLabels: ['a', 'b'], text: 't' };
+  return { text: 't' };
 }
 
+/**
+ * Loader stub: every load resolves to a pipeline returning `output`.
+ * @param output - the fixed model output each pipeline invocation returns
+ * @param model - the model id the stub reports
+ * @returns the PipelineLoader stub
+ */
 function pipelineLoader(output: unknown, model = 'test/model') {
   return {
-    modelFor: () => model,
     load: vi.fn(async () => async () => output),
+    modelFor: () => model,
   } as unknown as PipelineLoader;
+}
+
+/**
+ * Transaction-mock factory: drizzle's tx handle for the AI pipeline.
+ * Extracted so dbStub does not nest callables more than five levels deep.
+ * @param args - the per-call fixture
+ * @param args.auditSets - captures ai_messages updates for assertions
+ * @param args.txInsertReturning - what the in-tx insert returns ([] models a lost race)
+ * @param args.txWinnerRow - the AI-cache row the in-tx re-read sees after a lost race
+ * @returns the tx double
+ */
+function transactionStub({
+  auditSets,
+  txInsertReturning,
+  txWinnerRow,
+}: {
+  auditSets: Array<Record<string, unknown>>;
+  txInsertReturning: Array<{ id: string }>;
+  // eslint-disable-next-line sonarjs/no-redundant-optional -- exactOptionalPropertyTypes: callers pass explicit undefined
+  txWinnerRow?: undefined | { result: Record<string, unknown> };
+}) {
+  return {
+    insert: () => ({
+      values: () => ({
+        onConflictDoNothing: () => ({
+          returning: async () => txInsertReturning,
+        }),
+        then: (onFulfilled?: (v: unknown) => unknown) =>
+          Promise.resolve([]).then(onFulfilled ?? ((v: unknown) => v)),
+      }),
+    }),
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          limit: async () => (txWinnerRow ? [txWinnerRow] : []),
+        }),
+      }),
+    }),
+    update: () => ({
+      set: (value: Record<string, unknown>) => {
+        auditSets.push(value);
+        return { where: () => Promise.resolve([]) };
+      },
+    }),
+  };
 }
 
 describe('AiService.run', () => {
@@ -115,8 +169,8 @@ describe('AiService.run', () => {
     const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
 
     const result = await service.run('sentiment', { text: 'I love this' });
-    expect(result).toMatchObject({ task: 'sentiment', cached: true });
-    expect(result.result).toMatchObject({ label: 'POSITIVE', cached: true });
+    expect(result).toMatchObject({ cached: true, task: 'sentiment' });
+    expect(result.result).toMatchObject({ cached: true, label: 'POSITIVE' });
     expect(loader.load).not.toHaveBeenCalled();
   });
 
@@ -126,8 +180,8 @@ describe('AiService.run', () => {
     const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
 
     const result = await service.run('sentiment', { text: 'I love this' });
-    expect(result).toMatchObject({ task: 'sentiment', cached: false });
-    expect(result.result).toMatchObject({ label: 'POSITIVE', score: 0.91, cached: false });
+    expect(result).toMatchObject({ cached: false, task: 'sentiment' });
+    expect(result.result).toMatchObject({ cached: false, label: 'POSITIVE', score: 0.91 });
     expect(loader.load).toHaveBeenCalledWith('sentiment');
     expect(db.auditSets.some((set) => set.status === 'completed')).toBe(true);
   });
@@ -135,10 +189,10 @@ describe('AiService.run', () => {
   it('marks the audit row failed and answers 502 when the pipeline throws', async () => {
     const db = dbStub();
     const loader = {
-      modelFor: () => 'test/model',
       load: vi.fn(async () => async () => {
         throw new Error('model exploded');
       }),
+      modelFor: () => 'test/model',
     } as unknown as PipelineLoader;
     const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
 
@@ -151,10 +205,10 @@ describe('AiService.run', () => {
   it('maps a model timeout onto 504', async () => {
     const db = dbStub();
     const loader = {
-      modelFor: () => 'test/model',
       load: vi.fn(async () => async () => {
         throw new Error('operation timed out');
       }),
+      modelFor: () => 'test/model',
     } as unknown as PipelineLoader;
     const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
 
@@ -172,8 +226,8 @@ describe('AiService.run', () => {
       configStub(),
     );
     await expect(serviceHit.peekCache('sentiment', { text: 'x' })).resolves.toMatchObject({
-      label: 'NEGATIVE',
       cached: true,
+      label: 'NEGATIVE',
     });
 
     const miss = dbStub();
@@ -189,21 +243,21 @@ describe('AiService.run', () => {
   it('normalizes zero-shot output preserving label order', async () => {
     const db = dbStub();
     const loader = pipelineLoader({
-      sequence: 'my phone broke',
       labels: ['billing', 'mobile'],
       scores: [0.12, 0.88],
+      sequence: 'my phone broke',
     });
     const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
 
     const result = await service.run('zero-shot-classification', {
-      text: 'my phone broke',
       candidateLabels: ['billing', 'mobile'],
+      text: 'my phone broke',
     });
     expect(result.result).toMatchObject({
-      sequence: 'my phone broke',
+      cached: false,
       labels: ['billing', 'mobile'],
       scores: [0.12, 0.88],
-      cached: false,
+      sequence: 'my phone broke',
     });
   });
 
@@ -213,39 +267,39 @@ describe('AiService.run', () => {
     const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
 
     const result = await service.run('feature-extraction', { text: 'embed me' });
-    expect(result.result).toMatchObject({ embedding: [0.1, 0.2, 0.3], dimensions: 3 });
+    expect(result.result).toMatchObject({ dimensions: 3, embedding: [0.1, 0.2, 0.3] });
   });
 
   it('builds a scores vector mapping missing scores to 0 and tolerates a missing labels array', async () => {
     const db = dbStub();
-    const loader = pipelineLoader({ sequence: 'seq', scores: [0.5, null, 1] }); // labels missing
+    const loader = pipelineLoader({ scores: [0.5, null, 1], sequence: 'seq' }); // labels missing
     const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
 
     const result = await service.run('zero-shot-classification', {
-      text: 'seq',
       candidateLabels: ['a', 'b', 'c'],
+      text: 'seq',
     });
     expect(result.result).toMatchObject({ labels: [], scores: [0.5, 0, 1] });
   });
 
   it('answers 502 when the zero-shot scores are unparseable', async () => {
     const db = dbStub();
-    const loader = pipelineLoader({ sequence: 'seq', labels: ['a'], scores: [Number.NaN] });
+    const loader = pipelineLoader({ labels: ['a'], scores: [Number.NaN], sequence: 'seq' });
     const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
 
     await expect(
-      service.run('zero-shot-classification', { text: 'seq', candidateLabels: ['a', 'b'] }),
+      service.run('zero-shot-classification', { candidateLabels: ['a', 'b'], text: 'seq' }),
     ).rejects.toBeInstanceOf(BadGatewayException);
   });
 
   it('enriches entities with a raw entity label when entity_group is absent', async () => {
     const db = dbStub();
-    const loader = pipelineLoader([{ word: 'x', entity: 'B-PER', score: 0.5 }]);
+    const loader = pipelineLoader([{ entity: 'B-PER', score: 0.5, word: 'x' }]);
     const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
 
     const result = await service.run('token-classification', { text: 'x' });
     expect(result.result).toMatchObject({
-      entities: [{ word: 'x', entity_group: 'B-PER', score: 0.5, start: 0, end: 0 }],
+      entities: [{ end: 0, entity_group: 'B-PER', score: 0.5, start: 0, word: 'x' }],
     });
   });
 
@@ -275,7 +329,7 @@ describe('AiService.run', () => {
     const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
 
     await expect(
-      service.run('question-answering', { question: 'q', context: 'c' }),
+      service.run('question-answering', { context: 'c', question: 'q' }),
     ).rejects.toBeInstanceOf(BadGatewayException);
   });
 
@@ -295,7 +349,7 @@ describe('AiService.run', () => {
     const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
 
     const result = await service.run('feature-extraction', { text: 'embed' });
-    expect(result.result).toMatchObject({ embedding: [0.5, 0.25], dimensions: 2 });
+    expect(result.result).toMatchObject({ dimensions: 2, embedding: [0.5, 0.25] });
   });
 
   it('throws when the audit insert returns no row', async () => {
@@ -341,10 +395,10 @@ describe('AiService.run', () => {
       }) as unknown as Database;
 
     const failingLoader = {
-      modelFor: () => 'test/model',
       load: vi.fn(async () => async () => {
         throw new Error('model exploded');
       }),
+      modelFor: () => 'test/model',
     } as unknown as PipelineLoader;
 
     for (const secondary of [new Error('boom'), 'a string, not an error'] as const) {
@@ -362,26 +416,21 @@ describe('AiService.run', () => {
 
   it('normalizes tasks with completely absent optional fields to empty defaults', async () => {
     const cases: Array<[string, unknown, Record<string, unknown>]> = [
-      ['sentiment', [{}], { label: '', score: 0, cached: false }],
-      ['summarize', [{}], { text: '', cached: false }],
-      ['question-answering', {}, { answer: '', score: 0, start: 0, end: 0, cached: false }],
+      ['sentiment', [{}], { cached: false, label: '', score: 0 }],
+      ['summarize', [{}], { cached: false, text: '' }],
+      ['question-answering', {}, { answer: '', cached: false, end: 0, score: 0, start: 0 }],
       [
         'token-classification',
         [{}],
-        { entities: [{ word: '', entity_group: '', score: 0, start: 0, end: 0 }], cached: false },
+        { cached: false, entities: [{ end: 0, entity_group: '', score: 0, start: 0, word: '' }] },
       ],
-      ['zero-shot-classification', {}, { sequence: '', labels: [], scores: [], cached: false }],
+      ['zero-shot-classification', {}, { cached: false, labels: [], scores: [], sequence: '' }],
     ];
     for (const [task, raw, expected] of cases) {
       const db = dbStub();
       const loader = pipelineLoader(raw);
       const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
-      const payload =
-        task === 'question-answering'
-          ? { question: 'q', context: 'c' }
-          : task === 'zero-shot-classification'
-            ? { text: 't', candidateLabels: ['a', 'b'] }
-            : { text: 't' };
+      const payload = payloadForTask(task);
       const result = await service.run(task, payload);
       expect(result.result, task).toMatchObject(expected);
     }
@@ -392,7 +441,7 @@ describe('AiService.run', () => {
     const loader = pipelineLoader('not an object');
     const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
     await expect(
-      service.run('question-answering', { question: 'q', context: 'c' }),
+      service.run('question-answering', { context: 'c', question: 'q' }),
     ).rejects.toBeInstanceOf(BadGatewayException);
   });
 
@@ -435,7 +484,13 @@ describe('AiService.run', () => {
       }),
     } as unknown as Database;
 
-    for (const good of ['org/model-name', 'onnx-community/all-MiniLM-L6-v2-ONNX', '/opt/models/local', './relative/model', '../shared/model']) {
+    for (const good of [
+      'org/model-name',
+      'onnx-community/all-MiniLM-L6-v2-ONNX',
+      '/opt/models/local',
+      './relative/model',
+      '../shared/model',
+    ]) {
       const service = new AiService(
         reaperDb,
         {} as unknown as TranslateService,
@@ -499,14 +554,16 @@ describe('AiService.run', () => {
 
     const result = await service.run('sentiment', { text: 'hi' });
     expect(result).toMatchObject({ cached: false });
-    expect(result.result).toMatchObject({ label: 'WINNER', score: 0.5, cached: false });
+    expect(result.result).toMatchObject({ cached: false, label: 'WINNER', score: 0.5 });
     expect(
-      db.auditSets.some((set) => set.status === 'completed' && String(set.response).includes('WINNER')),
+      db.auditSets.some(
+        (set) => set.status === 'completed' && String(set.response).includes('WINNER'),
+      ),
     ).toBe(true);
   });
 
   it('delegates translate to the catalogue-cached translate service', async () => {
-    const translateResponse = { text: 'bonjour', cached: true };
+    const translateResponse = { cached: true, text: 'bonjour' };
     const translateService = {
       translate: vi.fn(async () => translateResponse),
     } as unknown as TranslateService;
@@ -518,16 +575,16 @@ describe('AiService.run', () => {
       configStub({ OLLAMA_TEXT_MODEL: 'bonsai-2:2b' }),
     );
 
-    const result = await service.run('translate', { text: 'hello', targetLanguage: 'fr' });
+    const result = await service.run('translate', { targetLanguage: 'fr', text: 'hello' });
     expect(result).toEqual({
-      task: 'translate',
-      result: { text: 'bonjour', cached: true },
       cached: true,
       model: 'bonsai-2:2b',
+      result: { cached: true, text: 'bonjour' },
+      task: 'translate',
     });
     expect(translateService.translate).toHaveBeenCalledWith({
-      text: 'hello',
       targetLanguage: 'fr',
+      text: 'hello',
     });
   });
 
@@ -537,9 +594,9 @@ describe('AiService.run', () => {
     const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
 
     const result = await service.run('question-answering', {
-      question: 'Who was Jim Henson?',
       context: 'Jim Henson was a nice puppet.',
+      question: 'Who was Jim Henson?',
     });
-    expect(result.result).toMatchObject({ answer: 'a nice puppet', start: 0, end: 0 });
+    expect(result.result).toMatchObject({ answer: 'a nice puppet', end: 0, start: 0 });
   });
 });

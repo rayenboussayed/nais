@@ -1,10 +1,11 @@
+import type { AiTask } from '@trainslator/shared';
+
 import { Logger } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import type { AiTask } from '@trainslator/shared';
-
 import type { Env } from '../config/env.js';
+
 import { defaultModelFor, modelEnvKey } from './tasks.js';
 
 /**
@@ -12,15 +13,6 @@ import { defaultModelFor, modelEnvKey } from './tasks.js';
  * loader without importing transformers.js and its native dependencies.
  */
 export type PipelineFn = (input: unknown, ...rest: unknown[]) => Promise<unknown>;
-
-/** Resolves the effective model id for a task: `AI_<TASK>_MODEL` override or the registry default. */
-export function resolveModelId(
-  task: AiTask,
-  env: Record<string, string | undefined> = process.env,
-): string {
-  const override = env[modelEnvKey(task)];
-  return override && override.trim().length > 0 ? override.trim() : defaultModelFor(task);
-}
 
 /**
  * Lazily loads and memoizes the ONNX pipelines (one per effective model id).
@@ -33,17 +25,18 @@ export function resolveModelId(
  */
 @Injectable()
 export class PipelineLoader {
-  private readonly logger = new Logger(PipelineLoader.name);
-  private readonly pending = new Map<string, Promise<PipelineFn>>();
-  /** model id -> time the last load failed; used to bound retry storms. */
-  private readonly failureAt = new Map<string, number>();
-
   /** How long to wait before re-attempting a failed model download. */
   private static readonly RETRY_COOLDOWN_MS = 30_000;
+  /** model id -> time the last load failed; used to bound retry storms. */
+  private readonly failureAt = new Map<string, number>();
+  private readonly logger = new Logger(PipelineLoader.name);
+
+  private readonly pending = new Map<string, Promise<PipelineFn>>();
 
   constructor(private readonly config: ConfigService<Env, true>) {}
 
   /**
+   * @param task - the task whose pipeline to load
    * @returns the loaded pipeline for `task`, loading it on first use
    * @throws Error when a recent attempt for the same model failed within the cooldown window
    */
@@ -68,19 +61,23 @@ export class PipelineLoader {
     return promise;
   }
 
-  /** Effective model id for a task (env override or registry default). */
+  /**
+   * Effective model id for a task (env override or registry default).
+   * @param task - the task whose effective model to resolve
+   * @returns the effective model id
+   */
   modelFor(task: AiTask): string {
     return resolveModelId(task, {
+      AI_FEATURE_EXTRACTION_MODEL: this.config.get('AI_FEATURE_EXTRACTION_MODEL', { infer: true }),
+      AI_QUESTION_ANSWERING_MODEL: this.config.get('AI_QUESTION_ANSWERING_MODEL', { infer: true }),
       AI_SENTIMENT_MODEL: this.config.get('AI_SENTIMENT_MODEL', { infer: true }),
       AI_SUMMARIZE_MODEL: this.config.get('AI_SUMMARIZE_MODEL', { infer: true }),
-      AI_QUESTION_ANSWERING_MODEL: this.config.get('AI_QUESTION_ANSWERING_MODEL', { infer: true }),
       AI_TOKEN_CLASSIFICATION_MODEL: this.config.get('AI_TOKEN_CLASSIFICATION_MODEL', {
         infer: true,
       }),
       AI_ZERO_SHOT_CLASSIFICATION_MODEL: this.config.get('AI_ZERO_SHOT_CLASSIFICATION_MODEL', {
         infer: true,
       }),
-      AI_FEATURE_EXTRACTION_MODEL: this.config.get('AI_FEATURE_EXTRACTION_MODEL', { infer: true }),
     });
   }
 
@@ -104,4 +101,18 @@ export class PipelineLoader {
 
     return rawPipeline as unknown as PipelineFn;
   }
+}
+
+/**
+ * Resolves the effective model id for a task: `AI_<TASK>_MODEL` override or the registry default.
+ * @param task - the task whose effective model to resolve
+ * @param env - the env map to read overrides from (defaults to process.env)
+ * @returns the effective model id
+ */
+export function resolveModelId(
+  task: AiTask,
+  env: Record<string, string | undefined> = process.env,
+): string {
+  const override = env[modelEnvKey(task)];
+  return override && override.trim().length > 0 ? override.trim() : defaultModelFor(task);
 }

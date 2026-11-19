@@ -7,6 +7,6 @@ export const languageDirSchema = z.enum(['ltr', 'rtl']);
 /** Lifecycle of an AI provider call; mirrors the `ai_message_status` pgEnum. */
 export const aiMessageStatusSchema = z.enum(['pending', 'processing', 'completed', 'failed']);
 
-export type TranslationNamespace = z.infer<typeof translationNamespaceSchema>;
-export type LanguageDir = z.infer<typeof languageDirSchema>;
 export type AiMessageStatus = z.infer<typeof aiMessageStatusSchema>;
+export type LanguageDir = z.infer<typeof languageDirSchema>;
+export type TranslationNamespace = z.infer<typeof translationNamespaceSchema>;

@@ -1,22 +1,22 @@
-import path from 'node:path';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
+import { FastifyAdapter } from '@nestjs/platform-fastify';
+import { Test } from '@nestjs/testing';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { FastifyAdapter } from '@nestjs/platform-fastify';
-import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { Test } from '@nestjs/testing';
+import path from 'node:path';
 import { Pool } from 'pg';
 import { io, type Socket } from 'socket.io-client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
+import { signSession } from '../src/auth/session.js';
+import { translationKeyFor } from '../src/common/key.js';
 import * as schema from '../src/database/schema.js';
 import { seedLanguages } from '../src/database/seed.js';
-import { translationKeyFor } from '../src/common/key.js';
-import { signSession } from '../src/auth/session.js';
+import { type OllamaStub, startOllamaStub } from './ollama-stub.js';
 import { startTempCluster, type TempCluster } from './pg-temp.js';
-import { startOllamaStub, type OllamaStub } from './ollama-stub.js';
 
 describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
   let cluster: TempCluster;
@@ -35,9 +35,9 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
     process.env.SESSION_SECRET = 'a'.repeat(64);
 
     // pre-compute a matching scrypt hash for the configured password
-    const { scryptSync, randomBytes } = await import('node:crypto');
+    const { randomBytes, scryptSync } = await import('node:crypto');
     const salt = randomBytes(16);
-    process.env.BASIC_AUTH_PASSWORD_HASH = `scrypt$16384$8$1$${salt.toString('hex')}$${scryptSync('admin-password', salt, 64, { N: 16384, r: 8, p: 1 }).toString('hex')}`;
+    process.env.BASIC_AUTH_PASSWORD_HASH = `scrypt$16384$8$1$${salt.toString('hex')}$${scryptSync('admin-password', salt, 64, { N: 16384, p: 1, r: 8 }).toString('hex')}`;
 
     delete process.env.PG_BOSS_URL;
 
@@ -68,7 +68,7 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
   let app: NestFastifyApplication;
 
   beforeEach(async () => {
-    stub.setBehavior({ status: 200, completion: 'bonjour le monde', delayMs: 0 });
+    stub.setBehavior({ completion: 'bonjour le monde', delayMs: 0, status: 200 });
 
     const { AppModule } = await import('../src/app.module.js');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -88,6 +88,12 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
     await app.close();
   });
 
+  /**
+   * Opens a socket against the test app, resolving on connect.
+   * @param headers - extra handshake headers
+   * @param origin - 'same' pins the Origin header to the app's own host, a string sets it verbatim
+   * @returns the connected socket
+   */
   function connect(headers?: Record<string, string>, origin?: 'same' | string): Promise<Socket> {
     return new Promise((resolve, reject) => {
       const address = app.getHttpServer().address();
@@ -100,8 +106,8 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
       const socket = io(`http://127.0.0.1:${port}`, {
         transports: ['websocket'],
         ...(finalHeaders ? { extraHeaders: finalHeaders } : {}),
-        reconnection: false,
         forceNew: true,
+        reconnection: false,
       });
       sockets.push(socket);
       socket.on('connect', () => resolve(socket));
@@ -109,15 +115,29 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
     });
   }
 
+  /**
+   * Builds the Authorization header for the seeded test credential.
+   * @param username - the basic-auth username
+   * @param password - the basic-auth password
+   * @returns the Authorization header map
+   */
   function basicAuthHeader(
     username = 'admin',
     password = 'admin-password',
   ): Record<string, string> {
+    const credentials = Buffer.from(`${username}:${password}`).toString('base64');
     return {
-      authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
+      authorization: `Basic ${credentials}`,
     };
   }
 
+  /**
+   * Waits for one event on the socket, with a timeout.
+   * @param socket - the connected socket
+   * @param event - the event name to wait for
+   * @param timeoutMs - how long to wait before rejecting
+   * @returns the event payload
+   */
   function onceEvent<T>(socket: Socket, event: string, timeoutMs = 15_000): Promise<T> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`timeout waiting for ${event}`)), timeoutMs);
@@ -149,14 +169,14 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
   it('answers a structured 400 ack for an invalid translate payload', async () => {
     const socket = await connect(basicAuthHeader());
 
-    const garbage = await new Promise<{ statusCode: number; requestId: string | null }>(
+    const garbage = await new Promise<{ requestId: null | string; statusCode: number }>(
       (resolve, reject) => {
         socket
           .timeout(5_000)
           .emit(
             'translate',
             { text: 42 },
-            (error: Error | null, ack?: { statusCode: number; requestId: string | null }) => {
+            (error: Error | null, ack?: { requestId: null | string; statusCode: number }) => {
               if (error) reject(error);
               else resolve(ack!);
             },
@@ -167,14 +187,14 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
     expect(garbage.requestId).toBeNull();
 
     const requestId = crypto.randomUUID();
-    const badTarget = await new Promise<{ statusCode: number; requestId: string | null }>(
+    const badTarget = await new Promise<{ requestId: null | string; statusCode: number }>(
       (resolve, reject) => {
         socket
           .timeout(5_000)
           .emit(
             'translate',
-            { text: 'hi', targetLanguage: 'fra', requestId },
-            (error: Error | null, ack?: { statusCode: number; requestId: string | null }) => {
+            { requestId, targetLanguage: 'fra', text: 'hi' },
+            (error: Error | null, ack?: { requestId: null | string; statusCode: number }) => {
               if (error) reject(error);
               else resolve(ack!);
             },
@@ -187,14 +207,14 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
 
   it('answers 400 with a null requestId for a null payload', async () => {
     const socket = await connect(basicAuthHeader());
-    const response = await new Promise<{ statusCode: number; requestId: string | null }>(
+    const response = await new Promise<{ requestId: null | string; statusCode: number }>(
       (resolve, reject) => {
         socket
           .timeout(5_000)
           .emit(
             'translate',
             null,
-            (error: Error | null, ack?: { statusCode: number; requestId: string | null }) => {
+            (error: Error | null, ack?: { requestId: null | string; statusCode: number }) => {
               if (error) reject(error);
               else resolve(ack!);
             },
@@ -212,7 +232,7 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
         .timeout(5_000)
         .emit(
           'translate',
-          { text: 'hello', targetLanguage: 'zz', requestId: crypto.randomUUID() },
+          { requestId: crypto.randomUUID(), targetLanguage: 'zz', text: 'hello' },
           (error: Error | null, ack?: { statusCode: number }) => {
             if (error) reject(error);
             else resolve(ack!);
@@ -232,16 +252,16 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
     const socket = await connect(basicAuthHeader());
     const requestId = crypto.randomUUID();
 
-    const ack = await new Promise<{ statusCode: number; requestId: string; data: string | null }>(
+    const ack = await new Promise<{ data: null | string; requestId: string; statusCode: number }>(
       (resolve, reject) => {
         socket
           .timeout(10_000)
           .emit(
             'translate',
-            { text: 'good morning', targetLanguage: 'fr', requestId },
+            { requestId, targetLanguage: 'fr', text: 'good morning' },
             (
               error: Error | null,
-              response?: { statusCode: number; requestId: string; data: string | null },
+              response?: { data: null | string; requestId: string; statusCode: number },
             ) => {
               if (error) reject(error);
               else resolve(response!);
@@ -274,9 +294,9 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
       const languageId = languageRows[0]?.id;
       if (!languageId) throw new Error('seed did not insert fr');
       await db.insert(schema.translations).values({
+        key,
         languageId,
         namespace: 'dynamic',
-        key,
         text: 'cached answer',
       });
     } finally {
@@ -285,14 +305,14 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
 
     const hitsBefore = stub.hitCount();
     const requestId = crypto.randomUUID();
-    const ack = await new Promise<{ statusCode: number; data: string | null }>(
+    const ack = await new Promise<{ data: null | string; statusCode: number }>(
       (resolve, reject) => {
         socket
           .timeout(5_000)
           .emit(
             'translate',
-            { text: 'good morning, cached', targetLanguage: 'fr', requestId },
-            (error: Error | null, response?: { statusCode: number; data: string | null }) => {
+            { requestId, targetLanguage: 'fr', text: 'good morning, cached' },
+            (error: Error | null, response?: { data: null | string; statusCode: number }) => {
               if (error) reject(error);
               else resolve(response!);
             },
@@ -322,7 +342,7 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
       if (!languageId) throw new Error('seed did not insert fr');
       await db
         .insert(schema.translations)
-        .values({ languageId, namespace: 'dynamic', key: seedKey, text: 'probe answer' })
+        .values({ key: seedKey, languageId, namespace: 'dynamic', text: 'probe answer' })
         .onConflictDoNothing();
     } finally {
       await pool.end();
@@ -330,14 +350,14 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
 
     const socket = await connect(basicAuthHeader());
 
-    let lastAck: { statusCode: number } | undefined;
+    let lastAck: undefined | { statusCode: number };
     for (let i = 0; i < 11; i += 1) {
       lastAck = await new Promise<{ statusCode: number }>((resolve, reject) => {
         socket
           .timeout(5_000)
           .emit(
             'translate',
-            { text: seedText, targetLanguage: 'fr', requestId: crypto.randomUUID() },
+            { requestId: crypto.randomUUID(), targetLanguage: 'fr', text: seedText },
             (error: Error | null, response?: { statusCode: number }) => {
               if (error) reject(error);
               else resolve(response!);
@@ -355,8 +375,8 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
     const hitsBefore = stub.hitCount();
     const text = 'deduplicate me please';
 
-    const events: Array<{ requestId: string; text: string; cached: boolean }> = [];
-    socket.on('translation', (event: { requestId: string; text: string; cached: boolean }) => {
+    const events: Array<{ cached: boolean; requestId: string; text: string }> = [];
+    socket.on('translation', (event: { cached: boolean; requestId: string; text: string }) => {
       events.push(event);
     });
 
@@ -366,7 +386,7 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
           .timeout(10_000)
           .emit(
             'translate',
-            { text, targetLanguage: 'fr', requestId: crypto.randomUUID() },
+            { requestId: crypto.randomUUID(), targetLanguage: 'fr', text },
             (error: Error | null, response?: { statusCode: number }) => {
               if (error) reject(error);
               else resolve(response!);
@@ -384,7 +404,7 @@ describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
         if (events.length < 2)
           throw new Error(`waiting for 2 translation events, got ${events.length}`);
       },
-      { timeout: 15_000, interval: 50 },
+      { interval: 50, timeout: 15_000 },
     );
 
     expect(events).toHaveLength(2);
