@@ -31,6 +31,8 @@ const pgConnectionStringSchema = z
  */
 const envSchema = z
   .object({
+    /** Pinned ONNX device; unset selects the automatic webgpu → cpu fallback chain (wasm is not supported by onnxruntime-node). */
+    AI_DEVICE: z.enum(['webgpu', 'cpu']).optional(),
     AI_FEATURE_EXTRACTION_MODEL: z.string().trim().min(1).optional(),
     /** Max concurrent dedicated-model calls on the REST path (the worker is already serial). */
     AI_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),

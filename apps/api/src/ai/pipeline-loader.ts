@@ -6,7 +6,9 @@ import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '../config/env.js';
 
+import { resolveDeviceChain } from './device.js';
 import { defaultModelFor, modelEnvKey } from './tasks.js';
+import { ensureWebgpuGlobals } from './webgpu-globals.js';
 
 /**
  * Opaque handle to a loaded pipeline. Structural on purpose: tests stub the
@@ -22,6 +24,12 @@ export type PipelineFn = (input: unknown, ...rest: unknown[]) => Promise<unknown
  *
  * The first call per model can take tens of seconds and downloads hundreds of
  * megabytes; subsequent calls are in-process and cheap.
+ *
+ * Each load attempts the device chain `webgpu` → `cpu` (see
+ * `resolveDeviceChain`); `AI_DEVICE` pins a single device and disables the
+ * fallback. Discovery failures on one device fall through to the next with a
+ * warning; the last error is thrown (and the retry cooldown applies) when
+ * every device fails.
  */
 @Injectable()
 export class PipelineLoader {
@@ -82,24 +90,40 @@ export class PipelineLoader {
   }
 
   private async loadPipeline(task: AiTask, model: string): Promise<PipelineFn> {
-    this.logger.log(`loading pipeline task=${task} model=${model}`);
-    const started = Date.now();
     const cacheDir = this.config.get('HF_CACHE_DIR', { infer: true });
-
     // Loaded lazily so the API boots and tests run without the native onnxruntime.
     const module = await import('@huggingface/transformers');
-    const options = cacheDir ? { cache_dir: cacheDir } : {};
-    // The library overloads pipeline() by task; a string task is valid at runtime.
-    const rawPipeline = await (
-      module.pipeline as unknown as (
-        task: string,
-        model: string,
-        options?: Record<string, unknown>,
-      ) => Promise<unknown>
-    )(task, model, options);
-    this.logger.log(`pipeline ready task=${task} model=${model} in ${Date.now() - started}ms`);
-
-    return rawPipeline as unknown as PipelineFn;
+    const chain = resolveDeviceChain(this.config.get('AI_DEVICE', { infer: true }));
+    let lastError: unknown;
+    for (const device of chain) {
+      const started = Date.now();
+      try {
+        if (device === 'webgpu') {
+          // Throws when the Dawn binding cannot load; that is the WebGPU path being unavailable, not a boot failure.
+          await ensureWebgpuGlobals();
+        }
+        this.logger.log(`loading pipeline task=${task} model=${model} device=${device}`);
+        const options = { ...(cacheDir ? { cache_dir: cacheDir } : {}), device };
+        // The library overloads pipeline() by task; a string task is valid at runtime.
+        const rawPipeline = await (
+          module.pipeline as unknown as (
+            task: string,
+            model: string,
+            options?: Record<string, unknown>,
+          ) => Promise<unknown>
+        )(task, model, options);
+        this.logger.log(
+          `pipeline ready task=${task} model=${model} device=${device} in ${Date.now() - started}ms`,
+        );
+        return rawPipeline as unknown as PipelineFn;
+      } catch (error) {
+        lastError = error;
+        this.logger.warn(
+          `pipeline load failed task=${task} model=${model} device=${device}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+    throw lastError;
   }
 }
 

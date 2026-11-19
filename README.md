@@ -18,6 +18,8 @@ The service exposes one endpoint per AI task (`POST /api/ai/<task>`) with a shar
 
 Override any model with `AI_<TASK>_MODEL` (dashes → underscores), or point `HF_CACHE_DIR` at a shared cache. `GET /api/ai/tasks` lists the live registry, and every call is cached in `ai_cache` (task+model+input hash) and audited in `ai_messages`. Results are stable across calls; a cache hit answers in milliseconds.
 
+Dedicated pipelines are loaded with an automatic device chain: **WebGPU → CPU** (`webgpu` via [Dawn](https://www.npmjs.com/package/webgpu), GPU when a compatible adapter exists; `cpu` is the onnxruntime-node fallback used when no adapter or driver is available). Pin `AI_DEVICE=webgpu|cpu` to select a single device and disable the fallback. `wasm` is deliberately not offered — onnxruntime-node has no WASM execution provider (the WASM path exists only in the browser bundle of transformers.js). The chain is logged per load (`device=`).
+
 ```bash
 curl -u admin:password -X POST http://localhost:3000/api/ai/sentiment \
   -H 'content-type: application/json' -d '{"text": "I love this service"}'
@@ -90,7 +92,7 @@ docker compose logs -f ollama-init                          # model pull progres
 node scripts/ollama-smoke.mjs                               # verify the model is listed
 ```
 
-Image: `apps/api/Dockerfile` is a multi-stage `node:24-alpine` build (dev deps pruned), runs as the non-root `node` user, and ships a `HEALTHCHECK` against `/api/health`. Notes:
+Image: `apps/api/Dockerfile` is a multi-stage `node:24-bookworm-slim` build (dev deps pruned), runs as the non-root `node` user, and ships a `HEALTHCHECK` against `/api/health` (Dawn's glibc-only WebGPU binding cannot load on musl/Alpine, which is why the image is not on Alpine). Notes:
 
 - First boot is only green after migrations and the seed have run; both bins are idempotent.
 - `ollama-init` pulls `OLLAMA_TEXT_MODEL` (default `bonsai-2:2b`) once and exits; downstream `api` waits for it.

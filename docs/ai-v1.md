@@ -36,6 +36,19 @@ audit, inflight dedup, queue, WS.
 7. **Web.** New `/studio` route: task picker + per-task form, same styling.
 8. **Models in Docker.** `HF_CACHE_DIR` volume; one-shot `transformers-init`
    service pre-downloads the v1 task models (ollama-init parity).
+9. **Device selection (2026-11-19).** Dedicated pipelines load with an
+   automatic device chain: `webgpu` (Dawn, via the `webgpu` npm package — the
+   binding is glibc-only, so the image is `node:24-bookworm-slim`, not
+   Alpine) → `cpu` (onnxruntime-node). Any load failure on one device falls
+   through to the next with a warning; the last error throws (and the 30s
+   cooldown applies) when both fail. `AI_DEVICE=webgpu|cpu` pins a single
+   device and disables the fallback. `wasm` is not offered: onnxruntime-node
+   has no WASM execution provider — verified live (`Unsupported device:
+"wasm"`); the WASM path exists only in the browser bundle of
+   transformers.js. On GPU-less machines WebGPU detection falls back to CPU
+   exactly as designed; on hosts with a GPU (or a software Vulkan such as
+   Mesa's lavapipe) the pipeline runs on `device=webgpu` (verified live with
+   MiniLM-L6-v2: `device=webgpu` in 13.3s, output dims `[1,384]`).
 
 ## Implementation status (2026-11-19)
 
@@ -49,6 +62,12 @@ same ack contract, the `ai-task` pg-boss queue, the web `/studio` route, the
 (both proven against live pipelines: **all six download and run** —
 warmup completed green in 372s on this network).
 
+Device chain verified live on 2026-11-19: on a GPU-less machine WebGPU fails
+honestly (`No supported adapters`) and the loader fell back to `cpu`; with
+Mesa lavapipe (`mesa-vulkan-drivers`) installed the same pipeline ran on
+`device=webgpu`. `AI_DEVICE` env pin is honored; `wasm` rejected at boot as
+unsupported in Node.
+
 Verification limits: models download at first use (or via the warmup); the
 full v1 model set is not pre-downloaded into this checkout. Docker image
 build and compose flow remain unverifiable here (no docker daemon) — see the
@@ -56,7 +75,8 @@ README Docker section and run `docker compose up -d` on a Docker machine.
 
 ## Non-goals (v1)
 
-- GPU provisioning inside containers (CPU/WASM only; WebGPU documented for
-  browser experiments).
+- GPU passthrough in containers beyond a working device chain (no CUDA/rocm
+  image variants yet; WebGPU/CPU only — the chain adapts to whatever adapter
+  Dawn finds, including Mesa lavapipe for software execution).
 - Image/audio/multimodal tasks (transformers.js supports them; v1 is NLP).
 - Opening the service to untrusted networks. Single-credential auth unchanged.

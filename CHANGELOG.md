@@ -52,6 +52,13 @@ tagged releases yet. Dates are UTC, taken from the commit history.
   the dedicated pipelines into the shared `hf-cache` volume; a
   `transformers-init` one-shot container warms it in Docker (`727acfa`,
   `1fca57a`).
+- WebGPU-accelerated ONNX pipelines: dedicated tasks now load with an
+  automatic device chain `webgpu` → `cpu` (Dawn via the `webgpu` package;
+  verified live: `device=webgpu` on Mesa lavapipe, output dims `[1,384]`;
+  GPU-less machines fall back to `cpu`). `AI_DEVICE` pins a single device.
+  The API image moved to `node:24-bookworm-slim` (Dawn's binding is
+  glibc-only; Alpine/musl cannot load it). `wasm` is not supported in Node
+  (onnxruntime-node has no WASM EP) and is rejected at boot.
 - Docker production and development stacks: PostgreSQL, multi-stage API
   image (non-root, healthcheck), `ollama-init` and `transformers-init`
   one-shots (`4a0b0aa`, `1fca57a`).

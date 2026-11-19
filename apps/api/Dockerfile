@@ -8,7 +8,7 @@
 #   docker run --rm --env-file .env trainslator/api:latest node apps/api/bin/db-migrate.mjs
 
 # ───────────────────────────── build stage ─────────────────────────────
-FROM node:24-alpine AS build
+FROM node:24-bookworm-slim AS build
 WORKDIR /repo
 
 # Manifests first for layer caching.
@@ -30,7 +30,7 @@ RUN npm prune --omit=dev --workspace=@trainslator/shared --workspace=@trainslato
     --include-workspace-root=false --ignore-scripts
 
 # ──────────────────────────── runtime stage ─────────────────────────────
-FROM node:24-alpine AS runtime
+FROM node:24-bookworm-slim AS runtime
 WORKDIR /repo
 
 ENV NODE_ENV=production
@@ -55,6 +55,6 @@ USER node
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:3000/api/health > /dev/null 2>&1 || exit 1
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))" || exit 1
 
 CMD ["node", "apps/api/dist/main.js"]

@@ -30,14 +30,20 @@ releases yet. Dates are UTC, from the commit history (2026-11-18 .. 2026-11-19).
   30s cooldown on pipeline load failures; per-task `AI_<TASK>_MODEL`
   overrides (`225cff9`).
 - `npm run transformers:warmup` to prefetch the pipelines (`727acfa`).
+- WebGPU device chain for the dedicated pipelines (`src/ai/device.ts`,
+  `src/ai/webgpu-globals.ts`): `webgpu` → `cpu`, with `AI_DEVICE` pin support
+  and a lazy, idempotent Dawn install (`navigator.gpu` shim for
+  transformers.js). Warmup bin reuses the chain and hard-exits (Dawn holds
+  the process open). Boot-time `AI_DEVICE` validation (`webgpu|cpu`).
 - Process-level e2e smoke suite; hardening against review findings:
   identity-keyed WS limiter, CSWSH origin backstop, async scrypt, microsecond
   keyset cursor from the database, `changedFields` prototype-key whitelist
   (`27a7a5f`, `c38ae1d`).
-- Docker: multi-stage image (Node 24 Alpine, non-root `node` user,
-  HEALTHCHECK), production and development compose stacks, `ollama-init` and
+- Docker: multi-stage image (Node 24, non-root `node` user, HEALTHCHECK via
+  node fetch), production and development compose stacks, `ollama-init` and
   `transformers-init` one-shots, node-owned `hf-cache` volume (`4a0b0aa`,
-  `1fca57a`).
+  `1fca57a`); image base moved from Alpine to `node:24-bookworm-slim` for the
+  glibc-only Dawn WebGPU binding.
 
 ### Changed
 

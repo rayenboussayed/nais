@@ -144,4 +144,16 @@ describe('validateEnv', () => {
     });
     expect(env.DATABASE_URL).toContain('host=');
   });
+
+  it('leaves AI_DEVICE unset by default (automatic webgpu → cpu chain)', () => {
+    expect(validateEnv({ ...baseEnv }).AI_DEVICE).toBeUndefined();
+  });
+
+  it('accepts each AI_DEVICE pin and rejects unknown values', () => {
+    for (const device of ['webgpu', 'cpu']) {
+      expect(validateEnv({ ...baseEnv, AI_DEVICE: device }).AI_DEVICE).toBe(device);
+    }
+    expect(() => validateEnv({ ...baseEnv, AI_DEVICE: 'cuda' })).toThrow(/AI_DEVICE/);
+    expect(() => validateEnv({ ...baseEnv, AI_DEVICE: 'wasm' })).toThrow(/AI_DEVICE/);
+  });
 });

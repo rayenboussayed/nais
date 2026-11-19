@@ -4,8 +4,16 @@ const transformersMock = vi.hoisted(() => ({
   pipeline: vi.fn(),
 }));
 
+const webgpuGlobalsMock = vi.hoisted(() => ({
+  ensureWebgpuGlobals: vi.fn(),
+}));
+
 vi.mock('@huggingface/transformers', () => ({
   pipeline: transformersMock.pipeline,
+}));
+
+vi.mock('./webgpu-globals.js', () => ({
+  ensureWebgpuGlobals: webgpuGlobalsMock.ensureWebgpuGlobals,
 }));
 
 import { PipelineLoader, resolveModelId } from './pipeline-loader.js';
@@ -14,18 +22,27 @@ import { AI_TASK_REGISTRY, defaultModelFor, listTaskDescriptors, modelEnvKey } f
 const taskList = Object.keys(AI_TASK_REGISTRY) as Array<keyof typeof AI_TASK_REGISTRY>;
 
 /**
+ * Extracts the `device` from a mocked pipeline call's options argument.
+ * @param call - the mocked pipeline call arguments ([task, model, options])
+ * @returns the device id passed to the pipeline
+ */
+const deviceOf = (call: unknown[]) => (call[2] as Record<string, unknown>).device;
+
+/**
  * Stubs ConfigService with the keys the unit under test reads.
  * @param overrides - env keys to override in the stubbed parsed config
  * @returns the ConfigService double
  */
 function configStub(overrides: Record<string, string | undefined> = {}) {
   const base: Record<string, string | undefined> = {
+    AI_DEVICE: undefined,
     AI_FEATURE_EXTRACTION_MODEL: undefined,
     AI_QUESTION_ANSWERING_MODEL: undefined,
     AI_SENTIMENT_MODEL: undefined,
     AI_SUMMARIZE_MODEL: undefined,
     AI_TOKEN_CLASSIFICATION_MODEL: undefined,
     AI_ZERO_SHOT_CLASSIFICATION_MODEL: undefined,
+    HF_CACHE_DIR: undefined,
     ...overrides,
   };
   return {
@@ -67,6 +84,7 @@ describe('tasks registry', () => {
 describe('PipelineLoader', () => {
   beforeEach(() => {
     transformersMock.pipeline.mockReset();
+    webgpuGlobalsMock.ensureWebgpuGlobals.mockReset().mockResolvedValue(undefined);
   });
 
   it('memoizes the pipeline per effective model id', async () => {
@@ -76,27 +94,68 @@ describe('PipelineLoader', () => {
     const second = await loader.load('sentiment');
     expect(first).toBe(second);
     expect(transformersMock.pipeline).toHaveBeenCalledTimes(1);
+    expect(deviceOf(transformersMock.pipeline.mock.calls[0] as unknown[])).toBe('webgpu');
   });
 
-  it('clears the pending cache on failure but applies a cooldown before re-attempting', async () => {
+  it('passes HF_CACHE_DIR through to the pipeline options', async () => {
+    transformersMock.pipeline.mockResolvedValue(async () => 'pipeline');
+    const loader = new PipelineLoader(configStub({ HF_CACHE_DIR: 'hf-cache-fixture' }));
+    await loader.load('sentiment');
+    expect(transformersMock.pipeline.mock.calls[0]?.[2]).toMatchObject({
+      cache_dir: 'hf-cache-fixture',
+      device: 'webgpu',
+    });
+  });
+
+  it('falls back to cpu when the webgpu load fails', async () => {
+    transformersMock.pipeline
+      .mockRejectedValueOnce(new Error('webgpu boom'))
+      .mockResolvedValueOnce(async () => 'cpu-pipeline');
+    const loader = new PipelineLoader(configStub());
+    await expect(loader.load('sentiment')).resolves.toBeDefined();
+    expect(transformersMock.pipeline.mock.calls.map(deviceOf)).toEqual(['webgpu', 'cpu']);
+  });
+
+  it('skips webgpu entirely when the webgpu globals cannot be installed', async () => {
+    webgpuGlobalsMock.ensureWebgpuGlobals.mockRejectedValueOnce(new Error('no dawn binding'));
+    transformersMock.pipeline.mockResolvedValue(async () => 'cpu-pipeline');
+    const loader = new PipelineLoader(configStub());
+    await expect(loader.load('sentiment')).resolves.toBeDefined();
+    expect(webgpuGlobalsMock.ensureWebgpuGlobals).toHaveBeenCalledTimes(1);
+    expect(transformersMock.pipeline.mock.calls.map(deviceOf)).toEqual(['cpu']);
+  });
+
+  it('honors an AI_DEVICE pin and disables the fallback for it', async () => {
+    transformersMock.pipeline.mockRejectedValue(new Error('boom'));
+    const loader = new PipelineLoader(configStub({ AI_DEVICE: 'cpu' }));
+    await expect(loader.load('sentiment')).rejects.toThrow('boom');
+    expect(transformersMock.pipeline.mock.calls.map(deviceOf)).toEqual(['cpu']);
+
+    transformersMock.pipeline.mockReset().mockResolvedValue(async () => 'webgpu-pipeline');
+    const gpuLoader = new PipelineLoader(configStub({ AI_DEVICE: 'webgpu' }));
+    await gpuLoader.load('sentiment');
+    expect(transformersMock.pipeline.mock.calls.map(deviceOf)).toEqual(['webgpu']);
+  });
+
+  it('clears the pending cache when every device fails, then applies a cooldown before re-attempting', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-11-19T00:00:00Z'));
     try {
-      transformersMock.pipeline
-        .mockRejectedValueOnce(new Error('download failed'))
-        .mockResolvedValueOnce(async () => [{ label: 'NEGATIVE', score: 1 }]);
+      transformersMock.pipeline.mockRejectedValue(new Error('download failed'));
 
       const loader = new PipelineLoader(configStub());
       await expect(loader.load('sentiment')).rejects.toThrow('download failed');
+      expect(transformersMock.pipeline).toHaveBeenCalledTimes(2);
+      expect(transformersMock.pipeline.mock.calls.map(deviceOf)).toEqual(['webgpu', 'cpu']);
 
-      // Within the cooldown window the loader refuses to retry (no second download attempt).
+      // Within the cooldown window the loader refuses to retry (no re-attempt on any device).
       await expect(loader.load('sentiment')).rejects.toThrow(/recently failed/);
-      expect(transformersMock.pipeline).toHaveBeenCalledTimes(1);
+      expect(transformersMock.pipeline).toHaveBeenCalledTimes(2);
 
       // After the cooldown elapses, the next call attempts the load again.
       vi.setSystemTime(new Date('2026-11-19T00:00:31Z'));
-      await expect(loader.load('sentiment')).resolves.toBeDefined();
-      expect(transformersMock.pipeline).toHaveBeenCalledTimes(2);
+      await expect(loader.load('sentiment')).rejects.toThrow('download failed');
+      expect(transformersMock.pipeline).toHaveBeenCalledTimes(4);
     } finally {
       vi.useRealTimers();
     }

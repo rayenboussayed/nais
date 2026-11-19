@@ -48,7 +48,9 @@ Validated at boot (`src/config/env.ts`); the process fails fast on invalid
 values in production. Every key has a safe default except `DATABASE_URL` and
 `SESSION_SECRET`. Override the dedicated models per task with
 `AI_<TASK>_MODEL` (dashes → underscores, e.g. `AI_TOKEN_CLASSIFICATION_MODEL`);
-`AI_MAX_CONCURRENCY` caps concurrent model calls (default 2). Full list and
+`AI_MAX_CONCURRENCY` caps concurrent model calls (default 2); `AI_DEVICE` pins
+the ONNX compute device to `webgpu` or `cpu` (unset = automatic webgpu → cpu
+fallback; `wasm` is unsupported in Node). Full list and
 the scrypt hash format: `.env.example`.
 
 ## Testing

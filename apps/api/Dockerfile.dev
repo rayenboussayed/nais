@@ -9,7 +9,7 @@
 # watching/writes for non-root uids; the production image (apps/api/Dockerfile)
 # runs as `node`. Dev mode never holds production secrets and is not exposed
 # beyond the developer's machine.
-FROM node:24-alpine
+FROM node:24-bookworm-slim
 WORKDIR /repo
 
 COPY package.json package-lock.json tsconfig.base.json ./

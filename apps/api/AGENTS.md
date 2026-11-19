@@ -44,6 +44,15 @@ stop` must be synchronous so the directory removal cannot race shutdown.
 10. **ESM + CJS interop with `packages/shared`:** named imports from its
     `dist/` work because Node's cjs-module-lexer detects `exports.foo =`
     assignments (verified live). Don't fork the contracts.
+11. **ONNX pipelines load with the device chain `webgpu` → `cpu`.** Dawn
+    (`webgpu` npm package) is glibc-only — the image is
+    `node:24-bookworm-slim`, never Alpine. Node has no WASM execution provider
+    (the browser bundle only) — don't add `wasm` back without a reason;
+    `AI_DEVICE` pins a device and disables the fallback. `ensureWebgpuGlobals`
+    is installed lazily and idempotently; Dawn keeps native threads alive, so
+    short-lived bins (`bin/transformers-warmup.mjs`) hard-exit instead of
+    returning naturally. `GPUDevice` methods are monkey-patched by the package
+    to unmap buffers on destroy — don't redeclare them.
 
 ## Layout rules
 
