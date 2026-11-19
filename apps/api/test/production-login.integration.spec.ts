@@ -8,7 +8,7 @@ import path from 'node:path';
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
+import { API_GLOBAL_PREFIX } from '../src/constants/app.js';
 import { TEST_BASIC_AUTH_ENV } from './auth.js';
 import { startTempCluster, type TempCluster } from './pg-temp.js';
 

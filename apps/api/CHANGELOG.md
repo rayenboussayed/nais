@@ -47,6 +47,22 @@ releases yet. Dates are UTC, from the commit history (2026-11-18 .. 2026-11-19).
 
 ### Changed
 
+- Source tree reorganized to the same layout as the other NestJS codebases in
+  the workspace (`iradable/backend`, `file-fly/packages/backend` — `resources/`
+  for request-facing modules, `modules/` for cross-cutting providers,
+  `guards/`, `db/`, `utils/`, `schemas/`, `constants/`, `configs/`,
+  root `environment.ts`): `common/* → utils/`, `common/list-query.ts →
+schemas/`, `config/env.ts → environment.ts`, `config/{throttle,fastify}.ts
+→ configs/`, `database/* → db/*`, `http/auth.guard.ts and request-guards.ts
+→ guards/`, `http/all-exceptions.filter.ts → app.exception-filter.ts`,
+  domains (`ai`, `ai-messages`, `languages`, `translate`, `translations`,
+  `health`) → `resources/<domain>/`, `ws/translate.gateway.ts →
+resources/translate/translate.gateway.ts`, `auth/{authenticate,session,
+validator,origin}.ts → modules/auth/` with the controller/module in
+  `resources/auth/`, `queue/* → modules/queue/` with `AI_TASK_QUEUE` and
+  `API_GLOBAL_PREFIX` moved to `constants/`. No behavior, deps, or API-shape
+  changes.
+
 - Native ESM (`"type": "module"`); relative imports carry `.js` extensions;
   `__dirname` replaced by `fileURLToPath(import.meta.url)` (`89dc11e`).
 - Keyset pagination centralized in `keysetPage` shared by the list services

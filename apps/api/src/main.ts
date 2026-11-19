@@ -6,12 +6,12 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 
-import type { Env } from './config/env.js';
+import type { Env } from './environment.js';
 
 import { AppModule } from './app.module.js';
 import { configureApp } from './bootstrap.js';
-import { validateEnv } from './config/env.js';
-import { resolveTrustProxy } from './config/fastify.js';
+import { resolveTrustProxy } from './configs/fastify.js';
+import { validateEnv } from './environment.js';
 
 /** Wires pipes/filters already registered in modules, starts the HTTP listener and enables shutdown hooks. */
 async function bootstrap(): Promise<void> {

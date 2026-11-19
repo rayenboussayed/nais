@@ -8,10 +8,10 @@ import path from 'node:path';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import type { Database } from '../src/database/drizzle.module.js';
+import type { Database } from '../src/db/drizzle.module.js';
 
-import * as schema from '../src/database/schema.js';
-import { seedLanguages } from '../src/database/seed.js';
+import * as schema from '../src/db/schema.js';
+import { seedLanguages } from '../src/db/seed.js';
 import { startTempCluster, type TempCluster } from './pg-temp.js';
 
 /**
@@ -137,12 +137,12 @@ describe('database layer (throwaway PostgreSQL 17)', () => {
   });
 
   it('runs the exported seed main() end to end', async () => {
-    const { main } = await import('../src/database/seed.js');
+    const { main } = await import('../src/db/seed.js');
     await expect(main()).resolves.toBeUndefined();
   });
 
   it('runs the exported migrate main() end to end', async () => {
-    const { main } = await import('../src/database/migrate.js');
+    const { main } = await import('../src/db/migrate.js');
     await expect(main()).resolves.toBeUndefined();
   });
 

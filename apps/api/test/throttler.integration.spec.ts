@@ -8,7 +8,7 @@ import path from 'node:path';
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
+import { API_GLOBAL_PREFIX } from '../src/constants/app.js';
 import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
 import { startTempCluster, type TempCluster } from './pg-temp.js';
 
@@ -27,7 +27,7 @@ describe('HTTP rate limit (integration)', () => {
     const pool = new Pool({ connectionString: cluster.url() });
     const db = drizzle({ client: pool });
     await migrate(db, { migrationsFolder: path.join(__dirname, '..', 'drizzle') });
-    const { seedLanguages } = await import('../src/database/seed.js');
+    const { seedLanguages } = await import('../src/db/seed.js');
     await seedLanguages(db);
     await pool.end();
   }, 60_000);

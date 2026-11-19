@@ -12,7 +12,7 @@ import { startTempCluster, type TempCluster } from './pg-temp.js';
  * root `check` script builds before testing).
  */
 describe('database bins (child process)', () => {
-  const distDir = path.join(__dirname, '..', 'dist', 'database');
+  const distDir = path.join(__dirname, '..', 'dist', 'db');
   const binsDir = path.join(__dirname, '..', 'bin');
   const hasBuild =
     existsSync(path.join(distDir, 'migrate.js')) && existsSync(path.join(distDir, 'seed.js'));

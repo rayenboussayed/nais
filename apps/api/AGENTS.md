@@ -27,7 +27,7 @@ boots against throwaway clusters; do not parallelize them.
    booting against a dead database hangs silently. Health suites use minimal
    modules on purpose.
 5. **The prompts are `.txt`, never `.md`.**
-   `src/translate/templates/**/{system,human}.txt` are model-facing payloads;
+   `src/resources/translate/templates/**/{system,human}.txt` are model-facing payloads;
    the markdown linter does not apply to them (`[Tr.: …]` is prompt DSL), and
    no comment may ever be injected into them.
 6. **`test/pg-temp.ts` is the only allowed database harness.** Throwaway
@@ -56,13 +56,19 @@ stop` must be synchronous so the directory removal cannot race shutdown.
 
 ## Layout rules
 
-- Modules by feature under `src/`; shared helpers in `common/`; HTTP glue
-  (guards, filters) in `http/`; the WS gateway in `ws/`; queue workers in
-  `queue/`.
+- Layout (mirrors `iradable/backend` and `file-fly/packages/backend`):
+  request-facing Nest modules in `resources/<domain>/`; cross-cutting
+  providers in `modules/<name>/`; guards in `guards/`; the WS gateway lives
+  next to its domain (`resources/translate/translate.gateway.ts`); queue
+  workers in `modules/queue/`; pure helpers in `utils/`; zod schemas in
+  `schemas/`; static literals in `constants/`; framework wiring helpers in
+  `configs/`; Drizzle in `db/`; env validation in `environment.ts`.
+  Cross-cutting HTTP error handling is `app.exception-filter.ts` (the
+  `app.*` root pattern).
 - `bin/*.mjs` are plain bins kept out of the instrumented tree; they set
   `process.exitCode` / hard-exit on failure (see inline lint justifications).
-- Prompt templates: `src/translate/templates/<variant>/`, loaded at import by
-  `src/translate/prompts.ts`.
+- Prompt templates: `src/resources/translate/templates/<variant>/`, loaded at import by
+  `src/resources/translate/prompts.ts`.
 - `drizzle/`: migrations `NNNN_name/migration.sql` + `snapshot.json`. The
   snapshot is generator-owned (`.prettierignore`); a migration that cannot
   apply on a fresh cluster is broken and may be repaired **before it has ever

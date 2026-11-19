@@ -2,7 +2,7 @@
 // Honors HF_CACHE_DIR, AI_DEVICE (unset/blank = webgpu → wasm → cpu fallback)
 // and the same AI_<TASK>_MODEL overrides as the API.
 // Usage: npm run build -w @trainslator/api && HF_CACHE_DIR=/hf-cache node apps/api/bin/transformers-warmup.mjs
-// The built dist/ is required (the device chain lives in src/ai/device.ts).
+// The built dist/ is required (the device chain lives in src/resources/ai/device.ts).
 'use strict';
 
 const TASKS = [
@@ -30,8 +30,8 @@ const failWith = (message) => {
   process.exit(1);
 };
 
-const deviceModuleUrl = new URL('../dist/ai/device.js', import.meta.url);
-const webgpuModuleUrl = new URL('../dist/ai/webgpu-globals.js', import.meta.url);
+const deviceModuleUrl = new URL('../dist/resources/ai/device.js', import.meta.url);
+const webgpuModuleUrl = new URL('../dist/resources/ai/webgpu-globals.js', import.meta.url);
 let resolveDeviceChain;
 let ensureWebgpuGlobals;
 try {

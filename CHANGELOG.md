@@ -84,6 +84,10 @@ tagged releases yet. Dates are UTC, taken from the commit history.
 - Admin components extracted (`AdminSearch`, `Pagination`, `Modal`)
   (`64f383f`).
 - Prettier wrapping and knip hygiene (`5be2550`, `0e5d157`).
+- `apps/api` source tree reorganized to the shared NestJS layout used by
+  `iradable/backend` and `file-fly/packages/backend` (`resources/<domain>/`,
+  `modules/<name>/`, `guards/`, `db/`, `utils/`, `schemas/`, `constants/`,
+  `configs/`, root `environment.ts`); no behavior changes.
 
 ### Fixed
 

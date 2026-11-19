@@ -1,6 +1,6 @@
 // Thin wrapper: runs the compiled seed main() against DATABASE_URL.
 // Kept in plain .mjs so it is not part of the instrumented source tree.
-import { main } from '../dist/database/seed.js';
+import { main } from '../dist/db/seed.js';
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : error);

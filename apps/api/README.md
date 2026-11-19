@@ -44,7 +44,7 @@ Tasks (`POST /api/ai/<task>`): `translate` (Ollama), `sentiment`, `summarize`,
 
 ## Environment
 
-Validated at boot (`src/config/env.ts`); the process fails fast on invalid
+Validated at boot (`src/environment.ts`); the process fails fast on invalid
 values in production. Every key has a safe default except `DATABASE_URL` and
 `SESSION_SECRET`. Override the dedicated models per task with
 `AI_<TASK>_MODEL` (dashes → underscores, e.g. `AI_TOKEN_CLASSIFICATION_MODEL`);
@@ -70,10 +70,16 @@ never downloaded in tests; the AI suite stubs the loader.
 
 ## Layout
 
-- `src/` — modules by feature: `ai/`, `translate/`, `languages/`,
-  `translations/`, `ai-messages/`, `auth/`, `database/` (Drizzle + migrations
-  tracked in `drizzle/`), `common/` (shared helpers), `config/`, `health/`,
-  `http/`, `queue/`, `ws/`.
+- `src/` — the same layout as the other NestJS codebases in the workspace
+  (`iradable/backend`, `file-fly/packages/backend`): `resources/<domain>/`
+  (request-facing modules: `ai`, `ai-messages`, `languages`, `translate`,
+  `translations`, `health`, `auth`), `modules/<name>/` (cross-cutting
+  providers: `auth` — authenticate/session/validator/origin; `queue` —
+  the `ai-task` pg-boss worker), `guards/` (HTTP guard + fastify hook
+  registration), `db/` (Drizzle + migrations tracked in `drizzle/`),
+  `constants/` (static literals), `configs/` (framework wiring helpers),
+  `utils/` (pure helpers), `schemas/` (zod), `environment.ts` (env
+  validation), `app.module.ts`, `main.ts`.
 - `bin/` — plain `.mjs` bins kept out of the instrumented source:
   `db-migrate.mjs`, `db-seed.mjs`, `transformers-warmup.mjs`.
 - `test/` — integration specs (`*.integration.spec.ts`) including

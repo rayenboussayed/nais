@@ -5,22 +5,22 @@ import { ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
-import type { Env } from './config/env.js';
+import type { Env } from './environment.js';
 
-import { AiMessagesModule } from './ai-messages/ai-messages.module.js';
-import { AiModule } from './ai/ai.module.js';
-import { AuthModule } from './auth/auth.module.js';
-import { validateEnv } from './config/env.js';
-import { skipHealthProbe } from './config/throttle.js';
-import { DrizzleModule } from './database/drizzle.module.js';
-import { SeedModule } from './database/seed.module.js';
-import { HealthModule } from './health/health.module.js';
-import { AllExceptionsFilter } from './http/all-exceptions.filter.js';
-import { HttpAuthGuard } from './http/auth.guard.js';
-import { LanguagesModule } from './languages/languages.module.js';
-import { AiTaskQueueModule } from './queue/ai-task-queue.module.js';
-import { TranslateModule } from './translate/translate.module.js';
-import { TranslationsModule } from './translations/translations.module.js';
+import { AllExceptionsFilter } from './app.exception-filter.js';
+import { skipHealthProbe } from './configs/throttle.js';
+import { DrizzleModule } from './db/drizzle.module.js';
+import { SeedModule } from './db/seed.module.js';
+import { validateEnv } from './environment.js';
+import { HttpAuthGuard } from './guards/auth.guard.js';
+import { AiTaskQueueModule } from './modules/queue/ai-task-queue.module.js';
+import { AiMessagesModule } from './resources/ai-messages/ai-messages.module.js';
+import { AiModule } from './resources/ai/ai.module.js';
+import { AuthModule } from './resources/auth/auth.module.js';
+import { HealthModule } from './resources/health/health.module.js';
+import { LanguagesModule } from './resources/languages/languages.module.js';
+import { TranslateModule } from './resources/translate/translate.module.js';
+import { TranslationsModule } from './resources/translations/translations.module.js';
 
 /** Root module; boot wiring only, feature modules import here as they land. */
 @Module({

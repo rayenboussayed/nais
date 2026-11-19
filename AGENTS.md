@@ -51,7 +51,7 @@ native Standard Schema.
 10. **A global `APP_GUARD` throttler crashes on WS frames.** `@nestjs/throttler`
     runs on WebSocket contexts too and dies on malformed payloads (reading
     `.header` of a null data frame). `skipHealthProbe`
-    (apps/api/src/config/throttle.ts) skips non-http contexts; the WS gateway
+    (apps/api/src/configs/throttle.ts) skips non-http contexts; the WS gateway
     enforces its own identity-keyed limiter. Caught by an integration test that
     emitted `translate` with a literal `null` payload.
 11. **New indexes change planner output order.** After adding a composite

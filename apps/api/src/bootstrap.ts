@@ -4,10 +4,10 @@ import fastifyHelmet from '@fastify/helmet';
 import { ConfigService } from '@nestjs/config';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 
-import type { Env } from './config/env.js';
+import type { Env } from './environment.js';
 
-import { API_GLOBAL_PREFIX } from './app.constants.js';
-import { registerHttpGuards } from './http/request-guards.js';
+import { API_GLOBAL_PREFIX } from './constants/app.js';
+import { registerHttpGuards } from './guards/request-guards.js';
 import { setupSwagger } from './swagger.js';
 
 /**

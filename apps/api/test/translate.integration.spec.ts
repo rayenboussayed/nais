@@ -9,10 +9,10 @@ import path from 'node:path';
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
-import { translationKeyFor } from '../src/common/key.js';
-import * as schema from '../src/database/schema.js';
-import { seedLanguages } from '../src/database/seed.js';
+import { API_GLOBAL_PREFIX } from '../src/constants/app.js';
+import * as schema from '../src/db/schema.js';
+import { seedLanguages } from '../src/db/seed.js';
+import { translationKeyFor } from '../src/utils/key.js';
 import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
 import { type OllamaStub, startOllamaStub } from './ollama-stub.js';
 import { startTempCluster, type TempCluster } from './pg-temp.js';

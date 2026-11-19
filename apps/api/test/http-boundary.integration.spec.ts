@@ -25,7 +25,7 @@ describe('HTTP boundary (integration, throwaway cluster)', () => {
     const pool = new Pool({ connectionString: cluster.url() });
     const db = drizzle({ client: pool });
     await migrate(db, { migrationsFolder: path.join(__dirname, '..', 'drizzle') });
-    const { seedLanguages } = await import('../src/database/seed.js');
+    const { seedLanguages } = await import('../src/db/seed.js');
     await seedLanguages(db);
     await pool.end();
   }, 60_000);

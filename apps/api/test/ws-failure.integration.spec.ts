@@ -9,9 +9,9 @@ import { Pool } from 'pg';
 import { io, type Socket } from 'socket.io-client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
-import { seedLanguages } from '../src/database/seed.js';
-import { TranslationsService } from '../src/translations/translations.service.js';
+import { API_GLOBAL_PREFIX } from '../src/constants/app.js';
+import { seedLanguages } from '../src/db/seed.js';
+import { TranslationsService } from '../src/resources/translations/translations.service.js';
 import { type OllamaStub, startOllamaStub } from './ollama-stub.js';
 import { startTempCluster, type TempCluster } from './pg-temp.js';
 
@@ -84,7 +84,7 @@ describe('ws gateway with a failing backend', () => {
 
   it('answers a structured 500 ack and handles a non-Error backend failure', async () => {
     const { AppModule } = await import('../src/app.module.js');
-    const { LanguagesService } = await import('../src/languages/languages.service.js');
+    const { LanguagesService } = await import('../src/resources/languages/languages.service.js');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(LanguagesService)
       .useValue({ findByIso: () => Promise.reject('a string, not an error') })

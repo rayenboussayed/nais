@@ -10,11 +10,11 @@ import { Pool } from 'pg';
 import { io, type Socket } from 'socket.io-client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
-import { signSession } from '../src/auth/session.js';
-import { translationKeyFor } from '../src/common/key.js';
-import * as schema from '../src/database/schema.js';
-import { seedLanguages } from '../src/database/seed.js';
+import { API_GLOBAL_PREFIX } from '../src/constants/app.js';
+import * as schema from '../src/db/schema.js';
+import { seedLanguages } from '../src/db/seed.js';
+import { signSession } from '../src/modules/auth/session.js';
+import { translationKeyFor } from '../src/utils/key.js';
 import { type OllamaStub, startOllamaStub } from './ollama-stub.js';
 import { startTempCluster, type TempCluster } from './pg-temp.js';
 
