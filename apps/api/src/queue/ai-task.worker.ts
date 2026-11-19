@@ -4,6 +4,7 @@ import type { JobWithMetadata } from 'pg-boss';
 import { Job } from '@wavezync/nestjs-pgboss';
 
 import type { AiTaskJob } from '@trainslator/shared';
+import { aiTaskJobSchema } from '@trainslator/shared';
 
 import { AiService } from '../ai/ai.service';
 import { AI_TASK_QUEUE } from './ai-task-queue.constants';
@@ -34,7 +35,13 @@ export class AiTaskWorker extends Logger {
   }
 
   private async runJob(job: JobWithMetadata<AiTaskJob>): Promise<void> {
-    const { task, input, requestId, socketId } = job.data;
+    // Defense in depth: pg-boss hands us whatever was enqueued; re-validate.
+    const parsed = aiTaskJobSchema.safeParse(job.data);
+    if (!parsed.success) {
+      this.error(`ai task job payload rejected: ${parsed.error.issues[0]?.message ?? 'invalid payload'}`);
+      throw new Error('ai task job payload rejected');
+    }
+    const { task, input, requestId, socketId } = parsed.data;
     try {
       const envelope = await this.ai.run(task, input);
       if (!socketId) return;

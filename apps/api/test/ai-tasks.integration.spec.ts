@@ -10,6 +10,7 @@ import { io } from 'socket.io-client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { API_GLOBAL_PREFIX } from '../src/app.constants';
+import * as schema from '../src/database/schema';
 import { seedLanguages } from '../src/database/seed';
 import { PipelineLoader, type PipelineFn } from '../src/ai/pipeline-loader';
 import { startTempCluster, type TempCluster } from './pg-temp';
@@ -86,6 +87,13 @@ describe('AI service (integration, throwaway PostgreSQL, stubbed pipelines)', ()
 
   beforeEach(async () => {
     loader = fakeLoader();
+    // Isolate cache/audit rows between tests so stub-order never leaks state.
+    const pool = new Pool({ connectionString: cluster.url() });
+    const db = drizzle({ client: pool });
+    await db.delete(schema.aiCache);
+    await db.delete(schema.aiMessages);
+    await pool.end();
+
     const { AppModule } = await import('../src/app.module.js');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PipelineLoader)

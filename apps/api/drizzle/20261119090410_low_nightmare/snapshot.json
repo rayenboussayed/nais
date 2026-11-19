@@ -1,0 +1,88 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "e3fdfb7d-778f-4e15-b080-c240552c2024",
+  "prevIds": [
+    "aa148e4b-a82e-407b-b1c7-6f0f008645b7"
+  ],
+  "footprints": [
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ai_cache",
+        "updated_at"
+      ],
+      "writes": [
+        "s|col|public.ai_cache.updated_at",
+        "n|col|public.ai_cache.updated_at",
+        "e|col|public.ai_cache.updated_at"
+      ],
+      "reads": [
+        "n|tbl|public.ai_cache",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ai_cache",
+        "deleted_at"
+      ],
+      "writes": [
+        "s|col|public.ai_cache.deleted_at",
+        "n|col|public.ai_cache.deleted_at",
+        "e|col|public.ai_cache.deleted_at"
+      ],
+      "reads": [
+        "n|tbl|public.ai_cache",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "recreate_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ai_cache",
+        "ai_cache_task_model_key_unique"
+      ],
+      "writes": [
+        "s|idx|public.ai_cache_task_model_key_unique",
+        "n|idx|public.ai_cache_task_model_key_unique",
+        "e|idx|public.ai_cache_task_model_key_unique",
+        "n|rel|public.ai_cache_task_model_key_unique"
+      ],
+      "reads": [
+        "n|tbl|public.ai_cache",
+        "n|sch|public",
+        "n|col|public.ai_cache.task",
+        "n|col|public.ai_cache.model",
+        "n|col|public.ai_cache.key"
+      ],
+      "sharedWrites": [],
+      "sqlHash": "6cdc86866cbfe83e"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"ai_cache\",\"updated_at\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"ai_cache\",\"deleted_at\"]"
+    },
+    {
+      "op": "alter",
+      "key": "indexes\u0000[\"public\",\"ai_cache_task_model_key_unique\"]",
+      "set": {
+        "where": null
+      }
+    }
+  ]
+}

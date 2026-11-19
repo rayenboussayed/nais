@@ -14,9 +14,15 @@ import type { PipelineLoader } from './pipeline-loader';
 function dbStub({
   cacheRows = [],
   auditReturning = [{ id: 'msg-1' }],
+  txInsertReturning = [{ id: 'cache-1' }],
+  txWinnerRow,
 }: {
   cacheRows?: Array<Record<string, unknown>>;
   auditReturning?: Array<{ id: string }>;
+  /** What ai_cache.insert().onConflictDoNothing().returning() yields ([] models a lost race). */
+  txInsertReturning?: Array<{ id: string }>;
+  /** The AI-cache row the in-tx re-read sees after a lost race. */
+  txWinnerRow?: { result: Record<string, unknown> };
 } = {}) {
   const auditSets: Array<Record<string, unknown>> = [];
   return {
@@ -48,7 +54,18 @@ function dbStub({
       fn({
         insert: () => ({
           values: () => ({
-            onConflictDoNothing: async () => [],
+            onConflictDoNothing: () => ({
+              returning: async () => txInsertReturning,
+            }),
+            then: (onFulfilled?: (v: unknown) => unknown) =>
+              Promise.resolve([]).then(onFulfilled ?? ((v: unknown) => v)),
+          }),
+        }),
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: async () => (txWinnerRow ? [txWinnerRow] : []),
+            }),
           }),
         }),
         update: () => ({
@@ -64,6 +81,7 @@ function dbStub({
 function configStub(overrides: Record<string, string | undefined> = {}) {
   const base: Record<string, string | undefined> = {
     OLLAMA_TEXT_MODEL: 'bonsai-2:2b',
+    AI_MAX_CONCURRENCY: 2 as never, // validateEnv coerces in production; here we stub the parsed value
     ...overrides,
   };
   return {
@@ -396,6 +414,38 @@ describe('AiService.run', () => {
     );
   });
 
+  it('fails fast at boot on an invalid configured model id', async () => {
+    const service = new AiService(
+      dbStub(),
+      {} as unknown as TranslateService,
+      pipelineLoader([], 'not a valid model id'),
+      configStub(),
+    );
+    await expect(service.onModuleInit()).rejects.toThrow(/AI_SENTIMENT_MODEL/);
+  });
+
+  it('accepts absolute local paths and org/name ids in configured models', async () => {
+    const reaperDb = {
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            returning: async () => [],
+          }),
+        }),
+      }),
+    } as unknown as Database;
+
+    for (const good of ['org/model-name', 'onnx-community/all-MiniLM-L6-v2-ONNX', '/opt/models/local', './relative/model', '../shared/model']) {
+      const service = new AiService(
+        reaperDb,
+        {} as unknown as TranslateService,
+        pipelineLoader([], good),
+        configStub(),
+      );
+      await expect(service.onModuleInit(), good).resolves.toBeUndefined();
+    }
+  });
+
   it('reaps stale processing rows on boot and swallows a non-Error reaper failure', async () => {
     const updated: Array<Record<string, unknown>> = [];
     const reaperDb = {
@@ -437,6 +487,22 @@ describe('AiService.run', () => {
       configStub(),
     );
     await expect(broken.onModuleInit()).resolves.toBeUndefined();
+  });
+
+  it('aligns the response and audit row with the cache winner when the insert loses a race', async () => {
+    const db = dbStub({
+      txInsertReturning: [],
+      txWinnerRow: { result: { label: 'WINNER', score: 0.5 } },
+    });
+    const loader = pipelineLoader([{ label: 'POSITIVE', score: 0.9 }]);
+    const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
+
+    const result = await service.run('sentiment', { text: 'hi' });
+    expect(result).toMatchObject({ cached: false });
+    expect(result.result).toMatchObject({ label: 'WINNER', score: 0.5, cached: false });
+    expect(
+      db.auditSets.some((set) => set.status === 'completed' && String(set.response).includes('WINNER')),
+    ).toBe(true);
   });
 
   it('delegates translate to the catalogue-cached translate service', async () => {

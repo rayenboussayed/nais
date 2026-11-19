@@ -121,7 +121,7 @@ export const aiMessages = pgTable(
 
 /**
  * Model-output cache for the general AI pipeline: one row per
- * (task, model, input hash). Soft-delete keeps the slot reusable.
+ * (task, model, input hash). Rows are immutable facts; refresh by deleting.
  */
 export const aiCache = pgTable(
   'ai_cache',
@@ -134,13 +134,9 @@ export const aiCache = pgTable(
     /** Task-shaped result object (validated by the caller against the task's result schema). */
     result: jsonb('result').$type<Record<string, unknown>>().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
-    uniqueIndex('ai_cache_task_model_key_unique')
-      .on(table.task, table.model, table.key)
-      .where(isNull(table.deletedAt)),
+    uniqueIndex('ai_cache_task_model_key_unique').on(table.task, table.model, table.key),
     index('ai_cache_task_created_at_idx').on(table.task, table.createdAt),
   ],
 );

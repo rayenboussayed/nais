@@ -1,5 +1,5 @@
 import type { AiTask, AiTaskDescriptor } from '@trainslator/shared';
-import { aiResultSchemas, aiTaskSchema, AI_TASKS } from '@trainslator/shared';
+import { aiTaskSchema, AI_TASKS } from '@trainslator/shared';
 
 /**
  * Static registry of the tasks the service runs. The `translate` task is a
@@ -89,4 +89,3 @@ export function listTaskDescriptors(resolveModel: (task: AiTask) => string): AiT
   });
 }
 
-export { aiResultSchemas };

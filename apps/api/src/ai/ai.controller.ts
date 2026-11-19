@@ -30,7 +30,7 @@ import {
 
 import { AiService } from './ai.service';
 
-const MODEL_THROTTLE = { default: { limit: 30, ttl: 60_000 } } as const;
+const MODEL_THROTTLE = { default: { limit: 10, ttl: 60_000 } } as const;
 
 /**
  * General-purpose AI endpoints. Each task route validates input against the

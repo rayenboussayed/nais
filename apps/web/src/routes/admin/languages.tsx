@@ -32,7 +32,7 @@ const emptyDraft = {
   isSource: false,
 };
 
-export function LanguagesAdmin() {
+function LanguagesAdmin() {
   const queryClient = useQueryClient();
   const { current, canBack, next, back, reset } = useCursorStack();
 

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { canonicalJsonStringify } from './stable-json';
+import { canonicalJsonStringify, nfcNormalize } from './stable-json';
 
 /**
  * Stable translation key for dynamic rows: sha512 of the NFC-normalized,
@@ -22,9 +22,14 @@ export function translationKeyFor(text: string): string {
  * @param input - canonicalized task input
  */
 export function taskKeyFor(task: string, model: string, input: unknown): string {
-  const canonical = canonicalJsonStringify(input);
+  const canonical = canonicalJsonStringify(nfcNormalize(input));
   return createHash('sha512')
     .update(`${task}:${model}:${canonical}`, 'utf8')
     .digest()
     .toString('base64url');
+}
+
+/** sha512 of the NFC-normalized canonical input; used for privacy-preserving audit payloads. */
+export function inputHashFor(input: unknown): string {
+  return createHash('sha512').update(canonicalJsonStringify(nfcNormalize(input)), 'utf8').digest('base64url');
 }

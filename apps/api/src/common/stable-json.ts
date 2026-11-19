@@ -20,3 +20,15 @@ function canonicalize(value: unknown): unknown {
   }
   return value;
 }
+
+/** Recursively NFC-normalizes string values so Unicode-equivalent inputs hash identically. */
+export function nfcNormalize(value: unknown): unknown {
+  if (typeof value === 'string') return value.normalize('NFC');
+  if (Array.isArray(value)) return value.map(nfcNormalize);
+  if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, nested]) => [key, nfcNormalize(nested)]),
+    );
+  }
+  return value;
+}

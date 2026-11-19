@@ -35,18 +35,33 @@ export function resolveModelId(
 export class PipelineLoader {
   private readonly logger = new Logger(PipelineLoader.name);
   private readonly pending = new Map<string, Promise<PipelineFn>>();
+  /** model id -> time the last load failed; used to bound retry storms. */
+  private readonly failureAt = new Map<string, number>();
+
+  /** How long to wait before re-attempting a failed model download. */
+  private static readonly RETRY_COOLDOWN_MS = 30_000;
 
   constructor(private readonly config: ConfigService<Env, true>) {}
 
-  /** @returns the loaded pipeline for `task`, loading it on first use */
+  /**
+   * @returns the loaded pipeline for `task`, loading it on first use
+   * @throws Error when a recent attempt for the same model failed within the cooldown window
+   */
   async load(task: AiTask): Promise<PipelineFn> {
     const model = this.modelFor(task);
     const cached = this.pending.get(model);
     if (cached) return cached;
 
+    const failAt = this.failureAt.get(model);
+    if (failAt && Date.now() - failAt < PipelineLoader.RETRY_COOLDOWN_MS) {
+      const wait = Math.ceil((PipelineLoader.RETRY_COOLDOWN_MS - (Date.now() - failAt)) / 1000);
+      throw new Error(`pipeline for model "${model}" recently failed; retry in ${wait}s`);
+    }
+
     const promise = this.loadPipeline(task, model).catch((error: unknown) => {
-      // A failed load must not poison the cache; remove the entry so the next call retries.
+      // A failed load must not poison the pending cache; record the failure for the cooldown.
       this.pending.delete(model);
+      this.failureAt.set(model, Date.now());
       throw error;
     });
     this.pending.set(model, promise);

@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { eq, and, isNull, lt } from 'drizzle-orm';
+import { eq, and, lt } from 'drizzle-orm';
 
 import type { AiTask } from '@trainslator/shared';
 import { aiTaskSchema, aiRequestSchemas, aiResultSchemas } from '@trainslator/shared';
@@ -18,10 +18,12 @@ import { DRIZZLE } from '../database/drizzle.module';
 import type { Database } from '../database/drizzle.module';
 import { aiCache, aiMessages } from '../database/schema';
 import { Inflight } from '../common/inflight';
-import { taskKeyFor } from '../common/key';
+import { Semaphore } from '../common/semaphore';
+import { inputHashFor, taskKeyFor } from '../common/key';
 import { isTimeoutError, TranslateService } from '../translate/translate.service';
 import type { Env } from '../config/env';
-import { AI_TASK_REGISTRY, listTaskDescriptors } from './tasks';
+import { AI_TASK_REGISTRY, listTaskDescriptors, modelEnvKey } from './tasks';
+import { AI_TASKS } from '@trainslator/shared';
 import { PipelineLoader } from './pipeline-loader';
 
 const AUDIT_RESPONSE_CAP = 10_000;
@@ -45,16 +47,31 @@ export interface AiRunEnvelope {
 export class AiService implements OnModuleInit {
   private readonly logger = new Logger(AiService.name);
   private readonly inflight = new Inflight<string, AiRunEnvelope>();
+  private readonly modelGate: Semaphore;
 
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly translateService: TranslateService,
     private readonly loader: PipelineLoader,
     private readonly config: ConfigService<Env, true>,
-  ) {}
+  ) {
+    this.modelGate = new Semaphore(this.config.get('AI_MAX_CONCURRENCY', { infer: true }));
+  }
 
-  /** Marks stale `processing` audit rows (incl. translate rows) as failed. Fails soft. */
+  /**
+   * Fails fast on a misconfigured `AI_<TASK>_MODEL` (garbage id, protocol smuggling),
+   * then marks stale `processing` audit rows as failed. Fails soft on the latter.
+   */
   async onModuleInit(): Promise<void> {
+    for (const task of AI_TASKS) {
+      if (task === 'translate') continue;
+      const model = this.modelFor(task);
+      if (!isValidModelId(model)) {
+        throw new Error(
+          `Invalid ${modelEnvKey(task)} "${model}" — expected "org/model" (org and model: alphanumeric, '-', '_', '.', single segment each), or an absolute/relative path for local models`,
+        );
+      }
+    }
     try {
       const rows = await this.db
         .update(aiMessages)
@@ -105,7 +122,6 @@ export class AiService implements OnModuleInit {
           eq(aiCache.task, task),
           eq(aiCache.model, model),
           eq(aiCache.key, cacheKey),
-          isNull(aiCache.deletedAt),
         ),
       )
       .limit(1);
@@ -150,7 +166,6 @@ export class AiService implements OnModuleInit {
           eq(aiCache.task, task),
           eq(aiCache.model, model),
           eq(aiCache.key, cacheKey),
-          isNull(aiCache.deletedAt),
         ),
       )
       .limit(1);
@@ -186,32 +201,66 @@ export class AiService implements OnModuleInit {
     const provider = AI_TASK_REGISTRY[task].provider;
     const inserted = await this.db
       .insert(aiMessages)
-      .values({ task, provider, model, status: 'processing', payload: input })
+      .values({
+        task,
+        provider,
+        model,
+        status: 'processing',
+        // Privacy posture: the audit stores a hash of the input plus its shape — never the raw text.
+        payload: {
+          inputHash: inputHashFor(input),
+          inputKeys: Object.keys(input).sort(),
+          requestBytes: Buffer.byteLength(JSON.stringify(input), 'utf8'),
+        },
+      })
       .returning({ id: aiMessages.id });
     const message = inserted[0];
     if (!message) throw new Error('ai_messages insert returned no row');
 
     try {
-      const pipeline = await this.loader.load(task);
-      const raw = await this.invokePipeline(pipeline, task, input);
-      const result = this.normalizeResult(task, raw);
+      // The model gate bounds concurrent dedicated-model calls on the REST path.
+      const result = await this.modelGate.run(async () => {
+        const pipeline = await this.loader.load(task);
+        const raw = await this.invokePipeline(pipeline, task, input);
+        return this.normalizeResult(task, raw);
+      });
 
+      // Two concurrent identical jobs may both reach the insert; the unique
+      // index decides. The loser re-reads the winner's immutable row so every
+      // caller gets the same result and the audit row matches what was served.
+      let finalResult = result;
       await this.db.transaction(async (tx) => {
-        await tx
+        const insertedRows = await tx
           .insert(aiCache)
           .values({ task, model, key: cacheKey, result })
-          .onConflictDoNothing();
+          .onConflictDoNothing()
+          .returning({ id: aiCache.id });
+        if (insertedRows.length === 0) {
+          const winner = await tx
+            .select({ result: aiCache.result })
+            .from(aiCache)
+            .where(
+              and(
+                eq(aiCache.task, task),
+                eq(aiCache.model, model),
+                eq(aiCache.key, cacheKey),
+              ),
+            )
+            .limit(1);
+          const winnerResult = winner[0]?.result;
+          if (winnerResult) finalResult = winnerResult as Record<string, unknown>;
+        }
         await tx
           .update(aiMessages)
           .set({
             status: 'completed',
-            response: JSON.stringify(result).slice(0, AUDIT_RESPONSE_CAP),
+            response: JSON.stringify(finalResult).slice(0, AUDIT_RESPONSE_CAP),
             updatedAt: new Date(),
           })
           .where(eq(aiMessages.id, message.id));
       });
 
-      return { task, result: { ...result, cached: false }, cached: false, model };
+      return { task, result: { ...finalResult, cached: false }, cached: false, model };
     } catch (error) {
       await this.db
         .update(aiMessages)
@@ -357,7 +406,8 @@ export class AiService implements OnModuleInit {
     }
     const data = tensor.data;
     if (data && ArrayLikeCheck(data)) {
-      return Array.from(data as ArrayLike<number>);
+      // Number() also accepts BigInt entries from int8/uint8 quantized tensors.
+      return Array.from(data as ArrayLike<number | bigint>, (value) => Number(value));
     }
     throw new BadGatewayException('The feature-extraction model returned an unexpected shape');
   }
@@ -381,4 +431,11 @@ function ArrayLikeCheck(value: unknown): boolean {
     'length' in value &&
     typeof (value as { length: unknown }).length === 'number'
   );
+}
+
+/** Accepted model ids: "org/model" from the Hub, or absolute/relative local paths; nothing else. */
+function isValidModelId(model: string): boolean {
+  const orgAndName = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+  const localPath = /^(\.{0,2}\/|\/)[^\0]*$/;
+  return orgAndName.test(model) || localPath.test(model);
 }

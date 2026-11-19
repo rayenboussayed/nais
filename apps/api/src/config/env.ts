@@ -58,6 +58,8 @@ const envSchema = z
     THROTTLE_LIMIT: z.coerce.number().int().min(1).default(100),
     /** Directory used by transformers.js for its model cache; defaults to the library default. */
     HF_CACHE_DIR: z.string().trim().min(1).optional(),
+    /** Max concurrent dedicated-model calls on the REST path (the worker is already serial). */
+    AI_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),
     /** Per-task dedicated-model overrides; unset keeps the registry defaults (see src/ai/tasks.ts). */
     AI_SENTIMENT_MODEL: z.string().trim().min(1).optional(),
     AI_SUMMARIZE_MODEL: z.string().trim().min(1).optional(),

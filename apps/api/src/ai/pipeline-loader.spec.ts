@@ -71,15 +71,28 @@ describe('PipelineLoader', () => {
     expect(transformersMock.pipeline).toHaveBeenCalledTimes(1);
   });
 
-  it('clears the pending cache when loading fails so the next call retries', async () => {
-    transformersMock.pipeline
-      .mockRejectedValueOnce(new Error('download failed'))
-      .mockResolvedValueOnce(async () => [{ label: 'NEGATIVE', score: 1 }]);
+  it('clears the pending cache on failure but applies a cooldown before re-attempting', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-19T00:00:00Z'));
+    try {
+      transformersMock.pipeline
+        .mockRejectedValueOnce(new Error('download failed'))
+        .mockResolvedValueOnce(async () => [{ label: 'NEGATIVE', score: 1 }]);
 
-    const loader = new PipelineLoader(configStub());
-    await expect(loader.load('sentiment')).rejects.toThrow('download failed');
-    await expect(loader.load('sentiment')).resolves.toBeDefined();
-    expect(transformersMock.pipeline).toHaveBeenCalledTimes(2);
+      const loader = new PipelineLoader(configStub());
+      await expect(loader.load('sentiment')).rejects.toThrow('download failed');
+
+      // Within the cooldown window the loader refuses to retry (no second download attempt).
+      await expect(loader.load('sentiment')).rejects.toThrow(/recently failed/);
+      expect(transformersMock.pipeline).toHaveBeenCalledTimes(1);
+
+      // After the cooldown elapses, the next call attempts the load again.
+      vi.setSystemTime(new Date('2026-11-19T00:00:31Z'));
+      await expect(loader.load('sentiment')).resolves.toBeDefined();
+      expect(transformersMock.pipeline).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('honors the env override for the effective model id and keeps the registry default for translate', () => {
