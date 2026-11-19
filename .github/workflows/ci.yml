@@ -10,13 +10,17 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: install postgresql (throwaway clusters for integration specs)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
@@ -28,3 +32,19 @@ jobs:
         run: git diff --exit-code -- apps/api/drizzle
       - run: npm run knip
       - run: npm audit --omit=dev --audit-level=high
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: install postgresql
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:e2e
