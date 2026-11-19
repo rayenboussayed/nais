@@ -9,15 +9,20 @@ import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { Env } from './environment.js';
 
 import { AppModule } from './app.module.js';
+import { getOtelSdk } from './app.tracing.js';
 import { configureApp } from './bootstrap.js';
 import { resolveTrustProxy } from './configs/fastify.js';
 import { validateEnv } from './environment.js';
 
 /** Wires pipes/filters already registered in modules, starts the HTTP listener and enables shutdown hooks. */
 async function bootstrap(): Promise<void> {
+  const env = validateEnv(process.env);
   // JSON logs in production (shippers), pretty logs in development.
-  const json = process.env.NODE_ENV === 'production';
-  const trustProxy = resolveTrustProxy(validateEnv(process.env).TRUST_PROXY);
+  const json = env.NODE_ENV === 'production';
+  // OpenTelemetry: start before NestFactory so Fastify instrumentation captures bootstrap.
+  // No-op unless OTEL_TRACE_EXPORTER_URL is set (see src/app.tracing.ts).
+  getOtelSdk()?.start();
+  const trustProxy = resolveTrustProxy(env.TRUST_PROXY);
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ bodyLimit: 256 * 1024, trustProxy }),

@@ -85,5 +85,12 @@ stop` must be synchronous so the directory removal cannot race shutdown.
   retry into the model.
 - `packages/shared` contracts are the only wire shape source of truth;
   never hand-duplicate them in the API.
+- Telemetry is opt-in via `OTEL_TRACE_EXPORTER_URL`: without it no OTEL SDK
+  is constructed, nothing enters the module graph and `/metrics` never
+  binds. With it, the SDK starts in `main.ts` before `NestFactory.create`
+  (transport instrumentation) and shuts down in `TelemetryModule`'s
+  `onApplicationShutdown` (flush before `useProcessExit` exits). Never start
+  it after Nest boots and never shut it down from a raw `process.on`
+  handler.
 - Coverage: 95% gate on lines/functions/statements/branches. `.tsx` is not in
   this workspace.

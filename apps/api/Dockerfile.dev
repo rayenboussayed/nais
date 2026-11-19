@@ -25,4 +25,6 @@ RUN npm run build -w packages/shared
 COPY . .
 
 EXPOSE 3000
+# Prometheus /metrics when OTEL_TRACE_EXPORTER_URL is set (opt-in)
+EXPOSE 8888
 CMD ["npm", "run", "start:dev", "-w", "@trainslator/api"]

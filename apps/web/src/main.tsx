@@ -29,6 +29,14 @@ if (!container) {
   throw new Error('missing #root element');
 }
 
+// Telemetry is build-time opt-in: without VITE_OTEL_ENDPOINT nothing is
+// loaded or registered (Vite dead-code-eliminates the branch; the OTEL chunk
+// is never fetched). See src/lib/telemetry.ts.
+if (import.meta.env.VITE_OTEL_ENDPOINT) {
+  const { startTelemetry } = await import('./lib/telemetry');
+  startTelemetry();
+}
+
 createRoot(container).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

@@ -44,6 +44,9 @@ what is specific to `apps/web`.
 
 - No secrets in the bundle; the session cookie is the only credential, and it
   is HttpOnly. Anything readable from JS is already public.
+- Telemetry stays build-time opt-in: no OTEL code may run unless
+  `VITE_OTEL_ENDPOINT` is set at build, and `main.tsx` keeps the dynamic
+  import behind that check (never a static import).
 - `.tsx` stays out of the coverage gate; behavior lives in jsdom tests.
 - `fetch` calls go through `lib/api.ts` (`ApiError`); never raw `fetch` from
   components.

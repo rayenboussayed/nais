@@ -14,6 +14,7 @@ import { SeedModule } from './db/seed.module.js';
 import { validateEnv } from './environment.js';
 import { HttpAuthGuard } from './guards/auth.guard.js';
 import { AiTaskQueueModule } from './modules/queue/ai-task-queue.module.js';
+import { TelemetryModule } from './modules/telemetry/telemetry.module.js';
 import { AiMessagesModule } from './resources/ai-messages/ai-messages.module.js';
 import { AiModule } from './resources/ai/ai.module.js';
 import { AuthModule } from './resources/auth/auth.module.js';
@@ -30,6 +31,7 @@ import { TranslationsModule } from './resources/translations/translations.module
       isGlobal: true,
       validate: validateEnv,
     }),
+    TelemetryModule,
     DrizzleModule,
     SeedModule,
     HealthModule,

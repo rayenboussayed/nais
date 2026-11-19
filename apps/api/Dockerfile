@@ -53,6 +53,8 @@ RUN mkdir -p /hf-cache && chown node:node /hf-cache
 
 USER node
 EXPOSE 3000
+# Prometheus /metrics when OTEL_TRACE_EXPORTER_URL is set (opt-in; not published by compose)
+EXPOSE 8888
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))" || exit 1

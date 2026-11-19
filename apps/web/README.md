@@ -36,9 +36,34 @@ with `VITE_API_PROXY_TARGET`.
 - `src/components/` — shared console building blocks (`AdminBits.tsx`:
   `AdminSearch`, `Pagination`, `Modal`).
 - `src/lib/` — API client (`api.ts`, throws `ApiError`), shared socket
-  client (`translate-socket.ts`, lazy), session probe, task registry hook.
+  client (`translate-socket.ts`, lazy), session probe, task registry hook,
+  browser OpenTelemetry (`telemetry.ts`, only loaded when configured — see
+  below).
 - `src/styles/styles.css` — the plain-CSS design system with tokens
   (`var(--panel)`, `var(--panel-border)`…); no framework.
+
+## Observability
+
+Browser telemetry is **opt-in at build time**: without the env var,
+`src/lib/telemetry.ts` is never imported — `main.tsx` loads it dynamically
+behind `if (import.meta.env.VITE_OTEL_ENDPOINT)`, the branch is dead and
+no OTEL code is even emitted into the bundle. Build with:
+
+```bash
+VITE_OTEL_ENDPOINT=http://localhost:4318 npm run build -w @trainslator/web
+```
+
+`VITE_OTEL_ENDPOINT` is the OTLP/HTTP base URL (no `/v1/traces` suffix — it
+is appended). When set, the app auto-instruments `fetch` (REST calls), keeps
+context across async boundaries (`ZoneContextManager`), propagates W3C
+trace-context headers, and flushes spans on tab hide
+(`visibilitychange` → `forceFlush`). Resource: `service.name` is
+`trainslator-web`; `deployment.environment.name` is `production`/`development`
+from `import.meta.env.PROD`. Socket.io traffic is not auto-instrumented.
+
+The collector must allow cross-origin OTLP/HTTP from the web origin (or put
+one behind a same-origin reverse proxy). No collector ships in the compose
+files; production points at the operator-provided backend.
 
 ## Testing
 

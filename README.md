@@ -26,6 +26,13 @@ curl -u admin:password -X POST http://localhost:3000/api/ai/sentiment \
 # {"label":"POSITIVE","score":0.9998,"cached":false}
 ```
 
+## Observability (optional)
+
+Telemetry is off unless configured — no collector, no ports, no overhead in the default stack.
+
+- **API** (`apps/api`, [docs](apps/api/README.md#observability)): set `OTEL_TRACE_EXPORTER_URL` (OTLP/HTTP, e.g. `http://localhost:4318/v1/traces`) to enable OpenTelemetry — traces via `@fastify/otel` + socket.io + node auto-instrumentations, started before Nest boots and flushed on shutdown; metrics (host + runtime, via `nestjs-otel`) scraped from Prometheus on `OTEL_METRICS_PORT` (default `8888`, bound to `0.0.0.0`).
+- **Web** (`apps/web`, [docs](apps/web/README.md#observability)): set `VITE_OTEL_ENDPOINT` at build time (e.g. `VITE_OTEL_ENDPOINT=http://localhost:4318 npm run build -w @trainslator/web`) to auto-instrument `fetch` in the browser and export spans to `/v1/traces`; unset, no telemetry code is ever loaded.
+
 ## Quickstart (local, no Docker)
 
 Prereqs: Node.js >= 24, PostgreSQL >= 16 running locally.

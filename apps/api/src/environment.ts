@@ -58,6 +58,12 @@ const envSchema = z
     OLLAMA_TEXT_MODEL: z.string().trim().min(1).default('bonsai-2:2b'),
     /** Milliseconds a model call may take before it is abandoned; retried once. */
     OLLAMA_TIMEOUT_MS: z.coerce.number().int().min(100).default(60_000),
+    /** Enables verbose OpenTelemetry diagnostics on the console; development only. */
+    OTEL_DIAG_ENABLED: z.enum(['true', 'false']).default('false'),
+    /** Port for the Prometheus `/metrics` endpoint; metrics export only when OTEL_TRACE_EXPORTER_URL is set. */
+    OTEL_METRICS_PORT: z.coerce.number().int().min(1).max(65_535).default(8888),
+    /** OTLP/HTTP trace endpoint (e.g. `http://localhost:4318/v1/traces`); setting it enables OpenTelemetry traces + Prometheus metrics. Unset = telemetry disabled. */
+    OTEL_TRACE_EXPORTER_URL: z.url().optional(),
     /** pg-boss gets its own connection string; defaults to DATABASE_URL when unset. */
     PG_BOSS_URL: pgConnectionStringSchema.optional(),
     PORT: z.coerce.number().int().min(1).max(65_535).default(3000),

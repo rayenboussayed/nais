@@ -68,6 +68,16 @@ tagged releases yet. Dates are UTC, taken from the commit history.
 - Repo docs: README, AGENTS.md (workspace-specific), perf notes
   (`13258ab`, `ce2ba22`, `cd105ea`, `3ec2125`).
 
+- Optional OpenTelemetry for both apps (disabled unless configured): apps/api
+  `OTEL_TRACE_EXPORTER_URL` enables OTLP/HTTP traces (`@fastify/otel` +
+  socket.io + node auto-instrumentations, started before Nest boots, flushed
+  on shutdown via a Nest lifecycle hook) and Prometheus `/metrics` on
+  `OTEL_METRICS_PORT` (default 8888, bound to 0.0.0.0) with `nestjs-otel`
+  host metrics; apps/web build-time `VITE_OTEL_ENDPOINT` auto-instruments
+  browser `fetch` with W3C propagation. Verified end to end (spans arrive at
+  a collector; `/metrics` answers 200; SIGTERM flushes). No collector ships
+  in compose.
+
 ### Changed
 
 - `packages/shared` stays CommonJS (dual-consumer CJS/ESM interop); `apps/api`

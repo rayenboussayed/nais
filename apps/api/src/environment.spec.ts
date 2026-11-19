@@ -149,6 +149,29 @@ describe('validateEnv', () => {
     expect(validateEnv({ ...baseEnv }).AI_DEVICE).toBeUndefined();
   });
 
+  it('keeps telemetry disabled by default (no exporter, metrics port 8888)', () => {
+    const env = validateEnv({ ...baseEnv });
+    expect(env.OTEL_TRACE_EXPORTER_URL).toBeUndefined();
+    expect(env.OTEL_METRICS_PORT).toBe(8888);
+    expect(env.OTEL_DIAG_ENABLED).toBe('false');
+  });
+
+  it('parses the OpenTelemetry variables when provided', () => {
+    const env = validateEnv({
+      ...baseEnv,
+      OTEL_METRICS_PORT: '9464',
+      OTEL_TRACE_EXPORTER_URL: 'http://localhost:4318/v1/traces',
+    });
+    expect(env.OTEL_TRACE_EXPORTER_URL).toBe('http://localhost:4318/v1/traces');
+    expect(env.OTEL_METRICS_PORT).toBe(9464);
+  });
+
+  it('rejects a non-URL OTEL_TRACE_EXPORTER_URL', () => {
+    expect(() => validateEnv({ ...baseEnv, OTEL_TRACE_EXPORTER_URL: 'not-a-url' })).toThrow(
+      /OTEL_TRACE_EXPORTER_URL/,
+    );
+  });
+
   it('accepts each AI_DEVICE pin and rejects unknown values', () => {
     for (const device of ['webgpu', 'cpu']) {
       expect(validateEnv({ ...baseEnv, AI_DEVICE: device }).AI_DEVICE).toBe(device);

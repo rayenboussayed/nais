@@ -21,6 +21,12 @@ releases yet. Dates are UTC, from the commit history (2026-11-18 .. 2026-11-19).
 - jsdom + Testing Library coverage for the playground, studio and admin
   components (`.test.tsx`; globally-asserted behavior instead of JSX coverage)
   (`225cff9`).
+- Browser OpenTelemetry, opt-in at build time via `VITE_OTEL_ENDPOINT`:
+  `src/lib/telemetry.ts` auto-instruments `fetch`, keeps context across async
+  boundaries (`ZoneContextManager`), propagates W3C trace-context headers and
+  flushes on tab hide (`visibilitychange` → `forceFlush`); `main.tsx` loads it
+  with a dynamic `import()` gated on the env var, so builds without it emit no OTEL code at all
+  (see README "Observability").
 
 ### Changed
 

@@ -44,6 +44,19 @@ releases yet. Dates are UTC, from the commit history (2026-11-18 .. 2026-11-19).
   `transformers-init` one-shots, node-owned `hf-cache` volume (`4a0b0aa`,
   `1fca57a`); image base moved from Alpine to `node:24-bookworm-slim` for the
   glibc-only Dawn WebGPU binding.
+- OpenTelemetry (opt-in via `OTEL_TRACE_EXPORTER_URL`): `src/app.tracing.ts`
+  builds the Node SDK — OTLP/HTTP traces via `BatchSpanProcessor`,
+  W3C trace-context/baggage + B3 propagators, `@fastify/otel`, socket.io and
+  node auto-instrumentations — started in `main.ts` before NestFactory.create;
+  `TelemetryModule` (`modules/telemetry/`) registers `nestjs-otel` host
+  metrics (`OpenTelemetryModule.forRoot({ metrics: { hostMetrics: true } })`)
+  and flushes the SDK on Nest's `onApplicationShutdown`, before
+  `useProcessExit` terminates the process. Prometheus `/metrics` on
+  `OTEL_METRICS_PORT` (default `8888`, bound to `0.0.0.0`).
+  `OTEL_DIAG_ENABLED=true` (development) enables OTEL diagnostics; no SDK is
+  constructed at all when `OTEL_TRACE_EXPORTER_URL` is unset. Verified live:
+  boots with and without OTEL, `/metrics` answers 200, SIGTERM flushes spans
+  to a collector.
 
 ### Changed
 

@@ -53,6 +53,39 @@ the ONNX compute device to `webgpu` or `cpu` (unset = automatic webgpu → cpu
 fallback; `wasm` is unsupported in Node). Full list and
 the scrypt hash format: `.env.example`.
 
+## Observability
+
+Telemetry is **disabled unless `OTEL_TRACE_EXPORTER_URL` is set** — without it
+no OpenTelemetry modules enter the module graph, the metrics port stays
+unbound and spans are never created (`src/app.tracing.ts`, gated in
+`main.ts`). When set to an OTLP/HTTP endpoint (e.g.
+`http://localhost:4318/v1/traces` in development):
+
+- Traces: `@fastify/otel` (`registerOnInitialization`) + socket.io +
+  `getNodeAutoInstrumentations()` (http, pg, …), W3C trace-context/baggage +
+  B3 propagators, `BatchSpanProcessor` → OTLP/HTTP. Started **before** Nest
+  creates the app; on SIGTERM the Nest shutdown hook flushes pending spans
+  before the process exits (`TelemetryModule` in
+  `src/modules/telemetry/`).
+- Metrics: host metrics (CPU, memory, event loop) via `nestjs-otel`
+  (`OpenTelemetryModule.forRoot({ metrics: { hostMetrics: true } })`),
+  scraped from Prometheus on `OTEL_METRICS_PORT` (default `8888`) at
+  `/metrics`. Bound to `0.0.0.0` — inside a container, localhost-only would
+  make the endpoint unreachable; scrape only from trusted networks.
+- Resource: `service.name=trainslator-api`, `deployment.environment.name`
+  from `NODE_ENV`.
+- `OTEL_DIAG_ENABLED=true` (development only) turns on OTEL diagnostics on
+  the console.
+
+Span decorators (`@Span`, `@Traceable`) from `nestjs-otel` are available for
+opt-in manual instrumentation of hot paths; none are applied today.
+
+No collector ships in `docker-compose.yml` — telemetry is meant for
+operator-provided backends (Grafana/Tempo/Jaeger/…). A local collector for
+development is one line:
+`docker run --rm -p 4318:4318 otel/opentelemetry-collector`. (Publishing
+8888 twice would collide with the API's own `/metrics`.)
+
 ## Testing
 
 Run from the repo root:
