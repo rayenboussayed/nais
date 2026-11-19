@@ -103,6 +103,12 @@ native Standard Schema.
     prompt templates are `.txt` because `[Tr.: …]` is model-facing DSL, not
     markdown — never HTML-comment-suppress lint inside a prompt file.
 
+## Per-workspace guidance
+
+`apps/api/AGENTS.md`, `apps/web/AGENTS.md` and `packages/shared/AGENTS.md`
+refine this document for their workspace; they take precedence for their own
+files. This file keeps repo-wide policy only.
+
 ## Conventions
 
 - TypeScript strict + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`.
