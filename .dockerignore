@@ -1,0 +1,35 @@
+# VCS and agent files
+.git
+.gitignore
+.agent-swarm
+.github
+
+# Dependencies and build output (reinstalled inside the image)
+node_modules
+**/node_modules
+**/dist
+dist
+
+# Tests and docs are not needed at runtime
+apps/api/test
+docs
+**/*.test.ts
+**/*.spec.ts
+bench
+coverage
+**/tsconfig.tsbuildinfo
+
+# Local environment and logs
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+
+# Editors
+.vscode
+.idea
+
+# OS junk
+.DS_Store
+Thumbs.db

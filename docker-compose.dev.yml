@@ -1,0 +1,52 @@
+name: trainslator
+
+# Development overlay: run with the production file, e.g.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+# Adds the web dev server (Vite on 4173) and a bind-mounted, watch-mode API.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    image: trainslator/api:dev
+    # Bind the repo; the baked node_modules stays via the anonymous volume.
+    volumes:
+      - .:/repo
+      - /repo/node_modules
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-trainslator}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-trainslator}
+      PG_BOSS_URL: postgresql://${POSTGRES_USER:-trainslator}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-trainslator}
+      OLLAMA_BASE_URL: http://ollama:11434
+      PORT: 3000
+      # Required by validateEnv even in development
+      BASIC_AUTH_USERNAME: ${BASIC_AUTH_USERNAME:-admin}
+      BASIC_AUTH_PASSWORD_HASH: ${BASIC_AUTH_PASSWORD_HASH:?Set BASIC_AUTH_PASSWORD_HASH in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/health > /dev/null 2>&1']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  web:
+    image: node:24-alpine
+    working_dir: /repo
+    command: npm run dev -w @trainslator/web -- --host 0.0.0.0 --port 4173
+    volumes:
+      - .:/repo
+      - /repo/node_modules
+    environment:
+      VITE_API_PROXY_TARGET: http://api:3000
+    ports:
+      - '${WEB_PORT:-4173}:4173'
+    depends_on:
+      api:
+        condition: service_started

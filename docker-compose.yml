@@ -1,0 +1,79 @@
+name: trainslator
+
+# Production stack: PostgreSQL, Ollama (+ one-shot model pull) and the API.
+# Usage:
+#   cp .env.example .env   # then edit secrets
+#   docker compose up -d
+#   open http://localhost:3000/api/health
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trainslator}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-trainslator}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ['CMD-SHELL', 'ollama list > /dev/null 2>&1']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  # One-shot: pulls the configured model, then exits. Downstream services
+  # wait for completion before starting.
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_TEXT_MODEL: ${OLLAMA_TEXT_MODEL:-bonsai-2:2b}
+    entrypoint: ['/bin/sh', '-c', 'ollama pull $${OLLAMA_TEXT_MODEL}']
+    restart: 'no'
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: trainslator/api:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      OLLAMA_BASE_URL: http://ollama:11434
+      DATABASE_URL: postgresql://${POSTGRES_USER:-trainslator}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-trainslator}
+      PG_BOSS_URL: postgresql://${POSTGRES_USER:-trainslator}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-trainslator}
+      PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+    ports:
+      - '${PORT:-3000}:3000'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/health > /dev/null 2>&1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  db-data:
+  ollama-data:

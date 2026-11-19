@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1
+#
+# Development image: installs all dependencies and runs the API in watch mode.
+# The repository is bind-mounted at runtime (see docker-compose.dev.yml); the
+# baked node_modules overlay keeps platform-correct binaries.
+FROM node:24-alpine
+WORKDIR /repo
+
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+
+RUN npm ci
+
+# The API imports the built shared package; bake it in for watch mode.
+RUN npm run build -w packages/shared
+
+COPY . .
+
+EXPOSE 3000
+CMD ["npm", "run", "start:dev", "-w", "@trainslator/api"]
