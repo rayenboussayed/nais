@@ -9,6 +9,7 @@ import { API_GLOBAL_PREFIX } from '../app.constants';
 import { HealthModule } from './health.module';
 import { DRIZZLE } from '../database/drizzle.module';
 import { startTempCluster } from '../../test/pg-temp';
+import { basicAuthHeaders } from '../../test/auth';
 
 // NOTE: ConfigModule resolves loadEnv at module-decorator time, i.e. at
 // import. The health module is deliberately scoped to ConfigModule +
@@ -26,6 +27,9 @@ describe('GET /api/health (integration)', () => {
   afterAll(() => {
     if (originalDatabaseUrl === undefined) delete process.env.DATABASE_URL;
     else process.env.DATABASE_URL = originalDatabaseUrl;
+    delete process.env.BASIC_AUTH_USERNAME;
+    delete process.env.BASIC_AUTH_PASSWORD_HASH;
+    delete process.env.SESSION_SECRET;
     cluster.destroy();
   });
 
@@ -54,7 +58,11 @@ describe('GET /api/health (integration)', () => {
   });
 
   it('answers 404 with the ApiError shape for unknown routes', async () => {
-    const response = await app.inject({ method: 'GET', url: '/api/nope' });
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/nope',
+      headers: basicAuthHeaders(),
+    });
     expect(response.statusCode).toBe(404);
     expect(response.json()).toMatchObject({ statusCode: 404 });
     expect(typeof response.json().message).toBe('string');

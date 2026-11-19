@@ -14,6 +14,7 @@ import * as schema from '../src/database/schema';
 import { seedLanguages } from '../src/database/seed';
 import { translationKeyFor } from '../src/common/key';
 import { startTempCluster, type TempCluster } from './pg-temp';
+import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth';
 import { startOllamaStub, type OllamaStub } from './ollama-stub';
 
 describe('translate pipeline (integration, throwaway PostgreSQL + stubbed Ollama)', () => {
@@ -26,6 +27,7 @@ describe('translate pipeline (integration, throwaway PostgreSQL + stubbed Ollama
     cluster = startTempCluster('trainslator_translate_test');
     stub = await startOllamaStub();
     process.env.DATABASE_URL = cluster.url();
+    Object.assign(process.env, TEST_BASIC_AUTH_ENV);
     process.env.OLLAMA_BASE_URL = stub.url;
     delete process.env.PG_BOSS_URL;
 
@@ -67,6 +69,7 @@ describe('translate pipeline (integration, throwaway PostgreSQL + stubbed Ollama
 
   async function translate(text: string, targetLanguage = 'fr') {
     return app.inject({
+      headers: basicAuthHeaders(),
       method: 'POST',
       url: '/api/translate',
       payload: { text, targetLanguage },
@@ -201,7 +204,7 @@ describe('translate pipeline (integration, throwaway PostgreSQL + stubbed Ollama
       await pool.end();
     }
 
-    const deleted = await app.inject({ method: 'DELETE', url: `/api/translations/${deletedId}` });
+    const deleted = await app.inject({ headers: basicAuthHeaders(), method: 'DELETE', url: `/api/translations/${deletedId}` });
     expect(deleted.statusCode).toBe(204);
 
     const second = await translate('resurrect this text');

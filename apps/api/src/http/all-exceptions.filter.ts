@@ -28,7 +28,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
     const reply = host.switchToHttp().getResponse<FastifyReply>();
     const body = this.toBody(exception);
-    void reply.code(body.statusCode).send(body);
+    void reply.code(body.statusCode);
+    // Browsers surface the basic-auth dialog from this header; API clients get a clean 401 either way.
+    if (body.statusCode === 401) {
+      void reply.header('WWW-Authenticate', 'Basic realm="trainslator"');
+    }
+    void reply.send(body);
   }
 
   private toBody(exception: unknown): ApiError {

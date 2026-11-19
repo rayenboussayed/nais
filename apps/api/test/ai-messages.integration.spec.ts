@@ -11,6 +11,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { API_GLOBAL_PREFIX } from '../src/app.constants';
 import * as schema from '../src/database/schema';
 import { startTempCluster, type TempCluster } from './pg-temp';
+import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth';
 
 describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
   let cluster: TempCluster;
@@ -19,6 +20,7 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
   beforeAll(async () => {
     cluster = startTempCluster('trainslator_ai_messages_test');
     process.env.DATABASE_URL = cluster.url();
+    Object.assign(process.env, TEST_BASIC_AUTH_ENV);
     delete process.env.PG_BOSS_URL;
 
     const pool = new Pool({ connectionString: cluster.url() });
@@ -87,7 +89,7 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
     const collected: string[] = [];
     let url = '/api/ai-messages?pageSize=2&orderBy=asc';
     for (let hop = 0; hop < 10; hop += 1) {
-      const response = await app.inject({ method: 'GET', url });
+      const response = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url });
       expect(response.statusCode).toBe(200);
       const body = response.json() as {
         items: Array<{ id: string }>;
@@ -102,7 +104,7 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
   });
 
   it('lists the audit rows, newest first', async () => {
-    const response = await app.inject({ method: 'GET', url: '/api/ai-messages' });
+    const response = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: '/api/ai-messages' });
     expect(response.statusCode).toBe(200);
     const body = response.json() as { items: Array<{ provider: string; model: string }> };
     expect(body.items.length).toBeGreaterThanOrEqual(3);
@@ -110,30 +112,31 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
   });
 
   it('searches q across provider, model and response', async () => {
-    const byModel = await app.inject({ method: 'GET', url: '/api/ai-messages?q=gpt-test' });
+    const byModel = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: '/api/ai-messages?q=gpt-test' });
     expect((byModel.json() as { items: unknown[] }).items).toHaveLength(1);
 
-    const byResponse = await app.inject({ method: 'GET', url: '/api/ai-messages?q=bonjour' });
+    const byResponse = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: '/api/ai-messages?q=bonjour' });
     expect((byResponse.json() as { items: unknown[] }).items).toHaveLength(1);
 
-    const byProvider = await app.inject({ method: 'GET', url: '/api/ai-messages?q=openai' });
+    const byProvider = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: '/api/ai-messages?q=openai' });
     expect((byProvider.json() as { items: unknown[] }).items).toHaveLength(1);
 
-    const none = await app.inject({ method: 'GET', url: '/api/ai-messages?q=zzz-not-here' });
+    const none = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: '/api/ai-messages?q=zzz-not-here' });
     expect((none.json() as { items: unknown[] }).items).toHaveLength(0);
   });
 
   it('serves one row and its prompts, or 404', async () => {
-    const all = await app.inject({ method: 'GET', url: '/api/ai-messages' });
+    const all = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: '/api/ai-messages' });
     const items = (all.json() as { items: Array<{ id: string; response: string | null }> }).items;
     const withResponse = items.find((item) => item.response === 'Bonjour le monde');
     if (!withResponse) throw new Error('seeded message not found');
 
-    const one = await app.inject({ method: 'GET', url: `/api/ai-messages/${withResponse.id}` });
+    const one = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: `/api/ai-messages/${withResponse.id}` });
     expect(one.statusCode).toBe(200);
     expect((one.json() as { status: string }).status).toBe('completed');
 
     const prompts = await app.inject({
+      headers: basicAuthHeaders(),
       method: 'GET',
       url: `/api/ai-messages/${withResponse.id}/prompts`,
     });
@@ -142,12 +145,14 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
     expect(promptBodies).toEqual(['system', 'human']);
 
     const missing = await app.inject({
+      headers: basicAuthHeaders(),
       method: 'GET',
       url: '/api/ai-messages/10000000-0000-4000-8000-000000000000',
     });
     expect(missing.statusCode).toBe(404);
 
     const missingPrompts = await app.inject({
+      headers: basicAuthHeaders(),
       method: 'GET',
       url: '/api/ai-messages/10000000-0000-4000-8000-000000000000/prompts',
     });
@@ -155,21 +160,22 @@ describe('ai-messages REST (integration, throwaway PostgreSQL)', () => {
   });
 
   it('soft-deletes with 204 then hides the row, 404 on re-delete', async () => {
-    const all = await app.inject({ method: 'GET', url: '/api/ai-messages' });
+    const all = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: '/api/ai-messages' });
     const items = (all.json() as { items: Array<{ id: string }> }).items;
     const target = items[0];
     if (!target) throw new Error('no message to delete');
 
-    const deleted = await app.inject({ method: 'DELETE', url: `/api/ai-messages/${target.id}` });
+    const deleted = await app.inject({ headers: basicAuthHeaders(), method: 'DELETE', url: `/api/ai-messages/${target.id}` });
     expect(deleted.statusCode).toBe(204);
 
-    const gone = await app.inject({ method: 'GET', url: `/api/ai-messages/${target.id}` });
+    const gone = await app.inject({ headers: basicAuthHeaders(), method: 'GET', url: `/api/ai-messages/${target.id}` });
     expect(gone.statusCode).toBe(404);
 
-    const goneAgain = await app.inject({ method: 'DELETE', url: `/api/ai-messages/${target.id}` });
+    const goneAgain = await app.inject({ headers: basicAuthHeaders(), method: 'DELETE', url: `/api/ai-messages/${target.id}` });
     expect(goneAgain.statusCode).toBe(404);
 
     const onlyDeleted = await app.inject({
+      headers: basicAuthHeaders(),
       method: 'GET',
       url: '/api/ai-messages?onlyDeleted=true',
     });

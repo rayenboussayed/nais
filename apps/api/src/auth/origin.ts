@@ -35,6 +35,20 @@ export function buildGatewayCors(
   return origin.length > 0 ? { origin, credentials: true } : undefined;
 }
 
+/** Static gateway options; the CORS arm flips only at module import, so it is built by a tested function. */
+export function buildGatewayOptions(raw: string | undefined): {
+  path: string;
+  maxHttpBufferSize: number;
+  cors?: { origin: string[]; credentials: boolean };
+} {
+  const cors = buildGatewayCors(raw);
+  return {
+    path: '/socket.io',
+    maxHttpBufferSize: 64 * 1024,
+    ...(cors ? { cors } : {}),
+  };
+}
+
 /** Parses CORS_ORIGINS into a normalized, exact-match allowlist. */
 export function parseAllowedOrigins(raw: string | undefined): string[] {
   if (!raw) return [];

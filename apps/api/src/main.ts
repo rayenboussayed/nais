@@ -1,31 +1,28 @@
 import { Logger } from '@nestjs/common';
 import { ConsoleLogger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { IoAdapter } from '@nestjs/platform-socket.io';
+import { ConfigService } from '@nestjs/config';
 
-import { API_GLOBAL_PREFIX } from './app.constants';
 import { AppModule } from './app.module';
+import { configureApp } from './bootstrap';
+import { resolveTrustProxy } from './config/fastify';
+import { validateEnv } from './config/env';
 import type { Env } from './config/env';
 
 /** Wires pipes/filters already registered in modules, starts the HTTP listener and enables shutdown hooks. */
 async function bootstrap(): Promise<void> {
   // JSON logs in production (shippers), pretty logs in development.
   const json = process.env.NODE_ENV === 'production';
+  const trustProxy = resolveTrustProxy(validateEnv(process.env).TRUST_PROXY);
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ bodyLimit: 256 * 1024 }),
+    new FastifyAdapter({ bodyLimit: 256 * 1024, trustProxy }),
     { logger: new ConsoleLogger({ json }) },
   );
 
-  app.useWebSocketAdapter(new IoAdapter(app));
-
-  app.setGlobalPrefix(API_GLOBAL_PREFIX);
-  // Run lifecycle hooks (pg-boss stop, pool end), then exit 0 instead of
-  // re-raising SIGTERM, which is Nest's default and looks like a crash to supervisors.
-  app.enableShutdownHooks(undefined, { useProcessExit: true });
+  await configureApp(app);
 
   const config = app.get<ConfigService<Env, true>>(ConfigService);
   const port = config.get('PORT', { infer: true });

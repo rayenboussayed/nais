@@ -1,5 +1,6 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { Resilience } from '@nestjs/resilience';
+import { Throttle } from '@nestjs/throttler';
 
 import type { TranslateRequest, TranslateResponse } from '@trainslator/shared';
 import { translateRequestSchema } from '@trainslator/shared';
@@ -21,6 +22,7 @@ export class TranslateController {
    */
   @Post()
   @Resilience('ollama')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   translate(
     @Body({ schema: translateRequestSchema }) input: TranslateRequest,
   ): Promise<TranslateResponse> {

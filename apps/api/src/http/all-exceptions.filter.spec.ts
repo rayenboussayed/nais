@@ -3,6 +3,7 @@ import {
   BadRequestException,
   HttpException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -10,15 +11,40 @@ import { AllExceptionsFilter } from './all-exceptions.filter';
 
 function makeHost() {
   const sent = vi.fn();
-  const code = vi.fn().mockReturnValue({ send: sent });
+  const replyObj: {
+    code: ReturnType<typeof vi.fn>;
+    header: ReturnType<typeof vi.fn>;
+    send: ReturnType<typeof vi.fn>;
+  } = {
+    code: vi.fn(),
+    header: vi.fn(),
+    send: sent,
+  };
+  replyObj.code.mockReturnValue(replyObj);
+  replyObj.header.mockReturnValue(replyObj);
   const host: ArgumentsHost = {
     getType: () => 'http',
-    switchToHttp: () => ({ getResponse: () => ({ code }) }),
+    switchToHttp: () => ({ getResponse: () => replyObj }),
   } as unknown as ArgumentsHost;
-  return { host, sent, code };
+  return { host, sent, code: replyObj.code, header: replyObj.header };
 }
 
 describe('AllExceptionsFilter', () => {
+  it('attaches the realm header on 401s and only on 401s', () => {
+    const filter = new AllExceptionsFilter();
+
+    const unauthorized = makeHost();
+    filter.catch(new UnauthorizedException('Unauthorized'), unauthorized.host);
+    expect(unauthorized.header).toHaveBeenCalledWith(
+      'WWW-Authenticate',
+      'Basic realm="trainslator"',
+    );
+
+    const notFound = makeHost();
+    filter.catch(new NotFoundException('nope'), notFound.host);
+    expect(notFound.header).not.toHaveBeenCalled();
+  });
+
   it('does not touch the HTTP reply on a websocket context', () => {
     const code = vi.fn();
     const replySend = vi.fn();

@@ -12,6 +12,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { API_GLOBAL_PREFIX } from '../src/app.constants';
 import * as schema from '../src/database/schema';
 import { startTempCluster, type TempCluster } from './pg-temp';
+import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth';
 import { startOllamaStub, type OllamaStub } from './ollama-stub';
 
 // Module scope: the test wants the model budget at 100ms. Assigned before
@@ -31,6 +32,7 @@ describe('translate with a hanging model (integration)', () => {
     // Model answers after far longer than the 100ms budget configured above.
     stub = await startOllamaStub({ delayMs: 2_000 });
     process.env.DATABASE_URL = cluster.url();
+    Object.assign(process.env, TEST_BASIC_AUTH_ENV);
     process.env.OLLAMA_BASE_URL = stub.url;
     delete process.env.PG_BOSS_URL;
 
@@ -72,6 +74,7 @@ describe('translate with a hanging model (integration)', () => {
 
   it('answers 504 with a constant message and audits the failure', async () => {
     const response = await app.inject({
+      headers: basicAuthHeaders(),
       method: 'POST',
       url: '/api/translate',
       payload: { text: 'this hangs', targetLanguage: 'fr' },

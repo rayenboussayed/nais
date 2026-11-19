@@ -21,7 +21,7 @@ import { PgBossService } from '@wavezync/nestjs-pgboss';
 
 import type { Env } from '../config/env';
 import { authenticateHeaders, firstHeader } from '../auth/authenticate';
-import { isOriginAllowed, parseAllowedOrigins, buildGatewayCors } from '../auth/origin';
+import { isOriginAllowed, parseAllowedOrigins, buildGatewayOptions } from '../auth/origin';
 import { RateLimiter } from '../common/rate-limit';
 import { translationKeyFor } from '../common/key';
 import { LanguagesService } from '../languages/languages.service';
@@ -30,8 +30,8 @@ import { TranslationsService } from '../translations/translations.service';
 /** The single translation queue. GPU-bound work is serialized with batchSize 1. */
 export const TRANSLATE_QUEUE = 'translate';
 
-/** Cross-origin allowlist for the long-polling transport; evaluated at module import. */
-const gatewayCors = buildGatewayCors(process.env.CORS_ORIGINS);
+/** Gateway options; import time constant derived from the environment. */
+const gatewayOptions = buildGatewayOptions(process.env.CORS_ORIGINS);
 
 /**
  * socket.io gateway for the async translation flow. Clients emit `translate`
@@ -40,17 +40,13 @@ const gatewayCors = buildGatewayCors(process.env.CORS_ORIGINS);
  * `translation` event), or an `ack` signaling rate limiting (429).
  * Auth is enforced in the handshake middleware for every connection.
  */
-@WebSocketGateway({
-  path: '/socket.io',
-  maxHttpBufferSize: 64 * 1024,
-  // Websocket transport needs no CORS headers; long-polling does, but only for
-  // allowlisted origins (same-origin clients send no Origin at all).
-  ...(gatewayCors ? { cors: gatewayCors } : {}),
-})
+@WebSocketGateway(gatewayOptions)
 export class TranslateGateway implements OnGatewayInit {
   @WebSocketServer() private readonly server!: Server;
 
   private readonly limiter = new RateLimiter(10, 60_000);
+  /** Global backstop: caps handshake attempts per minute regardless of credential. */
+  private readonly connectLimiter = new RateLimiter(60, 60_000);
   private readonly logger = new Logger(TranslateGateway.name);
 
   constructor(
@@ -69,6 +65,11 @@ export class TranslateGateway implements OnGatewayInit {
     const extraOrigins = parseAllowedOrigins(this.config.get('CORS_ORIGINS', { infer: true }));
     server.use((socket, next) => {
       void (async () => {
+        if (!this.connectLimiter.hit('*')) {
+          next(new Error('too many connections'));
+          return;
+        }
+
         const headers = socket.handshake.headers as Record<string, string | string[] | undefined>;
 
         const origin = firstHeader(headers['origin']);
@@ -121,9 +122,8 @@ export class TranslateGateway implements OnGatewayInit {
         return ack({ statusCode: 404, requestId: message.requestId, data: null });
       }
 
-      // Rate limit counts work, not attempts. Validation happens in the pipe,
-      // unknown languages do not consume quota.
-      const identity = (client.data.username as string | undefined) ?? client.id;
+      // The handshake middleware always sets socket.data.username.
+      const identity = client.data.username as string;
       if (!this.limiter.hit(identity)) {
         return ack({
           statusCode: 429,

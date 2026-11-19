@@ -50,8 +50,12 @@ const envSchema = z
       .string()
       .regex(/^[0-9a-f]{64}$/, 'Expected 64 lowercase hex chars (openssl rand -hex 32)')
       .optional(),
+    /** Client IP behind a proxy: 'loopback' for same-host reverse proxy, true to trust all, false to ignore forwarded-for. */
+    TRUST_PROXY: z.enum(['true', 'false', 'loopback']).default('loopback'),
     /** Extra allowed browser origins for WS/HTTP, comma separated; same-origin when empty. */
     CORS_ORIGINS: z.string().trim().optional(),
+    /** Default rate limit per minute per client IP, applied globally. */
+    THROTTLE_LIMIT: z.coerce.number().int().min(1).default(100),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;

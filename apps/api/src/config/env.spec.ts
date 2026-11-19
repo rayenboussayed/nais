@@ -113,6 +113,12 @@ describe('validateEnv', () => {
     expect(env.DATABASE_URL).toContain('host=%2Ftmp%2Fsocketdir');
   });
 
+  it('coerces THROTTLE_LIMIT and applies the default', () => {
+    expect(validateEnv({ ...baseEnv }).THROTTLE_LIMIT).toBe(100);
+    expect(validateEnv({ ...baseEnv, THROTTLE_LIMIT: '42' }).THROTTLE_LIMIT).toBe(42);
+    expect(() => validateEnv({ ...baseEnv, THROTTLE_LIMIT: '0' })).toThrow(/THROTTLE_LIMIT/);
+  });
+
   it('accepts a libpq key=value DSN', () => {
     const env = validateEnv({
       ...baseEnv,

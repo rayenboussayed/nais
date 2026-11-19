@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isOriginAllowed, parseAllowedOrigins, buildGatewayCors } from './origin';
+import { isOriginAllowed, parseAllowedOrigins, buildGatewayCors, buildGatewayOptions } from './origin';
 
 describe('buildGatewayCors', () => {
   it('returns undefined when no allowlist is configured', () => {
@@ -12,6 +12,22 @@ describe('buildGatewayCors', () => {
   it('returns an exact-match allowlist with credentials when configured', () => {
     expect(buildGatewayCors('https://a.example.com,https://b.example.com')).toEqual({
       origin: ['https://a.example.com', 'https://b.example.com'],
+      credentials: true,
+    });
+  });
+});
+
+describe('buildGatewayOptions', () => {
+  it('emits no cors key when the allowlist is empty', () => {
+    const options = buildGatewayOptions(undefined);
+    expect(options.path).toBe('/socket.io');
+    expect(options.maxHttpBufferSize).toBe(65_536);
+    expect('cors' in options).toBe(false);
+  });
+
+  it('includes an exact-match CORS allowlist when configured', () => {
+    expect(buildGatewayOptions('https://admin.example.com, https://ops.example.com').cors).toEqual({
+      origin: ['https://admin.example.com', 'https://ops.example.com'],
       credentials: true,
     });
   });
