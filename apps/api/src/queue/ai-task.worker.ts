@@ -6,9 +6,9 @@ import { Job } from '@wavezync/nestjs-pgboss';
 import type { AiTaskJob } from '@trainslator/shared';
 import { aiTaskJobSchema } from '@trainslator/shared';
 
-import { AiService } from '../ai/ai.service';
-import { AI_TASK_QUEUE } from './ai-task-queue.constants';
-import { TranslateGateway } from '../ws/translate.gateway';
+import { AiService } from '../ai/ai.service.js';
+import { AI_TASK_QUEUE } from './ai-task-queue.constants.js';
+import { TranslateGateway } from '../ws/translate.gateway.js';
 
 /**
  * pg-boss worker consuming `ai-task` jobs with batchSize 1: one model call at

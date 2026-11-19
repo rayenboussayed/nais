@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveTrustProxy } from './fastify';
+import { resolveTrustProxy } from './fastify.js';
 
 describe('resolveTrustProxy', () => {
   it('maps each documented value', () => {

@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 
 import { ConfigService } from '@nestjs/config';
 
-import type { Env } from '../config/env';
+import type { Env } from '../config/env.js';
 
 export const DRIZZLE = Symbol('DRIZZLE');
 const PG_POOL = Symbol('PG_POOL');

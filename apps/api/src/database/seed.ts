@@ -3,11 +3,11 @@ import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
-import { validateEnv } from '../config/env';
+import { validateEnv } from '../config/env.js';
 
-import type { Database } from './drizzle.module';
-import { languages } from './schema';
-import { languagesSeed } from './languages.seed';
+import type { Database } from './drizzle.module.js';
+import { languages } from './schema.js';
+import { languagesSeed } from './languages.seed.js';
 
 /** Rows per upsert statement; multi-row VALUES keeps 184 inserts to two statements. */
 const CHUNK = 100;

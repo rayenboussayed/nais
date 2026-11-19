@@ -9,11 +9,11 @@ import { Pool } from 'pg';
 import { io, type Socket } from 'socket.io-client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { API_GLOBAL_PREFIX } from '../src/app.constants';
-import { seedLanguages } from '../src/database/seed';
-import { TranslationsService } from '../src/translations/translations.service';
-import { startTempCluster, type TempCluster } from './pg-temp';
-import { startOllamaStub, type OllamaStub } from './ollama-stub';
+import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
+import { seedLanguages } from '../src/database/seed.js';
+import { TranslationsService } from '../src/translations/translations.service.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
+import { startOllamaStub, type OllamaStub } from './ollama-stub.js';
 
 describe('ws gateway with a failing backend', () => {
   let cluster: TempCluster;

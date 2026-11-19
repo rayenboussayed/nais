@@ -5,7 +5,7 @@ import {
   parseAllowedOrigins,
   buildGatewayCors,
   buildGatewayOptions,
-} from './origin';
+} from './origin.js';
 
 describe('buildGatewayCors', () => {
   it('returns undefined when no allowlist is configured', () => {

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { translationKeyFor } from './key';
+import { translationKeyFor } from './key.js';
 
 function expectedKey(text: string): string {
   return createHash('sha512').update(text.normalize('NFC').trim()).digest('base64url');

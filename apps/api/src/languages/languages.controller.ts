@@ -24,7 +24,7 @@ import {
   updateLanguageBodySchema,
 } from '@trainslator/shared';
 
-import { LanguagesService } from './languages.service';
+import { LanguagesService } from './languages.service.js';
 
 /** REST surface for the language catalogue. All routes sit behind basic-auth. */
 @Controller('languages')

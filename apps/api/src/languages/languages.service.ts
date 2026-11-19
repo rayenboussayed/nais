@@ -16,13 +16,13 @@ import type {
   UpdateLanguageBodyInput,
 } from '@trainslator/shared';
 
-import { DRIZZLE } from '../database/drizzle.module';
-import type { Database } from '../database/drizzle.module';
-import { languages } from '../database/schema';
+import { DRIZZLE } from '../database/drizzle.module.js';
+import type { Database } from '../database/drizzle.module.js';
+import { languages } from '../database/schema.js';
 
-import { changedFields } from '../common/changed-fields';
-import { isUniqueViolation } from '../common/db-error';
-import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from '../common/sql';
+import { changedFields } from '../common/changed-fields.js';
+import { isUniqueViolation } from '../common/db-error.js';
+import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from '../common/sql.js';
 
 /** Row shape of the languages table; mirrors `languages` in drizzle/schema.ts. */
 type LanguageRow = typeof languages.$inferSelect;

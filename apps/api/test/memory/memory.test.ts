@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { changedFields } from '../../src/common/changed-fields';
-import { translationKeyFor } from '../../src/common/key';
-import { escapeLike } from '../../src/common/sql';
-import { Inflight } from '../../src/common/inflight';
+import { changedFields } from '../../src/common/changed-fields.js';
+import { translationKeyFor } from '../../src/common/key.js';
+import { escapeLike } from '../../src/common/sql.js';
+import { Inflight } from '../../src/common/inflight.js';
 
 /**
  * Memory smoke: a long-lived process must not accumulate heap across many

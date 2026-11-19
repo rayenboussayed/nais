@@ -2,10 +2,10 @@ import type { ConfigService } from '@nestjs/config';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { describe, expect, it } from 'vitest';
 
-import type { Env } from '../config/env';
-import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from '../../test/auth';
+import type { Env } from '../config/env.js';
+import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from '../../test/auth.js';
 
-import { registerHttpGuards } from './request-guards';
+import { registerHttpGuards } from './request-guards.js';
 
 const LOCAL_ORIGIN = 'http://127.0.0.1:3000';
 

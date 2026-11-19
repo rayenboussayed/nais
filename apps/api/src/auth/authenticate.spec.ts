@@ -3,10 +3,10 @@ import { randomBytes, scryptSync } from 'node:crypto';
 import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it } from 'vitest';
 
-import type { Env } from '../config/env';
+import type { Env } from '../config/env.js';
 
-import { SESSION_COOKIE_NAME, signSession } from './session';
-import { authenticateHeaders } from './authenticate';
+import { SESSION_COOKIE_NAME, signSession } from './session.js';
+import { authenticateHeaders } from './authenticate.js';
 
 const SECRET = 'b'.repeat(64);
 const PASSWORD = 'admin-password';

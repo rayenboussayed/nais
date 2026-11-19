@@ -8,8 +8,8 @@ vi.mock('@huggingface/transformers', () => ({
   pipeline: transformersMock.pipeline,
 }));
 
-import { resolveModelId, PipelineLoader } from './pipeline-loader';
-import { modelEnvKey, defaultModelFor, listTaskDescriptors, AI_TASK_REGISTRY } from './tasks';
+import { resolveModelId, PipelineLoader } from './pipeline-loader.js';
+import { modelEnvKey, defaultModelFor, listTaskDescriptors, AI_TASK_REGISTRY } from './tasks.js';
 
 const taskList = Object.keys(AI_TASK_REGISTRY) as Array<keyof typeof AI_TASK_REGISTRY>;
 

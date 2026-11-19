@@ -2,8 +2,8 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import { ConfigService } from '@nestjs/config';
 import type { FastifyRequest } from 'fastify';
 
-import type { Env } from '../config/env';
-import { authenticateHeaders } from '../auth/authenticate';
+import type { Env } from '../config/env.js';
+import { authenticateHeaders } from '../auth/authenticate.js';
 
 /** Routes that answer without credentials (liveness probe, login). */
 const AUTH_ALLOWLIST = new Set(['/api/health', '/api/auth/login']);

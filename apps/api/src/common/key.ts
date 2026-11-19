@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { canonicalJsonStringify, nfcNormalize } from './stable-json';
+import { canonicalJsonStringify, nfcNormalize } from './stable-json.js';
 
 /**
  * Stable translation key for dynamic rows: sha512 of the NFC-normalized,

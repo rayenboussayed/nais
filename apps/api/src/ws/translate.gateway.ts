@@ -29,15 +29,15 @@ import {
 } from '@trainslator/shared';
 import { PgBossService } from '@wavezync/nestjs-pgboss';
 
-import type { Env } from '../config/env';
-import { authenticateHeaders, firstHeader } from '../auth/authenticate';
-import { isOriginAllowed, parseAllowedOrigins, buildGatewayOptions } from '../auth/origin';
-import { RateLimiter } from '../common/rate-limit';
-import { translationKeyFor } from '../common/key';
-import { AiService } from '../ai/ai.service';
-import { LanguagesService } from '../languages/languages.service';
-import { TranslationsService } from '../translations/translations.service';
-import { AI_TASK_QUEUE } from '../queue/ai-task-queue.constants';
+import type { Env } from '../config/env.js';
+import { authenticateHeaders, firstHeader } from '../auth/authenticate.js';
+import { isOriginAllowed, parseAllowedOrigins, buildGatewayOptions } from '../auth/origin.js';
+import { RateLimiter } from '../common/rate-limit.js';
+import { translationKeyFor } from '../common/key.js';
+import { AiService } from '../ai/ai.service.js';
+import { LanguagesService } from '../languages/languages.service.js';
+import { TranslationsService } from '../translations/translations.service.js';
+import { AI_TASK_QUEUE } from '../queue/ai-task-queue.constants.js';
 
 /** Gateway options; import time constant derived from the environment. */
 const gatewayOptions = buildGatewayOptions(process.env.CORS_ORIGINS);

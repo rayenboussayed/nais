@@ -3,7 +3,7 @@ import { Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Query } from '
 import type { AiMessage, AiMessagePrompt, KeysetList, Pagination } from '@trainslator/shared';
 import { paginationSchema } from '@trainslator/shared';
 
-import { AiMessagesService } from './ai-messages.service';
+import { AiMessagesService } from './ai-messages.service.js';
 
 /** Read-only audit surface for AI provider calls. All routes sit behind basic-auth. */
 @Controller('ai-messages')

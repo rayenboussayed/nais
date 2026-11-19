@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Database } from '../database/drizzle.module';
+import type { Database } from '../database/drizzle.module.js';
 
-import { LanguagesService } from './languages.service';
+import { LanguagesService } from './languages.service.js';
 
 const valid = {
   name: 'Testese',

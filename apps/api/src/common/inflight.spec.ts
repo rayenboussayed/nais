@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { Inflight } from './inflight';
+import { Inflight } from './inflight.js';
 
 describe('Inflight', () => {
   it('shares one execution between concurrent callers', async () => {

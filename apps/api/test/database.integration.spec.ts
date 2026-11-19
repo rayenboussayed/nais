@@ -8,11 +8,11 @@ import type { QueryResult, QueryResultRow } from 'pg';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import * as schema from '../src/database/schema';
-import type { Database } from '../src/database/drizzle.module';
-import { seedLanguages } from '../src/database/seed';
+import * as schema from '../src/database/schema.js';
+import type { Database } from '../src/database/drizzle.module.js';
+import { seedLanguages } from '../src/database/seed.js';
 
-import { startTempCluster, type TempCluster } from './pg-temp';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
 
 /** Raw SQL helper for the integration suite: guards the multi-result union and keeps rows typed. */
 async function rawRows<T extends QueryResultRow>(db: Database, statement: SQL): Promise<T[]> {

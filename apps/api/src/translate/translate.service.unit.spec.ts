@@ -2,10 +2,10 @@ import type { ConfigService } from '@nestjs/config';
 import type { AiService } from '@nestjs/ai';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { Database } from '../database/drizzle.module';
-import type { Env } from '../config/env';
+import type { Database } from '../database/drizzle.module.js';
+import type { Env } from '../config/env.js';
 
-import { TranslateService } from './translate.service';
+import { TranslateService } from './translate.service.js';
 
 const request = { text: 'hello', targetLanguage: 'fr' } as const;
 const language = { id: 'lang-1', iso6391: 'fr', name: 'French' };

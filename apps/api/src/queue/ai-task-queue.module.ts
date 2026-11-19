@@ -3,12 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import { ConfigModule } from '@nestjs/config';
 import { PgBossModule } from '@wavezync/nestjs-pgboss';
 
-import type { Env } from '../config/env';
-import { AiModule } from '../ai/ai.module';
-import { LanguagesModule } from '../languages/languages.module';
-import { TranslationsModule } from '../translations/translations.module';
-import { AiTaskWorker } from './ai-task.worker';
-import { TranslateGateway } from '../ws/translate.gateway';
+import type { Env } from '../config/env.js';
+import { AiModule } from '../ai/ai.module.js';
+import { LanguagesModule } from '../languages/languages.module.js';
+import { TranslationsModule } from '../translations/translations.module.js';
+import { AiTaskWorker } from './ai-task.worker.js';
+import { TranslateGateway } from '../ws/translate.gateway.js';
 
 /**
  * Async AI plumbing: the socket.io gateway clients talk to and the pg-boss

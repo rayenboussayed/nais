@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { canonicalJsonStringify } from './stable-json';
+import { canonicalJsonStringify } from './stable-json.js';
 
 describe('canonicalJsonStringify', () => {
   it('sorts keys recursively so key order never affects equality', () => {

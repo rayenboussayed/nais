@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Semaphore } from './semaphore';
+import { Semaphore } from './semaphore.js';
 
 describe('Semaphore', () => {
   it('rejects invalid capacities', () => {

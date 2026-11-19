@@ -1,14 +1,14 @@
 import type { ConfigService } from '@nestjs/config';
 
-import type { Env } from '../config/env';
+import type { Env } from '../config/env.js';
 import { BadGatewayException, GatewayTimeoutException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { Database } from '../database/drizzle.module';
-import type { TranslateService } from '../translate/translate.service';
+import type { Database } from '../database/drizzle.module.js';
+import type { TranslateService } from '../translate/translate.service.js';
 
-import { AiService } from './ai.service';
-import type { PipelineLoader } from './pipeline-loader';
+import { AiService } from './ai.service.js';
+import type { PipelineLoader } from './pipeline-loader.js';
 
 /** Minimal chainable DB double; only the chains the pipeline uses are stubbed. */
 function dbStub({

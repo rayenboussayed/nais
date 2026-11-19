@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { AiTaskJob } from '@trainslator/shared';
 
-import type { AiService } from '../ai/ai.service';
-import type { TranslateGateway } from '../ws/translate.gateway';
+import type { AiService } from '../ai/ai.service.js';
+import type { TranslateGateway } from '../ws/translate.gateway.js';
 
-import { AiTaskWorker } from './ai-task.worker';
+import { AiTaskWorker } from './ai-task.worker.js';
 
 function makeJob(data: AiTaskJob): JobWithMetadata<AiTaskJob> {
   return { id: 'job-1', name: 'ai-task', data } as never;

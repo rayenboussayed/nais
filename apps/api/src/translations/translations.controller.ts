@@ -19,10 +19,10 @@ import type {
 } from '@trainslator/shared';
 import { createTranslationSchema, updateTranslationBodySchema } from '@trainslator/shared';
 
-import type { TranslationsListQuery } from '../common/list-query';
-import { translationsListQuerySchema } from '../common/list-query';
+import type { TranslationsListQuery } from '../common/list-query.js';
+import { translationsListQuerySchema } from '../common/list-query.js';
 
-import { TranslationsService } from './translations.service';
+import { TranslationsService } from './translations.service.js';
 
 /** REST surface for the translation catalogue. All routes sit behind basic-auth. */
 @Controller('translations')

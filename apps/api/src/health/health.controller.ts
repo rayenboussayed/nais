@@ -2,7 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
 import type { HealthCheckResult } from '@nestjs/terminus';
 
-import { DatabaseHealthIndicator } from '../database/database-health.indicator';
+import { DatabaseHealthIndicator } from '../database/database-health.indicator.js';
 
 /** Liveness and readiness endpoint at `GET /api/health`. */
 @Controller('health')

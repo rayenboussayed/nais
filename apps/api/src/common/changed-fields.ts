@@ -1,4 +1,4 @@
-import { canonicalJsonStringify } from './stable-json';
+import { canonicalJsonStringify } from './stable-json.js';
 
 /**
  * Computes the subset of `patch` that actually differs from `before`.

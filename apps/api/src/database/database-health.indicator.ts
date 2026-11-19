@@ -5,8 +5,8 @@ import { sql } from 'drizzle-orm';
 import type { HealthCheckAttempt } from '@nestjs/terminus';
 import { HealthIndicatorService } from '@nestjs/terminus';
 
-import { DRIZZLE } from './drizzle.module';
-import type { Database } from './drizzle.module';
+import { DRIZZLE } from './drizzle.module.js';
+import type { Database } from './drizzle.module.js';
 
 /**
  * Terminus indicator: `SELECT 1` with a measured round-trip against the

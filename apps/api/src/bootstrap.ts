@@ -3,10 +3,10 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 import fastifyHelmet from '@fastify/helmet';
 import { ConfigService } from '@nestjs/config';
 
-import { API_GLOBAL_PREFIX } from './app.constants';
-import { registerHttpGuards } from './http/request-guards';
-import { setupSwagger } from './swagger';
-import type { Env } from './config/env';
+import { API_GLOBAL_PREFIX } from './app.constants.js';
+import { registerHttpGuards } from './http/request-guards.js';
+import { setupSwagger } from './swagger.js';
+import type { Env } from './config/env.js';
 
 /**
  * Wires the production HTTP surface onto a created Nest application: helmet

@@ -5,10 +5,10 @@ vi.mock('./seed', () => ({
   seedLanguages: vi.fn().mockResolvedValue({ upserted: 7 }),
 }));
 
-import { LanguageSeedService } from './seed.service';
-import { seedLanguages } from './seed';
-import type { Database } from './drizzle.module';
-import type { Env } from '../config/env';
+import { LanguageSeedService } from './seed.service.js';
+import { seedLanguages } from './seed.js';
+import type { Database } from './drizzle.module.js';
+import type { Env } from '../config/env.js';
 
 function serviceWithNodeEnv(nodeEnv: string) {
   // Test doubles: no Nest container or live database is needed.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { changedFields } from './changed-fields';
+import { changedFields } from './changed-fields.js';
 
 describe('changedFields', () => {
   const before = {

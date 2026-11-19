@@ -7,7 +7,7 @@ import { once } from 'node:events';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { startTempCluster, type TempCluster } from '../pg-temp';
+import { startTempCluster, type TempCluster } from '../pg-temp.js';
 
 /**
  * Process-level smoke test: boots the built API as a child process against a

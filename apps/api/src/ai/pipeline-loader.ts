@@ -4,8 +4,8 @@ import { ConfigService } from '@nestjs/config';
 
 import type { AiTask } from '@trainslator/shared';
 
-import type { Env } from '../config/env';
-import { defaultModelFor, modelEnvKey } from './tasks';
+import type { Env } from '../config/env.js';
+import { defaultModelFor, modelEnvKey } from './tasks.js';
 
 /**
  * Opaque handle to a loaded pipeline. Structural on purpose: tests stub the

@@ -8,9 +8,9 @@ import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { configureApp } from '../src/bootstrap';
-import { startTempCluster, type TempCluster } from './pg-temp';
-import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth';
+import { configureApp } from '../src/bootstrap.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
+import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
 
 describe('HTTP boundary (integration, throwaway cluster)', () => {
   let cluster: TempCluster;

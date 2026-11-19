@@ -1,9 +1,9 @@
 import type { ConfigService } from '@nestjs/config';
 
-import type { Env } from '../config/env';
+import type { Env } from '../config/env.js';
 
-import { SESSION_COOKIE_NAME, verifySession } from './session';
-import { DUMMY_SCRYPT_HASH, verifyScryptPassword } from './validator';
+import { SESSION_COOKIE_NAME, verifySession } from './session.js';
+import { DUMMY_SCRYPT_HASH, verifyScryptPassword } from './validator.js';
 
 /**
  * Authenticates a request or handshake by either its `Authorization: Basic`

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Database } from '../database/drizzle.module';
+import type { Database } from '../database/drizzle.module.js';
 
-import { TranslationsService } from './translations.service';
+import { TranslationsService } from './translations.service.js';
 
 const valid = {
   namespace: 'static',

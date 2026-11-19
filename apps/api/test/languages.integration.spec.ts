@@ -8,10 +8,10 @@ import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { API_GLOBAL_PREFIX } from '../src/app.constants';
-import { seedLanguages } from '../src/database/seed';
-import { startTempCluster, type TempCluster } from './pg-temp';
-import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth';
+import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
+import { seedLanguages } from '../src/database/seed.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
+import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
 
 describe('languages REST (integration, throwaway PostgreSQL)', () => {
   let cluster: TempCluster;

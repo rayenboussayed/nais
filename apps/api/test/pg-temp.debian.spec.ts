@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import { resolvePgBin, startTempCluster } from './pg-temp';
+import { resolvePgBin, startTempCluster } from './pg-temp.js';
 
 describe('resolvePgBin without injection', () => {
   it('resolves a real postgres bin directory on this machine', (context) => {

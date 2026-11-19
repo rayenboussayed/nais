@@ -4,7 +4,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { startTempCluster, type TempCluster } from './pg-temp';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
 
 /**
  * End-to-end check of the same bins `npm run db:migrate` / `npm run db:seed`

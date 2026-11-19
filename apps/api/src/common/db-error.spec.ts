@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isUniqueViolation } from './db-error';
+import { isUniqueViolation } from './db-error.js';
 
 describe('isUniqueViolation', () => {
   it('detects a top-level 23505 (pg error code)', () => {

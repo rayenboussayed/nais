@@ -2,10 +2,10 @@ import type { ConfigService } from '@nestjs/config';
 import type { FastifyReply } from 'fastify';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { Env } from '../config/env';
+import type { Env } from '../config/env.js';
 
-import { SESSION_COOKIE_NAME } from './session';
-import { AuthController } from './auth.controller';
+import { SESSION_COOKIE_NAME } from './session.js';
+import { AuthController } from './auth.controller.js';
 
 const HASH = 'scrypt$1024$8$1$' + 'ab'.repeat(16) + '$' + 'cd'.repeat(64);
 

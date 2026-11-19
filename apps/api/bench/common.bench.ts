@@ -1,14 +1,14 @@
 import { describe, test } from 'vitest';
 
-import { changedFields as changedFieldsFn } from '../src/common/changed-fields';
+import { changedFields as changedFieldsFn } from '../src/common/changed-fields.js';
 import {
   escapeLike as escapeLikeFn,
   keysetWhere as keysetWhereFn,
   timestamptzCursor,
-} from '../src/common/sql';
-import { translationKeyFor as translationKeyForFn } from '../src/common/key';
-import { Inflight } from '../src/common/inflight';
-import { RateLimiter } from '../src/common/rate-limit';
+} from '../src/common/sql.js';
+import { translationKeyFor as translationKeyForFn } from '../src/common/key.js';
+import { Inflight } from '../src/common/inflight.js';
+import { RateLimiter } from '../src/common/rate-limit.js';
 
 // Resolve export getters once so the benchmark loop does not pay for them.
 const translationKeyFor = translationKeyForFn;

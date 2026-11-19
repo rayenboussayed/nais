@@ -9,13 +9,13 @@ import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { API_GLOBAL_PREFIX } from '../src/app.constants';
-import * as schema from '../src/database/schema';
-import { seedLanguages } from '../src/database/seed';
-import { translationKeyFor } from '../src/common/key';
-import { startTempCluster, type TempCluster } from './pg-temp';
-import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth';
-import { startOllamaStub, type OllamaStub } from './ollama-stub';
+import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
+import * as schema from '../src/database/schema.js';
+import { seedLanguages } from '../src/database/seed.js';
+import { translationKeyFor } from '../src/common/key.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
+import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
+import { startOllamaStub, type OllamaStub } from './ollama-stub.js';
 
 describe('translate pipeline (integration, throwaway PostgreSQL + stubbed Ollama)', () => {
   let cluster: TempCluster;

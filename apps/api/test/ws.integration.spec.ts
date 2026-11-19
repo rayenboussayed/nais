@@ -10,13 +10,13 @@ import { Pool } from 'pg';
 import { io, type Socket } from 'socket.io-client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { API_GLOBAL_PREFIX } from '../src/app.constants';
-import * as schema from '../src/database/schema';
-import { seedLanguages } from '../src/database/seed';
-import { translationKeyFor } from '../src/common/key';
-import { signSession } from '../src/auth/session';
-import { startTempCluster, type TempCluster } from './pg-temp';
-import { startOllamaStub, type OllamaStub } from './ollama-stub';
+import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
+import * as schema from '../src/database/schema.js';
+import { seedLanguages } from '../src/database/seed.js';
+import { translationKeyFor } from '../src/common/key.js';
+import { signSession } from '../src/auth/session.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
+import { startOllamaStub, type OllamaStub } from './ollama-stub.js';
 
 describe('ws gateway (integration, throwaway cluster + stubbed Ollama)', () => {
   let cluster: TempCluster;

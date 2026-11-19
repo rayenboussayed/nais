@@ -4,11 +4,11 @@ import type { SQL } from 'drizzle-orm';
 
 import type { AiMessage, AiMessagePrompt, KeysetList, Pagination } from '@trainslator/shared';
 
-import { DRIZZLE } from '../database/drizzle.module';
-import type { Database } from '../database/drizzle.module';
-import { aiMessages, aiMessagePrompts } from '../database/schema';
+import { DRIZZLE } from '../database/drizzle.module.js';
+import type { Database } from '../database/drizzle.module.js';
+import { aiMessages, aiMessagePrompts } from '../database/schema.js';
 
-import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from '../common/sql';
+import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from '../common/sql.js';
 
 /** Row shape of the ai_messages table; mirrors `ai_messages` in drizzle/schema.ts. */
 type AiMessageRow = typeof aiMessages.$inferSelect;

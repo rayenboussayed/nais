@@ -16,10 +16,10 @@ import type { FastifyReply } from 'fastify';
 import type { LoginRequest } from '@trainslator/shared';
 import { loginRequestSchema } from '@trainslator/shared';
 
-import type { Env } from '../config/env';
-import { SESSION_COOKIE_NAME, signSession } from './session';
-import { DUMMY_SCRYPT_HASH, verifyScryptPassword } from './validator';
-import { RateLimiter } from '../common/rate-limit';
+import type { Env } from '../config/env.js';
+import { SESSION_COOKIE_NAME, signSession } from './session.js';
+import { DUMMY_SCRYPT_HASH, verifyScryptPassword } from './validator.js';
+import { RateLimiter } from '../common/rate-limit.js';
 
 const COOKIE_MAX_AGE_SECONDS = 12 * 60 * 60;
 

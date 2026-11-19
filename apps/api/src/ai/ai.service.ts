@@ -14,17 +14,17 @@ import { eq, and, lt } from 'drizzle-orm';
 import type { AiTask } from '@trainslator/shared';
 import { aiTaskSchema, aiRequestSchemas, aiResultSchemas } from '@trainslator/shared';
 
-import { DRIZZLE } from '../database/drizzle.module';
-import type { Database } from '../database/drizzle.module';
-import { aiCache, aiMessages } from '../database/schema';
-import { Inflight } from '../common/inflight';
-import { Semaphore } from '../common/semaphore';
-import { inputHashFor, taskKeyFor } from '../common/key';
-import { isTimeoutError, TranslateService } from '../translate/translate.service';
-import type { Env } from '../config/env';
-import { AI_TASK_REGISTRY, listTaskDescriptors, modelEnvKey } from './tasks';
+import { DRIZZLE } from '../database/drizzle.module.js';
+import type { Database } from '../database/drizzle.module.js';
+import { aiCache, aiMessages } from '../database/schema.js';
+import { Inflight } from '../common/inflight.js';
+import { Semaphore } from '../common/semaphore.js';
+import { inputHashFor, taskKeyFor } from '../common/key.js';
+import { isTimeoutError, TranslateService } from '../translate/translate.service.js';
+import type { Env } from '../config/env.js';
+import { AI_TASK_REGISTRY, listTaskDescriptors, modelEnvKey } from './tasks.js';
 import { AI_TASKS } from '@trainslator/shared';
-import { PipelineLoader } from './pipeline-loader';
+import { PipelineLoader } from './pipeline-loader.js';
 
 const AUDIT_RESPONSE_CAP = 10_000;
 

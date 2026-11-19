@@ -2,11 +2,11 @@ import type { ConfigService } from '@nestjs/config';
 import type { ExecutionContext } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
-import type { Env } from '../config/env';
-import { SESSION_COOKIE_NAME, signSession } from '../auth/session';
-import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from '../../test/auth';
+import type { Env } from '../config/env.js';
+import { SESSION_COOKIE_NAME, signSession } from '../auth/session.js';
+import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from '../../test/auth.js';
 
-import { HttpAuthGuard } from './auth.guard';
+import { HttpAuthGuard } from './auth.guard.js';
 
 function configStub(overrides: Partial<Record<keyof Env, string | undefined>> = {}) {
   const base: Record<string, string | undefined> = {

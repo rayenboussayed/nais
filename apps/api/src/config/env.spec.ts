@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { validateEnv } from './env';
+import { validateEnv } from './env.js';
 
 const baseEnv = {
   NODE_ENV: 'development',

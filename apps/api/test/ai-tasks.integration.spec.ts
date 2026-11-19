@@ -9,12 +9,12 @@ import { Pool } from 'pg';
 import { io } from 'socket.io-client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { API_GLOBAL_PREFIX } from '../src/app.constants';
-import * as schema from '../src/database/schema';
-import { seedLanguages } from '../src/database/seed';
-import { PipelineLoader, type PipelineFn } from '../src/ai/pipeline-loader';
-import { startTempCluster, type TempCluster } from './pg-temp';
-import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth';
+import { API_GLOBAL_PREFIX } from '../src/app.constants.js';
+import * as schema from '../src/database/schema.js';
+import { seedLanguages } from '../src/database/seed.js';
+import { PipelineLoader, type PipelineFn } from '../src/ai/pipeline-loader.js';
+import { startTempCluster, type TempCluster } from './pg-temp.js';
+import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from './auth.js';
 
 /**
  * End-to-end over a throwaway PostgreSQL cluster with the ONNX pipelines

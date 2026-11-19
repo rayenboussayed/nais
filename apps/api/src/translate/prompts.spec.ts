@@ -5,7 +5,7 @@ import {
   buildHumanPrompt,
   buildSystemPrompt,
   stripEnclosingQuotes,
-} from './prompts';
+} from './prompts.js';
 
 describe('buildSystemPrompt', () => {
   it('substitutes every TARGET_LANGUAGE occurrence and leaves none behind', () => {

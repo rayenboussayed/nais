@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { languages } from '../database/schema';
+import { languages } from '../database/schema.js';
 
-import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from './sql';
+import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from './sql.js';
 
 describe('escapeLike', () => {
   it('escapes %, _ and backslash itself', () => {

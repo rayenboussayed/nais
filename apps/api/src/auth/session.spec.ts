@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { SESSION_COOKIE_NAME, signSession, verifySession } from './session';
+import { SESSION_COOKIE_NAME, signSession, verifySession } from './session.js';
 
 const hmac = (segment: string, secret: string): string =>
   createHmac('sha256', secret).update(segment).digest('base64url');

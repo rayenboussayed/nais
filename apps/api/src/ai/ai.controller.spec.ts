@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { AiController } from './ai.controller';
-import type { AiService } from './ai.service';
+import { AiController } from './ai.controller.js';
+import type { AiService } from './ai.service.js';
 
 function envelopeFor(task: string, result: Record<string, unknown>) {
   return { task, result, cached: false, model: 'test/model' };

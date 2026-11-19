@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Loads the prompt templates once, at module import. The production pair is
@@ -8,7 +9,7 @@ import path from 'node:path';
  * instruction set for cheap local iterations. Layout mirrors the legacy
  * `templates/prompts/translation/{production,development}` convention.
  */
-const templatesRoot = path.join(__dirname, 'templates');
+const templatesRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), 'templates');
 const variant = process.env.NODE_ENV === 'production' ? 'production' : 'development';
 
 const TRANSLATE_SYSTEM_PROMPT: string = readFileSync(

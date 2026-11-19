@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 
-import { aiMessagePrompts, aiMessages, languages, translations } from './schema';
+import { aiMessagePrompts, aiMessages, languages, translations } from './schema.js';
 
 /**
  * Resolves the tables through drizzle's own config extractor (the same path

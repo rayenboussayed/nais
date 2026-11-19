@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 
-import { TranslateModule } from '../translate/translate.module';
-import { AiController } from './ai.controller';
-import { AiService } from './ai.service';
-import { PipelineLoader } from './pipeline-loader';
+import { TranslateModule } from '../translate/translate.module.js';
+import { AiController } from './ai.controller.js';
+import { AiService } from './ai.service.js';
+import { PipelineLoader } from './pipeline-loader.js';
 
 /**
  * General-purpose AI module: the task endpoints, the pipeline service

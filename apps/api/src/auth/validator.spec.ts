@@ -2,7 +2,7 @@ import { scryptSync, randomBytes } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { verifyScryptPassword } from './validator';
+import { verifyScryptPassword } from './validator.js';
 
 function makeHash(password: string, N = 16384, r = 8, p = 1): string {
   const salt = randomBytes(16);

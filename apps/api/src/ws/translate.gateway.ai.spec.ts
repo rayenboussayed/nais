@@ -4,7 +4,7 @@ import type { Socket } from 'socket.io';
 
 import type { WsAiAck } from '@trainslator/shared';
 
-import { TranslateGateway } from './translate.gateway';
+import { TranslateGateway } from './translate.gateway.js';
 
 /** Unit tests for the `ai` message handler and its ack contract. */
 

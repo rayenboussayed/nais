@@ -16,19 +16,19 @@ import type { TranslateRequest, TranslateResponse } from '@trainslator/shared';
 import type { AiUsageEvent } from '@nestjs/ai';
 import { AiService } from '@nestjs/ai';
 
-import { DRIZZLE } from '../database/drizzle.module';
-import type { Database } from '../database/drizzle.module';
-import { aiMessages, aiMessagePrompts, languages, translations } from '../database/schema';
+import { DRIZZLE } from '../database/drizzle.module.js';
+import type { Database } from '../database/drizzle.module.js';
+import { aiMessages, aiMessagePrompts, languages, translations } from '../database/schema.js';
 
-import { Inflight } from '../common/inflight';
-import { translationKeyFor } from '../common/key';
+import { Inflight } from '../common/inflight.js';
+import { translationKeyFor } from '../common/key.js';
 import {
   TRANSLATE_HUMAN_PROMPT,
   buildHumanPrompt,
   buildSystemPrompt,
   stripEnclosingQuotes,
-} from './prompts';
-import type { Env } from '../config/env';
+} from './prompts.js';
+import type { Env } from '../config/env.js';
 
 /** Result of a translate call; mirrors the shared response contract. */
 type TranslateOutcome = TranslateResponse;

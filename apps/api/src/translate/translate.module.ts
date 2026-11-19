@@ -5,10 +5,10 @@ import { AiModule } from '@nestjs/ai';
 import { ResilienceModule } from '@nestjs/resilience';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 
-import type { Env } from '../config/env';
+import type { Env } from '../config/env.js';
 
-import { TranslateController } from './translate.controller';
-import { TranslateService } from './translate.service';
+import { TranslateController } from './translate.controller.js';
+import { TranslateService } from './translate.service.js';
 
 /**
  * AI translation: @nestjs/ai over Ollama's OpenAI-compatible endpoint

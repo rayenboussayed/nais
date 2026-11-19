@@ -1,9 +1,9 @@
 import { Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Env } from '../config/env';
-import { DRIZZLE } from './drizzle.module';
-import type { Database } from './drizzle.module';
-import { seedLanguages } from './seed';
+import type { Env } from '../config/env.js';
+import { DRIZZLE } from './drizzle.module.js';
+import type { Database } from './drizzle.module.js';
+import { seedLanguages } from './seed.js';
 
 /**
  * Boots the language catalogue into the database on application start.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isTimeoutError } from './translate.service';
+import { isTimeoutError } from './translate.service.js';
 
 describe('isTimeoutError', () => {
   it('matches abort and timeout error names', () => {

@@ -1,9 +1,9 @@
 import type { ConfigService } from '@nestjs/config';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
-import type { Env } from '../config/env';
-import { authenticateHeaders, firstHeader } from '../auth/authenticate';
-import { isOriginAllowed, parseAllowedOrigins } from '../auth/origin';
+import type { Env } from '../config/env.js';
+import { authenticateHeaders, firstHeader } from '../auth/authenticate.js';
+import { isOriginAllowed, parseAllowedOrigins } from '../auth/origin.js';
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 

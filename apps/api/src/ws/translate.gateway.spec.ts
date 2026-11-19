@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { Server, Socket } from 'socket.io';
 
-import { TranslateGateway } from './translate.gateway';
+import { TranslateGateway } from './translate.gateway.js';
 
 function makeGateway() {
   // Only the connect limiter is under test; the services are never reached

@@ -15,15 +15,15 @@ import type {
   UpdateTranslationBodyInput,
 } from '@trainslator/shared';
 
-import { DRIZZLE } from '../database/drizzle.module';
-import type { Database } from '../database/drizzle.module';
-import { translations } from '../database/schema';
+import { DRIZZLE } from '../database/drizzle.module.js';
+import type { Database } from '../database/drizzle.module.js';
+import { translations } from '../database/schema.js';
 
-import type { TranslationsListQuery } from '../common/list-query';
-import { changedFields } from '../common/changed-fields';
-import { isUniqueViolation } from '../common/db-error';
-import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from '../common/sql';
-import { translationKeyFor } from '../common/key';
+import type { TranslationsListQuery } from '../common/list-query.js';
+import { changedFields } from '../common/changed-fields.js';
+import { isUniqueViolation } from '../common/db-error.js';
+import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from '../common/sql.js';
+import { translationKeyFor } from '../common/key.js';
 
 /** Row shape of the translations table; mirrors `translations` in drizzle/schema.ts. */
 type TranslationRow = typeof translations.$inferSelect;

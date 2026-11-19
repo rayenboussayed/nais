@@ -1,7 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
-import { skipHealthProbe } from './throttle';
+import { skipHealthProbe } from './throttle.js';
 
 function httpContext(url?: string): ExecutionContext {
   return {

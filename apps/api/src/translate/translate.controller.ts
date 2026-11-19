@@ -5,7 +5,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { TranslateRequest, TranslateResponse } from '@trainslator/shared';
 import { translateRequestSchema } from '@trainslator/shared';
 
-import { TranslateService } from './translate.service';
+import { TranslateService } from './translate.service.js';
 
 /** POST `/api/translate` — synchronous translation with cache-aside lookup. */
 @Controller('translate')

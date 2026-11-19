@@ -1,26 +1,26 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
-import { validateEnv } from './config/env';
+import { validateEnv } from './config/env.js';
 import { StandardSchemaValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
-import { AuthModule } from './auth/auth.module';
-import type { Env } from './config/env';
-import { AiMessagesModule } from './ai-messages/ai-messages.module';
-import { HttpAuthGuard } from './http/auth.guard';
-import { LanguagesModule } from './languages/languages.module';
-import { TranslationsModule } from './translations/translations.module';
-import { TranslateModule } from './translate/translate.module';
-import { skipHealthProbe } from './config/throttle';
-import { AiTaskQueueModule } from './queue/ai-task-queue.module';
-import { AiModule } from './ai/ai.module';
-import { DrizzleModule } from './database/drizzle.module';
-import { SeedModule } from './database/seed.module';
-import { HealthModule } from './health/health.module';
-import { AllExceptionsFilter } from './http/all-exceptions.filter';
+import { AuthModule } from './auth/auth.module.js';
+import type { Env } from './config/env.js';
+import { AiMessagesModule } from './ai-messages/ai-messages.module.js';
+import { HttpAuthGuard } from './http/auth.guard.js';
+import { LanguagesModule } from './languages/languages.module.js';
+import { TranslationsModule } from './translations/translations.module.js';
+import { TranslateModule } from './translate/translate.module.js';
+import { skipHealthProbe } from './config/throttle.js';
+import { AiTaskQueueModule } from './queue/ai-task-queue.module.js';
+import { AiModule } from './ai/ai.module.js';
+import { DrizzleModule } from './database/drizzle.module.js';
+import { SeedModule } from './database/seed.module.js';
+import { HealthModule } from './health/health.module.js';
+import { AllExceptionsFilter } from './http/all-exceptions.filter.js';
 
 /** Root module; boot wiring only, feature modules import here as they land. */
 @Module({

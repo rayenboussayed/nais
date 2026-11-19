@@ -4,12 +4,12 @@ import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { validateEnv } from '../config/env';
-import { API_GLOBAL_PREFIX } from '../app.constants';
-import { HealthModule } from './health.module';
-import { DRIZZLE } from '../database/drizzle.module';
-import { startTempCluster } from '../../test/pg-temp';
-import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from '../../test/auth';
+import { validateEnv } from '../config/env.js';
+import { API_GLOBAL_PREFIX } from '../app.constants.js';
+import { HealthModule } from './health.module.js';
+import { DRIZZLE } from '../database/drizzle.module.js';
+import { startTempCluster } from '../../test/pg-temp.js';
+import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from '../../test/auth.js';
 
 // NOTE: ConfigModule resolves loadEnv at module-decorator time, i.e. at
 // import. The health module is deliberately scoped to ConfigModule +
