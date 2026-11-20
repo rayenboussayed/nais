@@ -1,7 +1,20 @@
+import {
+  aiMessageStatusSchema,
+  languageDirSchema,
+  translationNamespaceSchema,
+} from '@trainslator/shared';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
 
-import { aiMessagePrompts, aiMessages, languages, translations } from './schema.js';
+import {
+  aiMessagePrompts,
+  aiMessages,
+  aiMessageStatusEnum,
+  languageDirEnum,
+  languages,
+  translationNamespaceEnum,
+  translations,
+} from './schema.js';
 
 /**
  * Resolves the tables through drizzle's own config extractor (the same path
@@ -10,6 +23,18 @@ import { aiMessagePrompts, aiMessages, languages, translations } from './schema.
  * — are pinned by tests.
  */
 describe('drizzle schema invariants', () => {
+  it('pgEnums derive their names and values from the shared zod enums', () => {
+    expect(languageDirEnum.enumName).toBe('language_dir');
+    expect(translationNamespaceEnum.enumName).toBe('translation_namespace');
+    expect(aiMessageStatusEnum.enumName).toBe('ai_message_status');
+
+    expect([...languageDirEnum.enumValues]).toEqual([...languageDirSchema.options]);
+    expect([...translationNamespaceEnum.enumValues]).toEqual([
+      ...translationNamespaceSchema.options,
+    ]);
+    expect([...aiMessageStatusEnum.enumValues]).toEqual([...aiMessageStatusSchema.options]);
+  });
+
   it('languages has a unique iso639_1 index', () => {
     const config = getTableConfig(languages);
     const names = config.indexes.map((index) => index.config.name);

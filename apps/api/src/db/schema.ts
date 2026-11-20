@@ -1,5 +1,10 @@
 import type { AiMessage as AiMessageWire } from '@trainslator/shared';
 
+import {
+  aiMessageStatusSchema,
+  languageDirSchema,
+  translationNamespaceSchema,
+} from '@trainslator/shared';
 import { isNull } from 'drizzle-orm';
 import {
   boolean,
@@ -15,6 +20,8 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core';
 
+import { toPgEnumValues } from './enum-values.js';
+
 /**
  * Drizzle schema for the translation service. This file is the single source
  * of truth for table and column definitions; TS row types come from
@@ -25,14 +32,15 @@ import {
  * ai_message_prompts owned by ai_messages.
  */
 
-export const languageDirEnum = pgEnum('language_dir', ['ltr', 'rtl']);
-export const translationNamespaceEnum = pgEnum('translation_namespace', ['static', 'dynamic']);
-export const aiMessageStatusEnum = pgEnum('ai_message_status', [
-  'pending',
-  'processing',
-  'completed',
-  'failed',
-]);
+export const languageDirEnum = pgEnum('language_dir', toPgEnumValues(languageDirSchema.options));
+export const translationNamespaceEnum = pgEnum(
+  'translation_namespace',
+  toPgEnumValues(translationNamespaceSchema.options),
+);
+export const aiMessageStatusEnum = pgEnum(
+  'ai_message_status',
+  toPgEnumValues(aiMessageStatusSchema.options),
+);
 
 /** ISO 639-1 catalogue of languages; seeded at boot (see seed.ts). */
 export const languages = pgTable(
