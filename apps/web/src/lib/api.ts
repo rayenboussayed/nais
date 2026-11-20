@@ -1,13 +1,10 @@
+import { apiErrorSchema } from '@trainslator/shared';
+
 /**
  * Thin typed fetch wrapper for the REST API. Same-origin in production;
  * proxied by Vite in development (see vite.config.ts). Credentials are
  * same-origin cookies; 401s surface as a redirect to /login.
  */
-
-/** The API error envelope: message may be a single string or an array of them. */
-interface ApiErrorBody {
-  message?: string | string[];
-}
 
 export class ApiError extends Error {
   /** Machine-readable message from the API error body when present. */
@@ -78,13 +75,27 @@ export function toQueryString(
 
 /**
  * Extracts the API error message from an error response body, if any.
+ * The shared contract is the primary path; a legacy or mixed-version body that
+ * fails validation because it omits `statusCode` still surfaces its `message`
+ * using the previous string/array extraction. Anything else falls back safely
+ * to the caller's status text. The synthetic 401 short-circuits in apiFetch
+ * and never reaches this helper.
  * @param body - the parsed response body
- * @returns the message when the body carries one
+ * @returns the message from the body, when one is present
  */
 function messageOf(body: unknown): string | undefined {
-  if (typeof body !== 'object' || body === null) return undefined;
-  const candidate = (body as ApiErrorBody).message;
-  if (typeof candidate === 'string') return candidate;
-  if (Array.isArray(candidate)) return candidate.join('; ');
+  const parsed = apiErrorSchema.safeParse(body);
+  if (parsed.success) {
+    const { message } = parsed.data;
+    return Array.isArray(message) ? message.join('; ') : message;
+  }
+  // Legacy/mixed-version responses may carry only `message` (no statusCode);
+  // keep their text visible instead of degrading to a generic status message.
+  if (typeof body !== 'object' || body === null || !('message' in body)) return undefined;
+  const message: unknown = body.message;
+  if (typeof message === 'string') return message;
+  if (Array.isArray(message) && message.every((part): part is string => typeof part === 'string')) {
+    return message.join('; ');
+  }
   return undefined;
 }

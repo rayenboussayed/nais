@@ -1,3 +1,5 @@
+import type { KeysetCursor } from '@trainslator/shared';
+
 import { useState } from 'react';
 
 /** Cursor stack for keyset pagination: current page is always the last entry. */
@@ -7,11 +9,6 @@ export interface CursorStack {
   current: KeysetCursor | null;
   next: (cursor: KeysetCursor) => void;
   reset: () => void;
-}
-
-interface KeysetCursor {
-  lastCreatedAt: string;
-  lastId: string;
 }
 
 /**
