@@ -1,16 +1,11 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createRoute } from '@tanstack/react-router';
-import {
-  createLanguageSchema,
-  type KeysetList,
-  type Language,
-  updateLanguageBodySchema,
-} from '@trainslator/shared';
+import { createLanguageSchema, type Language, updateLanguageBodySchema } from '@trainslator/shared';
 import { type FormEvent, useState } from 'react';
 
 import { AdminSearch, Modal, Pagination } from '../../components/AdminBits';
-import { formatTimestamp, useCursorStack } from '../../lib/admin';
-import { ApiError, apiFetch, toQueryString } from '../../lib/api';
+import { formatTimestamp } from '../../lib/admin';
+import { ApiError, apiFetch } from '../../lib/api';
+import { useAdminList } from '../../lib/use-admin-list';
 import { Route as adminRoute } from '../admin';
 
 export const Route = createRoute({
@@ -36,28 +31,27 @@ const emptyDraft = {
  * @returns the rendered admin page
  */
 function LanguagesAdmin() {
-  const queryClient = useQueryClient();
-  const { back, canBack, current, next, reset } = useCursorStack();
+  const {
+    back,
+    canBack,
+    deleteRow,
+    hasNext,
+    invalidate,
+    isFetching,
+    nextPage,
+    rows,
+    search,
+    setSearch,
+  } = useAdminList<Language>({
+    endpoint: '/api/languages',
+    pageSize: PAGE_SIZE,
+    resource: 'languages',
+  });
 
-  const [q, setQ] = useState('');
   const [editing, setEditing] = useState<Editing>(null);
   const [formError, setFormError] = useState<null | string>(null);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
-
-  const params = {
-    pageSize: String(PAGE_SIZE),
-    ...(q ? { q } : {}),
-    ...(current ? { lastCreatedAt: current.lastCreatedAt, lastId: current.lastId } : {}),
-  };
-
-  const { data, isFetching } = useQuery({
-    placeholderData: (previous) => previous,
-    queryFn: () => apiFetch<KeysetList<Language>>(`/api/languages${toQueryString(params)}`),
-    queryKey: ['admin', 'languages', params],
-  });
-
-  const rows = data?.items ?? [];
 
   /**
    *
@@ -143,7 +137,7 @@ function LanguagesAdmin() {
       }
 
       setEditing(null);
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'languages'] });
+      await invalidate();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setFormError(cause.apiMessage ?? cause.message);
@@ -162,8 +156,7 @@ function LanguagesAdmin() {
   async function remove(row: Language) {
     if (!window.confirm(`Soft-delete ${row.nativeName} (${row.iso6391})?`)) return;
     try {
-      await apiFetch(`/api/languages/${row.id}`, { method: 'DELETE' });
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'languages'] });
+      await deleteRow(row.id);
     } catch {
       window.alert('Could not delete the language.');
     }
@@ -176,12 +169,9 @@ function LanguagesAdmin() {
         <div className="row">
           <AdminSearch
             ariaLabel="Search languages"
-            onChange={(value) => {
-              reset();
-              setQ(value);
-            }}
+            onChange={setSearch}
             placeholder="Search name…"
-            value={q}
+            value={search}
           />
           <button className="button" onClick={openCreate} type="button">
             New language
@@ -244,10 +234,10 @@ function LanguagesAdmin() {
 
       <Pagination
         canBack={canBack}
-        hasNext={Boolean(data?.next)}
+        hasNext={hasNext}
         isFetching={isFetching}
         onBack={back}
-        onNext={() => data?.next && next(data.next)}
+        onNext={nextPage}
       />
 
       {editing && (

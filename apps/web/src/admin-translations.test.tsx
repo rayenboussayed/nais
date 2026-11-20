@@ -2,7 +2,7 @@ import type { KeysetList, Language, Translation } from '@trainslator/shared';
 
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { apiFetch } from './lib/api';
@@ -27,11 +27,13 @@ const languages: Language[] = [
   },
 ];
 
+const translationId = '10000000-0000-4000-8000-000000000010';
+
 const translations: Translation[] = [
   {
     createdAt: '2026-11-18T00:00:00.000Z',
     deletedAt: null,
-    id: '10000000-0000-4000-8000-000000000010',
+    id: translationId,
     key: 'home.title',
     languageId: '10000000-0000-4000-8000-000000000001',
     namespace: 'static',
@@ -79,5 +81,38 @@ describe('TranslationsAdmin', () => {
     });
     expect(screen.getByText('Accueil')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'New translation' })).toBeTruthy();
+  });
+
+  it('soft-deletes a row after confirmation and refreshes the list', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(apiFetch).mockImplementation(async (url, init) => {
+      const path = typeof url === 'string' ? url : String(url);
+      if (path === `/api/translations/${translationId}` && init?.method === 'DELETE') {
+        return undefined;
+      }
+      if (path.startsWith('/api/languages'))
+        return { items: languages, next: null } as KeysetList<Language>;
+      if (path.startsWith('/api/translations'))
+        return { items: translations, next: null } as KeysetList<Translation>;
+      throw new Error(`unexpected url in test: ${path}`);
+    });
+
+    render(<TranslationsAdmin />, { wrapper: wrapper() });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Accueil')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(
+        vi
+          .mocked(apiFetch)
+          .mock.calls.some(
+            ([url, init]) => String(url).endsWith(`/${translationId}`) && init?.method === 'DELETE',
+          ),
+      ).toBe(true);
+    });
+    confirmSpy.mockRestore();
   });
 });

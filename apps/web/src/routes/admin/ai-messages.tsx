@@ -1,12 +1,13 @@
-import type { AiMessage, AiMessagePrompt, KeysetList } from '@trainslator/shared';
+import type { AiMessage, AiMessagePrompt } from '@trainslator/shared';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { createRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { AdminSearch, Pagination } from '../../components/AdminBits';
-import { formatTimestamp, useCursorStack } from '../../lib/admin';
-import { apiFetch, toQueryString } from '../../lib/api';
+import { formatTimestamp } from '../../lib/admin';
+import { apiFetch } from '../../lib/api';
+import { useAdminList } from '../../lib/use-admin-list';
 import { Route as adminRoute } from '../admin';
 
 export const Route = createRoute({
@@ -22,24 +23,13 @@ const PAGE_SIZE = 20;
  * @returns the rendered admin page
  */
 function AiMessagesAdmin() {
-  const queryClient = useQueryClient();
-  const { back, canBack, current, next, reset } = useCursorStack();
-  const [q, setQ] = useState('');
+  const { back, canBack, deleteRow, hasNext, isFetching, nextPage, rows, search, setSearch } =
+    useAdminList<AiMessage>({
+      endpoint: '/api/ai-messages',
+      pageSize: PAGE_SIZE,
+      resource: 'ai-messages',
+    });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-
-  const params = {
-    pageSize: String(PAGE_SIZE),
-    ...(q ? { q } : {}),
-    ...(current ? { lastCreatedAt: current.lastCreatedAt, lastId: current.lastId } : {}),
-  };
-
-  const { data, isFetching } = useQuery({
-    placeholderData: (previous) => previous,
-    queryFn: () => apiFetch<KeysetList<AiMessage>>(`/api/ai-messages${toQueryString(params)}`),
-    queryKey: ['admin', 'ai-messages', params],
-  });
-
-  const rows = data?.items ?? [];
 
   /**
    * Toggles the inline prompt expansion for one message.
@@ -61,8 +51,7 @@ function AiMessagesAdmin() {
   async function remove(row: AiMessage) {
     if (!window.confirm(`Soft-delete this ${row.model} call from the audit log?`)) return;
     try {
-      await apiFetch(`/api/ai-messages/${row.id}`, { method: 'DELETE' });
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'ai-messages'] });
+      await deleteRow(row.id);
     } catch {
       window.alert('Could not delete the entry.');
     }
@@ -74,12 +63,9 @@ function AiMessagesAdmin() {
         <h1 style={{ fontSize: '1.25rem', margin: 0 }}>AI messages</h1>
         <AdminSearch
           ariaLabel="Search AI messages"
-          onChange={(value) => {
-            reset();
-            setQ(value);
-          }}
+          onChange={setSearch}
           placeholder="Search model, provider, response…"
-          value={q}
+          value={search}
         />
       </div>
 
@@ -156,10 +142,10 @@ function AiMessagesAdmin() {
 
       <Pagination
         canBack={canBack}
-        hasNext={Boolean(data?.next)}
+        hasNext={hasNext}
         isFetching={isFetching}
         onBack={back}
-        onNext={() => data?.next && next(data.next)}
+        onNext={nextPage}
       />
     </div>
   );

@@ -1,8 +1,6 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createRoute } from '@tanstack/react-router';
 import {
   createTranslationSchema,
-  type KeysetList,
   type Language,
   type Translation,
   updateTranslationBodySchema,
@@ -10,9 +8,10 @@ import {
 import { type FormEvent, useMemo, useState } from 'react';
 
 import { AdminSearch, Modal, Pagination } from '../../components/AdminBits';
-import { formatTimestamp, useCursorStack } from '../../lib/admin';
-import { ApiError, apiFetch, toQueryString } from '../../lib/api';
+import { formatTimestamp } from '../../lib/admin';
+import { ApiError, apiFetch } from '../../lib/api';
 import { useLanguages } from '../../lib/languages';
+import { useAdminList } from '../../lib/use-admin-list';
 import { Route as adminRoute } from '../admin';
 
 export const Route = createRoute({
@@ -30,13 +29,31 @@ type Editing = null | { mode: 'create' } | { mode: 'edit'; row: Translation };
  * @returns the rendered admin page
  */
 export function TranslationsAdmin() {
-  const queryClient = useQueryClient();
   const { data: languages = [] } = useLanguages();
-  const { back, canBack, current, next, reset } = useCursorStack();
-
-  const [q, setQ] = useState('');
   const [languageId, setLanguageId] = useState<string>('');
   const [namespace, setNamespace] = useState<string>('');
+  const {
+    back,
+    canBack,
+    deleteRow,
+    hasNext,
+    invalidate,
+    isFetching,
+    nextPage,
+    resetPage,
+    rows,
+    search,
+    setSearch,
+  } = useAdminList<Translation>({
+    endpoint: '/api/translations',
+    extraParams: {
+      ...(languageId ? { languageId } : {}),
+      ...(namespace ? { namespace } : {}),
+    },
+    pageSize: PAGE_SIZE,
+    resource: 'translations',
+  });
+
   const [editing, setEditing] = useState<Editing>(null);
   const [formError, setFormError] = useState<null | string>(null);
   const [busy, setBusy] = useState(false);
@@ -52,22 +69,6 @@ export function TranslationsAdmin() {
     () => new Map(languages.map((language: Language) => [language.id, language.iso6391])),
     [languages],
   );
-
-  const params = {
-    pageSize: String(PAGE_SIZE),
-    ...(q ? { q } : {}),
-    ...(languageId ? { languageId } : {}),
-    ...(namespace ? { namespace } : {}),
-    ...(current ? { lastCreatedAt: current.lastCreatedAt, lastId: current.lastId } : {}),
-  };
-
-  const { data, isFetching } = useQuery({
-    placeholderData: (previous) => previous,
-    queryFn: () => apiFetch<KeysetList<Translation>>(`/api/translations${toQueryString(params)}`),
-    queryKey: ['admin', 'translations', params],
-  });
-
-  const rows = data?.items ?? [];
 
   /**
    *
@@ -165,7 +166,7 @@ export function TranslationsAdmin() {
       }
 
       setEditing(null);
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'translations'] });
+      await invalidate();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setFormError(cause.apiMessage ?? cause.message);
@@ -184,8 +185,7 @@ export function TranslationsAdmin() {
   async function remove(row: Translation) {
     if (!window.confirm(`Soft-delete "${row.text.slice(0, 60)}…"?`)) return;
     try {
-      await apiFetch(`/api/translations/${row.id}`, { method: 'DELETE' });
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'translations'] });
+      await deleteRow(row.id);
     } catch {
       window.alert('Could not delete the translation.');
     }
@@ -198,17 +198,14 @@ export function TranslationsAdmin() {
         <div className="row">
           <AdminSearch
             ariaLabel="Search translations"
-            onChange={(value) => {
-              reset();
-              setQ(value);
-            }}
+            onChange={setSearch}
             placeholder="Search key or text…"
-            value={q}
+            value={search}
           />
           <select
             aria-label="Filter by language"
             onChange={(event) => {
-              reset();
+              resetPage();
               setLanguageId(event.target.value);
             }}
             value={languageId}
@@ -223,7 +220,7 @@ export function TranslationsAdmin() {
           <select
             aria-label="Filter by namespace"
             onChange={(event) => {
-              reset();
+              resetPage();
               setNamespace(event.target.value);
             }}
             value={namespace}
@@ -300,10 +297,10 @@ export function TranslationsAdmin() {
 
       <Pagination
         canBack={canBack}
-        hasNext={Boolean(data?.next)}
+        hasNext={hasNext}
         isFetching={isFetching}
         onBack={back}
-        onNext={() => data?.next && next(data.next)}
+        onNext={nextPage}
       />
 
       {editing && (
