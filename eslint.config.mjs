@@ -38,6 +38,8 @@ export default defineConfig([
     '.cache-dist-bak',
     '**/.cache-dist-bak/**',
     '.agent-swarm/**',
+    // third-party skill content is vendored verbatim by the skills CLI
+    '.agents/**',
     'profiles/**',
   ]),
   {
