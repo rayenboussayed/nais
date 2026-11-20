@@ -19,7 +19,8 @@ const changedFields = changedFieldsFn;
 /**
  * Microbenchmarks for the hot, pure paths on every request and model call.
  * Run: npm run test:perf
- * Compare against a saved baseline with: npm run test:perf -- --outputJson bench-baseline.json
+ * Save a baseline with: npm run test:perf -- --reporter=json --outputFile=bench-baseline.json
+ * Compare against it with: npm run test:perf -- --compare bench-baseline.json
  */
 
 describe('translationKeyFor', () => {
@@ -101,10 +102,13 @@ describe('keysetWhere', () => {
 });
 
 describe('changedFields', () => {
+  // A nested object field forces valuesEqual() down its object branch, so the
+  // benchmark actually exercises canonicalJsonStringify's sorted-key recursion.
   const before = {
     dir: 'ltr',
     iso6391: 'en',
     isSource: true,
+    meta: { aliases: ['en', 'eng'], script: { code: 'Latn', rtl: false } },
     name: 'English',
     nativeName: 'English',
     text: 'x'.repeat(500),
@@ -113,14 +117,22 @@ describe('changedFields', () => {
   // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('returns an empty object for identical patches', async ({ bench }) => {
     await bench('no-op patch', () => {
-      changedFields(before, { ...before });
+      changedFields(before, {
+        ...before,
+        meta: { aliases: ['en', 'eng'], script: { code: 'Latn', rtl: false } },
+      });
     }).run();
   });
 
   // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
   test('returns changed fields for divergent patches', async ({ bench }) => {
     await bench('changed patch', () => {
-      changedFields(before, { ...before, isSource: false, name: 'German' });
+      changedFields(before, {
+        ...before,
+        isSource: false,
+        meta: { aliases: ['en', 'eng'], script: { code: 'Latn', rtl: true } },
+        name: 'German',
+      });
     }).run();
   });
 });
