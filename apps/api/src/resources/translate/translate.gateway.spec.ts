@@ -1,5 +1,7 @@
+import type { WsTranslateAck } from '@trainslator/shared';
 import type { Server, Socket } from 'socket.io';
 
+import { Logger } from '@nestjs/common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TranslateGateway } from './translate.gateway.js';
@@ -150,5 +152,136 @@ describe('import-time gateway options', () => {
       credentials: true,
       origin: ['https://admin.example.com', 'https://ops.example.com'],
     });
+  });
+});
+
+/**
+ * Builds the gateway with stubbed dependencies for translate-handler unit tests.
+ * @param overrides - per-test dependency behaviour
+ * @param overrides.cached - the catalogue row the cache peek should see
+ * @param overrides.cached.text - the catalogue text a cache hit returns
+ * @param overrides.language - the language the fixture resolves, or null to model a missing one
+ * @returns the gateway and its dependency stubs
+ */
+function makeHandlerGateway(
+  overrides: {
+    cached?: { text: string };
+    language?: null | { id: string };
+  } = {},
+) {
+  const translations = {
+    findByLanguageAndKey: vi.fn(async () => overrides.cached ?? null),
+  };
+  const languages = {
+    findByIso: vi.fn(async () =>
+      overrides.language === undefined
+        ? { id: 'lang-1', iso6391: 'fr', name: 'French' }
+        : overrides.language,
+    ),
+  };
+  const pgBoss = { scheduleJob: vi.fn(async () => undefined) };
+  const config = { get: () => undefined };
+  const ai = { peekCache: vi.fn(async () => null) };
+  const gateway = new TranslateGateway(
+    translations as never,
+    languages as never,
+    pgBoss as never,
+    config as never,
+    ai as never,
+  );
+  return { gateway, languages, pgBoss, translations };
+}
+
+const handlerSocket = {
+  data: { username: 'admin' },
+  handshake: { address: '203.0.113.9', headers: {} },
+  id: 'socket-1',
+} as unknown as Socket;
+
+describe('TranslateGateway translate handler ack contract', () => {
+  const requestId = '123e4567-e89b-42d3-a456-426655440000';
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /**
+   * Collects every ack call for assertions.
+   * @returns the collector and the collected ack calls
+   */
+  function ackCollector() {
+    const calls: WsTranslateAck[] = [];
+    const ack = (response: WsTranslateAck) => {
+      calls.push(response);
+    };
+    return { ack, calls };
+  }
+
+  it('rejects a garbage payload with 400 and a null requestId', async () => {
+    const { gateway } = makeHandlerGateway();
+    const { ack, calls } = ackCollector();
+    await gateway.translate(null, handlerSocket, ack);
+    expect(calls).toEqual([{ data: null, requestId: null, statusCode: 400 }]);
+  });
+
+  it('returns a null requestId for a malformed payload without one', async () => {
+    const { gateway } = makeHandlerGateway();
+    const { ack, calls } = ackCollector();
+    await gateway.translate({ targetLanguage: 'fr', text: 'hello' }, handlerSocket, ack);
+    expect(calls).toEqual([{ data: null, requestId: null, statusCode: 400 }]);
+  });
+
+  it('extracts a valid requestId from an otherwise malformed payload for 400', async () => {
+    const { gateway } = makeHandlerGateway();
+    const { ack, calls } = ackCollector();
+    await gateway.translate({ requestId, targetLanguage: 42, text: 'hello' }, handlerSocket, ack);
+    expect(calls).toEqual([{ data: null, requestId, statusCode: 400 }]);
+  });
+
+  it('answers 429 with retryAfterMs once the identity budget is exhausted', async () => {
+    const { gateway } = makeHandlerGateway();
+    const message = { requestId, targetLanguage: 'fr', text: 'hello' };
+    for (let i = 0; i < 10; i += 1) {
+      await gateway.translate(message, handlerSocket, () => {});
+    }
+    const { ack, calls } = ackCollector();
+    await gateway.translate(message, handlerSocket, ack);
+    expect(calls).toEqual([{ data: null, requestId, retryAfterMs: 60_000, statusCode: 429 }]);
+  });
+
+  it('answers 404 for a missing language', async () => {
+    const { gateway } = makeHandlerGateway({ language: null });
+    const { ack, calls } = ackCollector();
+    await gateway.translate({ requestId, targetLanguage: 'zz', text: 'hello' }, handlerSocket, ack);
+    expect(calls).toEqual([{ data: null, requestId, statusCode: 404 }]);
+  });
+
+  it('answers 200 with the cached text inline', async () => {
+    const { gateway } = makeHandlerGateway({ cached: { text: 'bonjour' } });
+    const { ack, calls } = ackCollector();
+    await gateway.translate({ requestId, targetLanguage: 'fr', text: 'hello' }, handlerSocket, ack);
+    expect(calls).toEqual([{ data: 'bonjour', requestId, statusCode: 200 }]);
+  });
+
+  it('answers 202 and enqueues with retryLimit 0 on a cache miss', async () => {
+    const { gateway, pgBoss } = makeHandlerGateway();
+    const { ack, calls } = ackCollector();
+    await gateway.translate({ requestId, targetLanguage: 'fr', text: 'hello' }, handlerSocket, ack);
+    expect(pgBoss.scheduleJob).toHaveBeenCalledWith(
+      'ai-task',
+      expect.objectContaining({ requestId, task: 'translate' }),
+      { retryLimit: 0 },
+    );
+    expect(calls).toEqual([{ data: null, requestId, statusCode: 202 }]);
+  });
+
+  it('answers 500 and logs only the error name with the translate message', async () => {
+    const { gateway, languages } = makeHandlerGateway();
+    languages.findByIso.mockRejectedValueOnce(new Error('db on fire'));
+    const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const { ack, calls } = ackCollector();
+    await gateway.translate({ requestId, targetLanguage: 'fr', text: 'hello' }, handlerSocket, ack);
+    expect(calls).toEqual([{ data: null, requestId, statusCode: 500 }]);
+    expect(log).toHaveBeenCalledWith('translate handler failed: Error');
   });
 });

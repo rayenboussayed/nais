@@ -51,7 +51,27 @@ import { TranslationsService } from '../translations/translations.service.js';
  */
 export const gatewayOptions = buildGatewayOptions(importTimeEnv('CORS_ORIGINS'));
 
+/** Cache lookup result produced by a pipeline peek strategy. */
+type CacheOutcome =
+  | { kind: 'catalogue-hit'; text: string }
+  | { kind: 'dedicated-hit'; result: Record<string, unknown> }
+  | { kind: 'miss' }
+  | { kind: 'missing-language' };
+
 type OutboundEvent = 'ai-error' | 'ai-result' | 'translation' | 'translation-error';
+
+/** Discriminated outcome of the pipeline shared by both message handlers. */
+type PipelineOutcome =
+  | { kind: 'accepted' }
+  | { kind: 'catalogue-hit'; text: string }
+  | { kind: 'dedicated-hit'; result: Record<string, unknown> }
+  | { kind: 'failed' }
+  | { kind: 'invalid-input' }
+  | { kind: 'missing-language' }
+  | { kind: 'rate-limited' };
+
+/** The validated translate-task input used for catalogue lookups. */
+type TranslateInput = { targetLanguage: string; text: string };
 
 /**
  * socket.io gateway for the async AI flow. Clients emit `translate` (legacy,
@@ -155,85 +175,25 @@ export class TranslateGateway implements OnGatewayInit {
     }
     const message = parsed.data;
     const task = message.task;
-    try {
-      const identity = this.identityOf(client);
-      if (!this.limiter.hit(identity)) {
-        return ack({
-          cached: null,
-          requestId: message.requestId,
-          result: null,
-          retryAfterMs: 60_000,
-          statusCode: 429,
-        });
-      }
-
-      // Per-task input validation; translate also needs the catalogue peek.
-      // eslint-disable-next-line security/detect-object-injection -- task narrowed to AiTask by aiTaskSchema before this point
-      const inputParse = aiRequestSchemas[task].safeParse(message.input);
-      if (!inputParse.success) {
-        return ack({
-          cached: null,
-          requestId: message.requestId,
-          result: null,
-          statusCode: 400,
-        });
-      }
-      const input = inputParse.data as Record<string, unknown>;
-
-      if (task === 'translate') {
-        const translateInput = input as { targetLanguage: string; text: string };
-        const language = await this.languages.findByIso(translateInput.targetLanguage);
-        if (!language) {
-          return ack({
-            cached: null,
-            requestId: message.requestId,
-            result: null,
-            statusCode: 404,
-          });
-        }
-        const cached = await this.translations.findByLanguageAndKey(
-          language.id,
-          translationKeyFor(translateInput.text),
-        );
-        if (cached) {
-          return ack({
-            cached: true,
-            requestId: message.requestId,
-            result: { cached: true, text: cached.text },
-            statusCode: 200,
-          });
-        }
-      } else {
-        const peek = await this.ai.peekCache(task, input);
-        if (peek) {
-          return ack({
-            cached: true,
-            requestId: message.requestId,
-            result: peek,
-            statusCode: 200,
-          });
-        }
-      }
-
-      await this.enqueue(task, input, message.requestId, client.id);
-
-      return ack({
-        cached: null,
-        requestId: message.requestId,
-        result: null,
-        statusCode: 202,
-      });
-    } catch (error) {
-      this.logger.error(
-        `ai handler failed: ${error instanceof Error ? error.name : 'unknown error'}`,
-      );
-      return ack({
-        cached: null,
-        requestId: message.requestId,
-        result: null,
-        statusCode: 500,
-      });
-    }
+    const outcome = await this.runPipeline({
+      client,
+      handlerName: 'ai handler failed',
+      peek: (input) =>
+        task === 'translate'
+          ? this.peekCatalogue(
+              (input as TranslateInput).targetLanguage,
+              (input as TranslateInput).text,
+            )
+          : this.peekDedicated(task, input),
+      requestId: message.requestId,
+      task,
+      validate: () => {
+        // eslint-disable-next-line security/detect-object-injection -- task narrowed to AiTask by aiTaskSchema before this point
+        const inputParse = aiRequestSchemas[task].safeParse(message.input);
+        return inputParse.success ? (inputParse.data as Record<string, unknown>) : null;
+      },
+    });
+    return ack(aiAckFor(outcome, message.requestId));
   }
 
   /**
@@ -255,48 +215,15 @@ export class TranslateGateway implements OnGatewayInit {
       return ack({ data: null, requestId: extractRequestId(data), statusCode: 400 });
     }
     const message = parsed.data;
-    try {
-      const identity = this.identityOf(client);
-      if (!this.limiter.hit(identity)) {
-        return ack({
-          data: null,
-          requestId: message.requestId,
-          retryAfterMs: 60_000,
-          statusCode: 429,
-        });
-      }
-
-      const language = await this.languages.findByIso(message.targetLanguage);
-      if (!language) {
-        return ack({ data: null, requestId: message.requestId, statusCode: 404 });
-      }
-
-      const cached = await this.translations.findByLanguageAndKey(
-        language.id,
-        translationKeyFor(message.text),
-      );
-      if (cached) {
-        return ack({
-          data: cached.text,
-          requestId: message.requestId,
-          statusCode: 200,
-        });
-      }
-
-      await this.enqueue(
-        'translate',
-        { targetLanguage: message.targetLanguage, text: message.text },
-        message.requestId,
-        client.id,
-      );
-
-      return ack({ data: null, requestId: message.requestId, statusCode: 202 });
-    } catch (error) {
-      this.logger.error(
-        `translate handler failed: ${error instanceof Error ? error.name : 'unknown error'}`,
-      );
-      return ack({ data: null, requestId: message.requestId, statusCode: 500 });
-    }
+    const outcome = await this.runPipeline({
+      client,
+      handlerName: 'translate handler failed',
+      peek: () => this.peekCatalogue(message.targetLanguage, message.text),
+      requestId: message.requestId,
+      task: 'translate',
+      validate: () => ({ targetLanguage: message.targetLanguage, text: message.text }),
+    });
+    return ack(translateAckFor(outcome, message.requestId));
   }
 
   private async enqueue(
@@ -318,9 +245,113 @@ export class TranslateGateway implements OnGatewayInit {
   private identityOf(client: Socket): string {
     return client.data.username as string;
   }
+
+  /**
+   * Resolves the target language and peeks the translation catalogue.
+   * @param targetLanguage - the ISO-639-1 code carried by the request
+   * @param text - the source text whose canonical key is looked up
+   * @returns a catalogue hit, a miss, or a missing-language outcome
+   */
+  private async peekCatalogue(targetLanguage: string, text: string): Promise<CacheOutcome> {
+    const language = await this.languages.findByIso(targetLanguage);
+    if (!language) {
+      return { kind: 'missing-language' };
+    }
+    const cached = await this.translations.findByLanguageAndKey(
+      language.id,
+      translationKeyFor(text),
+    );
+    return cached ? { kind: 'catalogue-hit', text: cached.text } : { kind: 'miss' };
+  }
+
+  /**
+   * Peeks the AI result cache for a dedicated (non-translate) task.
+   * @param task - the AI task whose cache is inspected
+   * @param input - the validated task input
+   * @returns a dedicated hit or a miss
+   */
+  private async peekDedicated(
+    task: Exclude<AiTask, 'translate'>,
+    input: Record<string, unknown>,
+  ): Promise<CacheOutcome> {
+    const peek = await this.ai.peekCache(task, input);
+    return peek ? { kind: 'dedicated-hit', result: peek } : { kind: 'miss' };
+  }
+
+  /**
+   * Runs the rate limit -> validation -> cache peek -> enqueue flow shared by
+   * both message handlers; a failure is logged once with the caller's message.
+   * @param request - normalized inputs and strategy callbacks for this message
+   * @param request.client - the sending socket, used for identity and id
+   * @param request.handlerName - log label identifying the calling handler
+   * @param request.peek - strategy returning the cache lookup outcome
+   * @param request.requestId - correlation id carried into the queued job
+   * @param request.task - AI task used when enqueuing a cache miss
+   * @param request.validate - per-task input validator returning null on failure
+   * @returns a discriminated outcome the caller maps to its own ack shape
+   */
+  private async runPipeline(request: {
+    client: Socket;
+    handlerName: string;
+    peek: (input: Record<string, unknown>) => Promise<CacheOutcome>;
+    requestId: string;
+    task: AiTask;
+    validate: () => null | Record<string, unknown>;
+  }): Promise<PipelineOutcome> {
+    try {
+      if (!this.limiter.hit(this.identityOf(request.client))) {
+        return { kind: 'rate-limited' };
+      }
+      const input = request.validate();
+      if (input === null) {
+        return { kind: 'invalid-input' };
+      }
+      const peeked = await request.peek(input);
+      if (peeked.kind === 'miss') {
+        await this.enqueue(request.task, input, request.requestId, request.client.id);
+        return { kind: 'accepted' };
+      }
+      return peeked;
+    } catch (error) {
+      this.logger.error(
+        `${request.handlerName}: ${error instanceof Error ? error.name : 'unknown error'}`,
+      );
+      return { kind: 'failed' };
+    }
+  }
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Maps a shared pipeline outcome onto the `ai` message ack contract.
+ * @param outcome - the outcome returned by the shared pipeline
+ * @param requestId - the validated request correlation id
+ * @returns the exact wire ack for this outcome
+ */
+function aiAckFor(outcome: PipelineOutcome, requestId: string): WsAiAck {
+  switch (outcome.kind) {
+    case 'accepted':
+      return { cached: null, requestId, result: null, statusCode: 202 };
+    case 'catalogue-hit':
+      return {
+        cached: true,
+        requestId,
+        result: { cached: true, text: outcome.text },
+        statusCode: 200,
+      };
+    case 'dedicated-hit':
+      return { cached: true, requestId, result: outcome.result, statusCode: 200 };
+    case 'failed':
+      return { cached: null, requestId, result: null, statusCode: 500 };
+    case 'invalid-input':
+      return { cached: null, requestId, result: null, statusCode: 400 };
+    case 'missing-language':
+      return { cached: null, requestId, result: null, statusCode: 404 };
+    case 'rate-limited':
+      return { cached: null, requestId, result: null, retryAfterMs: 60_000, statusCode: 429 };
+  }
+}
 
 /**
  * Pulls a valid uuid requestId out of a garbage payload, else null.
@@ -331,4 +362,29 @@ function extractRequestId(data: unknown): null | string {
   if (typeof data !== 'object' || data === null) return null;
   const candidate = (data as Record<string, unknown>).requestId;
   return typeof candidate === 'string' && UUID_RE.test(candidate) ? candidate : null;
+}
+
+/**
+ * Maps a shared pipeline outcome onto the legacy `translate` ack contract.
+ * @param outcome - the outcome returned by the shared pipeline
+ * @param requestId - the validated request correlation id
+ * @returns the exact wire ack for this outcome
+ */
+function translateAckFor(outcome: PipelineOutcome, requestId: string): WsTranslateAck {
+  switch (outcome.kind) {
+    case 'accepted':
+      return { data: null, requestId, statusCode: 202 };
+    case 'catalogue-hit':
+      return { data: outcome.text, requestId, statusCode: 200 };
+    case 'failed':
+      return { data: null, requestId, statusCode: 500 };
+    case 'missing-language':
+      return { data: null, requestId, statusCode: 404 };
+    case 'rate-limited':
+      return { data: null, requestId, retryAfterMs: 60_000, statusCode: 429 };
+    default:
+      // Unreachable for translate: its validate never fails and its peek is
+      // catalogue-only. Both would be a 400 on the legacy contract.
+      return { data: null, requestId, statusCode: 400 };
+  }
 }

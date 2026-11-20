@@ -1,7 +1,8 @@
 import type { WsAiAck } from '@trainslator/shared';
 import type { Socket } from 'socket.io';
 
-import { describe, expect, it, vi } from 'vitest';
+import { Logger } from '@nestjs/common';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TranslateGateway } from './translate.gateway.js';
 
@@ -65,6 +66,10 @@ function ackCollector() {
 }
 
 describe('TranslateGateway ai handler', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('rejects a garbage payload with 400 and a null requestId', async () => {
     const { gateway } = makeGateway();
     const { ack, calls } = ackCollector();
@@ -78,6 +83,29 @@ describe('TranslateGateway ai handler', () => {
     const requestId = '123e4567-e89b-42d3-a456-426655440000';
     await gateway.onAiMessage({ input: { nope: true }, requestId, task: 'sentiment' }, socket, ack);
     expect(calls).toEqual([{ cached: null, requestId, result: null, statusCode: 400 }]);
+  });
+
+  it('answers 429 with retryAfterMs once the identity budget is exhausted', async () => {
+    const { gateway } = makeGateway({ peek: null });
+    const message = {
+      input: { text: 'spam' },
+      requestId: '123e4567-e89b-42d3-a456-426655440000',
+      task: 'sentiment',
+    };
+    for (let i = 0; i < 10; i += 1) {
+      await gateway.onAiMessage(message, socket, () => {});
+    }
+    const { ack, calls } = ackCollector();
+    await gateway.onAiMessage(message, socket, ack);
+    expect(calls).toEqual([
+      {
+        cached: null,
+        requestId: '123e4567-e89b-42d3-a456-426655440000',
+        result: null,
+        retryAfterMs: 60_000,
+        statusCode: 429,
+      },
+    ]);
   });
 
   it('answers 404 for an unsupported target language on the translate task', async () => {
@@ -181,6 +209,7 @@ describe('TranslateGateway ai handler', () => {
   it('answers 500 (not a hang) when the backend throws', async () => {
     const { gateway, languages } = makeGateway({ peek: null });
     languages.findByIso.mockRejectedValueOnce(new Error('db on fire'));
+    const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
     const { ack, calls } = ackCollector();
     await gateway.onAiMessage(
       {
@@ -199,5 +228,6 @@ describe('TranslateGateway ai handler', () => {
         statusCode: 500,
       },
     ]);
+    expect(log).toHaveBeenCalledWith('ai handler failed: Error');
   });
 });
