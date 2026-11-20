@@ -1,4 +1,5 @@
 {
+  "ignore": [".agents/**"],
   "workspaces": {
     ".": {
       "entry": ["scripts/ollama-smoke.mjs"]
