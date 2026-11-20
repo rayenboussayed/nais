@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   cursorTimestampSchema,
   iso6391Schema,
+  keysetCursorSchema,
   paginationSchema,
   wsAckStatusCodeSchema,
 } from './common';
@@ -98,6 +99,47 @@ describe('paginationSchema', () => {
 
   it('rejects queries longer than 255 characters', () => {
     expect(() => paginationSchema.parse({ q: 'a'.repeat(256) })).toThrow();
+  });
+});
+
+describe('keysetCursorSchema', () => {
+  const validId = '123e4567-e89b-42d3-a456-426655440000';
+  const validAt = '2026-11-18T00:00:00.000Z';
+  const offsetAt = '2026-11-18T00:00:00.000+00:00';
+
+  it('accepts a complete cursor', () => {
+    expect(keysetCursorSchema.parse({ lastCreatedAt: validAt, lastId: validId })).toEqual({
+      lastCreatedAt: validAt,
+      lastId: validId,
+    });
+  });
+
+  it('accepts a numeric-offset ISO datetime', () => {
+    const parsed = keysetCursorSchema.parse({ lastCreatedAt: offsetAt, lastId: validId });
+    expect(parsed.lastCreatedAt).toBe(offsetAt);
+  });
+
+  it('accepts the DB-shaped cursor with six fractional digits and short offset', () => {
+    const dbCursor = '2026-11-18T23:05:21.809035+00';
+    expect(keysetCursorSchema.parse({ lastCreatedAt: dbCursor, lastId: validId })).toEqual({
+      lastCreatedAt: dbCursor,
+      lastId: validId,
+    });
+  });
+
+  it('requires both fields', () => {
+    expect(() => keysetCursorSchema.parse({})).toThrow();
+    expect(() => keysetCursorSchema.parse({ lastId: validId })).toThrow();
+    expect(() => keysetCursorSchema.parse({ lastCreatedAt: validAt })).toThrow();
+  });
+
+  it('rejects malformed values', () => {
+    expect(() =>
+      keysetCursorSchema.parse({ lastCreatedAt: 'not-a-timestamp', lastId: validId }),
+    ).toThrow();
+    expect(() =>
+      keysetCursorSchema.parse({ lastCreatedAt: validAt, lastId: 'not-a-uuid' }),
+    ).toThrow();
   });
 });
 

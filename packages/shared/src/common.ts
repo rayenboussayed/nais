@@ -78,6 +78,22 @@ export const cursorPairRefine = (
 export const paginationSchema = paginationBaseSchema.superRefine(cursorPairRefine);
 export type Pagination = z.infer<typeof paginationSchema>;
 
+/**
+ * A complete `(created_at, id)` keyset cursor as returned by the API: both halves are
+ * required. For consumers that already hold a full cursor (e.g. web list state) and
+ * need to validate it without the query-string "both or neither" rule of `cursorPairRefine`.
+ * Field types mirror `keysetListSchema.next`, so this validates the exact wire shape.
+ */
+export const keysetCursorSchema = z.object({
+  /** Anchor row `created_at` half of the keyset: DB-shaped, µs-precision ISO-8601 timestamp. */
+  lastCreatedAt: cursorTimestampSchema,
+  /** Anchor row of the previous page (id half of the keyset). */
+  lastId: z.uuid(),
+});
+
+/** A fully resolved keyset cursor `(lastCreatedAt, lastId)` from the API. */
+export type KeysetCursor = z.infer<typeof keysetCursorSchema>;
+
 /** Optional namespace filter, shared by list endpoints. */
 export const namespaceFilterSchema = translationNamespaceSchema.optional();
 

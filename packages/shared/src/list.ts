@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { cursorTimestampSchema } from './common';
+import { keysetCursorSchema } from './common';
 
 /**
  * Keyset-paginated list envelope. Callers pass the item schema; the response
@@ -12,12 +12,7 @@ import { cursorTimestampSchema } from './common';
 export const keysetListSchema = <T extends z.ZodTypeAny>(item: T) =>
   z.object({
     items: z.array(item),
-    next: z
-      .object({
-        lastCreatedAt: cursorTimestampSchema,
-        lastId: z.uuid(),
-      })
-      .nullable(),
+    next: keysetCursorSchema.nullable(),
   });
 
 /**
