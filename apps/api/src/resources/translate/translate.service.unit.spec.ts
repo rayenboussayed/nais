@@ -156,46 +156,7 @@ function transactionStub({
   };
 }
 
-describe('TranslateService.onModuleInit (stale processing reaper)', () => {
-  /**
-   * DB double for the stale-reaper path of onModuleInit.
-   * @param returning - rows the reaper update resolves with
-   * @param updateError - when set, the reaper throws this instead
-   * @returns the Database double
-   */
-  function buildReaperDb(returning: unknown, updateError?: unknown) {
-    return {
-      update: () => ({
-        set: () => ({
-          where: () => ({
-            returning: async () => {
-              if (updateError) throw updateError;
-              return returning;
-            },
-          }),
-        }),
-      }),
-    } as unknown as Database;
-  }
-
-  it('logs and resolves when stale rows are reaped', async () => {
-    const service = new TranslateService(
-      buildReaperDb([{ id: 'a' }, { id: 'b' }]),
-      aiStub() as unknown as AiService,
-      configStub(),
-    );
-    await expect(service.onModuleInit()).resolves.toBeUndefined();
-  });
-
-  it('swallows a reaper failure that is not an Error instance', async () => {
-    const service = new TranslateService(
-      buildReaperDb(undefined, 'a string, not an error'),
-      aiStub() as unknown as AiService,
-      configStub(),
-    );
-    await expect(service.onModuleInit()).resolves.toBeUndefined();
-  });
-
+describe('TranslateService (stubbed database and model)', () => {
   it('swallows a failure-marking error that is not an Error instance', async () => {
     const db = {
       ...buildDb({ auditReturning: [{ id: 'msg-1' }], languageRow: language }),
@@ -215,26 +176,6 @@ describe('TranslateService.onModuleInit (stale processing reaper)', () => {
     await expect(service.translate({ ...request })).rejects.toThrow('Translation timed out');
   });
 
-  it('swallows and logs a failing reaper without taking the boot down', async () => {
-    const service = new TranslateService(
-      buildReaperDb(undefined, new Error('permission denied')),
-      aiStub() as unknown as AiService,
-      configStub(),
-    );
-    await expect(service.onModuleInit()).resolves.toBeUndefined();
-  });
-
-  it('resolves quietly when nothing stale exists', async () => {
-    const service = new TranslateService(
-      buildReaperDb([]),
-      aiStub() as unknown as AiService,
-      configStub(),
-    );
-    await expect(service.onModuleInit()).resolves.toBeUndefined();
-  });
-});
-
-describe('TranslateService (stubbed database and model)', () => {
   it('still reports the timeout even when the failure audit also fails', async () => {
     // The catch-all path updates aiMessages to 'failed' on error; if that
     // write itself fails, it is swallowed (audit is best-effort) and the

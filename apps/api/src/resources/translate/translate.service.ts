@@ -9,10 +9,9 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, eq, isNull, lt } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import type { Database } from '../../db/drizzle.module.js';
 import type { Env } from '../../environment.js';
@@ -37,7 +36,7 @@ type TranslateOutcome = TranslateResponse;
  * in one transaction, and single-flight deduplication of identical requests.
  */
 @Injectable()
-export class TranslateService implements OnModuleInit {
+export class TranslateService {
   private readonly inflight = new Inflight<string, TranslateOutcome>();
   private readonly logger = new Logger(TranslateService.name);
 
@@ -46,29 +45,6 @@ export class TranslateService implements OnModuleInit {
     private readonly ai: AiService,
     private readonly config: ConfigService<Env, true>,
   ) {}
-
-  /** Marks stale `processing` audit rows as failed; covers a crash mid-pipeline. Fails soft: a boot without a writable audit table must not take the service down. */
-  async onModuleInit(): Promise<void> {
-    try {
-      const rows = await this.db
-        .update(aiMessages)
-        .set({ status: 'failed', updatedAt: new Date() })
-        .where(
-          and(
-            eq(aiMessages.status, 'processing'),
-            lt(aiMessages.createdAt, new Date(Date.now() - 10 * 60 * 1000)),
-          ),
-        )
-        .returning({ id: aiMessages.id });
-      if (rows.length > 0) {
-        this.logger.warn(`reaped ${rows.length} stale processing AI message(s)`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `stale processing reaper skipped: ${error instanceof Error ? error.name : 'unknown error'}`,
-      );
-    }
-  }
 
   /**
    * Translates `input.text` into `input.targetLanguage` (ISO 639-1).
