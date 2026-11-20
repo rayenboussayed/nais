@@ -23,7 +23,7 @@ services:
       retries: 20
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.16
     restart: unless-stopped
     volumes:
       - ollama-data:/root/.ollama
@@ -37,7 +37,7 @@ services:
   # One-shot: pulls the configured model, then exits. Downstream services
   # wait for completion before starting.
   ollama-init:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.16
     depends_on:
       ollama:
         condition: service_healthy
@@ -68,10 +68,12 @@ services:
     environment:
       NODE_ENV: production
       OLLAMA_BASE_URL: http://ollama:11434
-      DATABASE_URL: postgresql://${POSTGRES_USER:-trainslator}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-trainslator}
-      PG_BOSS_URL: postgresql://${POSTGRES_USER:-trainslator}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-trainslator}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-trainslator}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-trainslator}
+      PG_BOSS_URL: postgresql://${POSTGRES_USER:-trainslator}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-trainslator}
       HF_CACHE_DIR: /hf-cache
       PORT: 3000
+      BASIC_AUTH_PASSWORD_HASH: ${BASIC_AUTH_PASSWORD_HASH:?Set BASIC_AUTH_PASSWORD_HASH in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
     volumes:
       - hf-cache:/hf-cache
     depends_on:
@@ -81,12 +83,6 @@ services:
         condition: service_completed_successfully
     ports:
       - '${PORT:-3000}:3000'
-    healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/health > /dev/null 2>&1']
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 20s
 
 volumes:
   db-data:
