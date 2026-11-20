@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { importTimeEnv } from '../ai/pipeline-loader.js';
+
 /**
  * Loads the prompt templates once, at module import. The production pair is
  * the full MQM-style translator prompt; the development pair is a minimal
@@ -10,7 +12,8 @@ import { fileURLToPath } from 'node:url';
  * `templates/prompts/translation/{production,development}` convention.
  */
 const templatesRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), 'templates');
-const variant = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+const variant =
+  importTimeEnv('NODE_ENV', 'development') === 'production' ? 'production' : 'development';
 
 // eslint-disable-next-line security/detect-non-literal-fs-filename -- path derived from import.meta.url at load time, not from caller input
 const TRANSLATE_SYSTEM_PROMPT: string = readFileSync(

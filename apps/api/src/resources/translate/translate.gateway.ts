@@ -41,11 +41,15 @@ import {
 import { translationKeyFor } from '../../utils/key.js';
 import { RateLimiter } from '../../utils/rate-limit.js';
 import { AiService } from '../ai/ai.service.js';
+import { importTimeEnv } from '../ai/pipeline-loader.js';
 import { LanguagesService } from '../languages/languages.service.js';
 import { TranslationsService } from '../translations/translations.service.js';
 
-/** Gateway options; import time constant derived from the environment. */
-const gatewayOptions = buildGatewayOptions(process.env.CORS_ORIGINS);
+/**
+ * Gateway options; import time constant derived from CORS_ORIGINS via the
+ * narrow env reader (empty when unset, matching the previous default).
+ */
+export const gatewayOptions = buildGatewayOptions(importTimeEnv('CORS_ORIGINS'));
 
 type OutboundEvent = 'ai-error' | 'ai-result' | 'translation' | 'translation-error';
 

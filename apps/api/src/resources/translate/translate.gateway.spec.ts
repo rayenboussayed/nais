@@ -1,6 +1,6 @@
 import type { Server, Socket } from 'socket.io';
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TranslateGateway } from './translate.gateway.js';
 
@@ -125,5 +125,30 @@ describe('TranslateGateway handshake backstop', () => {
 
     expect(next).toHaveBeenCalledWith(expect.any(Error));
     expect(next.mock.calls[0]?.[0]?.message).toBe('too many connections');
+  });
+});
+
+describe('import-time gateway options', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('omits the cors block when CORS_ORIGINS is unset (preserved default)', async () => {
+    vi.resetModules();
+    vi.stubEnv('CORS_ORIGINS', '');
+    const mod = await import('./translate.gateway.js');
+    expect('cors' in mod.gatewayOptions).toBe(false);
+    expect(mod.gatewayOptions.path).toBe('/socket.io');
+    expect(mod.gatewayOptions.maxHttpBufferSize).toBe(65_536);
+  });
+
+  it('builds the exact-match allowlist from CORS_ORIGINS at import time', async () => {
+    vi.resetModules();
+    vi.stubEnv('CORS_ORIGINS', 'https://admin.example.com, https://ops.example.com');
+    const mod = await import('./translate.gateway.js');
+    expect(mod.gatewayOptions.cors).toEqual({
+      credentials: true,
+      origin: ['https://admin.example.com', 'https://ops.example.com'],
+    });
   });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   buildHumanPrompt,
@@ -80,5 +80,26 @@ describe('stripEnclosingQuotes', () => {
     expect(stripEnclosingQuotes('"bonjour')).toBe('"bonjour');
     expect(stripEnclosingQuotes('bonjour"')).toBe('bonjour"');
     expect(stripEnclosingQuotes('"a" extra "b"')).toBe('"a" extra "b"');
+  });
+});
+
+describe('import-time prompt variant', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('loads the development pair when NODE_ENV is unset (preserved default)', async () => {
+    vi.resetModules();
+    vi.stubEnv('NODE_ENV', '');
+    const mod = await import('./prompts.js');
+    expect(mod.buildSystemPrompt('French')).toContain('You are a professional translator');
+    expect(mod.TRANSLATE_HUMAN_PROMPT).toContain('{TEXT}');
+  });
+
+  it('loads the production pair only when NODE_ENV is production', async () => {
+    vi.resetModules();
+    vi.stubEnv('NODE_ENV', 'production');
+    const mod = await import('./prompts.js');
+    expect(mod.buildSystemPrompt('French')).toContain('ROLE');
   });
 });

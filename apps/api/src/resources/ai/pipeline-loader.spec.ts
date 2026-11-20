@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const transformersMock = vi.hoisted(() => ({
   pipeline: vi.fn(),
@@ -16,10 +16,14 @@ vi.mock('./webgpu-globals.js', () => ({
   ensureWebgpuGlobals: webgpuGlobalsMock.ensureWebgpuGlobals,
 }));
 
-import { PipelineLoader, resolveModelId } from './pipeline-loader.js';
+import { importTimeEnv, PipelineLoader, resolveModelId } from './pipeline-loader.js';
 import { AI_TASK_REGISTRY, defaultModelFor, listTaskDescriptors, modelEnvKey } from './tasks.js';
 
 const taskList = Object.keys(AI_TASK_REGISTRY) as Array<keyof typeof AI_TASK_REGISTRY>;
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 /**
  * Extracts the `device` from a mocked pipeline call's options argument.
@@ -165,5 +169,35 @@ describe('PipelineLoader', () => {
     const loader = new PipelineLoader(configStub({ AI_SENTIMENT_MODEL: 'acme/fast-sentiment' }));
     expect(loader.modelFor('sentiment')).toBe('acme/fast-sentiment');
     expect(loader.modelFor('translate')).toBe(defaultModelFor('translate'));
+  });
+});
+
+describe('importTimeEnv', () => {
+  it('returns the empty-string default when the variable is unset', () => {
+    expect(importTimeEnv('SOME_UNSET_KEY', '', {})).toBe('');
+  });
+
+  it('preserves an explicit default for unset variables (NODE_ENV → development)', () => {
+    expect(importTimeEnv('NODE_ENV', 'development', {})).toBe('development');
+  });
+
+  it('uses `??` semantics: an empty string is a value, not the default', () => {
+    expect(importTimeEnv('CORS_ORIGINS', 'fallback', { CORS_ORIGINS: '' })).toBe('');
+    expect(importTimeEnv('CORS_ORIGINS', 'fallback', { CORS_ORIGINS: 'https://a.example' })).toBe(
+      'https://a.example',
+    );
+  });
+
+  it('reads from process.env when no source map is supplied', () => {
+    vi.stubEnv('IMPORT_TIME_ENV_PROBE', 'from-process-env');
+    expect(importTimeEnv('IMPORT_TIME_ENV_PROBE')).toBe('from-process-env');
+  });
+
+  it('falls back to the registry default when the model override is unset or blank', () => {
+    expect(resolveModelId('sentiment', { AI_SENTIMENT_MODEL: '' })).toBe(
+      defaultModelFor('sentiment'),
+    );
+    vi.stubEnv('AI_SENTIMENT_MODEL', '');
+    expect(resolveModelId('sentiment')).toBe(defaultModelFor('sentiment'));
   });
 });

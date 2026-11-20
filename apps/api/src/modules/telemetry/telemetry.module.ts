@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { OpenTelemetryModule } from 'nestjs-otel';
 
 import { getOtelSdk } from '../../app.tracing.js';
+import { importTimeEnv } from '../../resources/ai/pipeline-loader.js';
 
 /**
  * Binds host metrics (CPU, memory, event loop) to the global meter provider
@@ -12,7 +13,7 @@ import { getOtelSdk } from '../../app.tracing.js';
  * the module graph, zero observers.
  */
 const otelImports =
-  (process.env.OTEL_TRACE_EXPORTER_URL ?? '').trim().length > 0
+  importTimeEnv('OTEL_TRACE_EXPORTER_URL').trim().length > 0
     ? [OpenTelemetryModule.forRoot({ metrics: { hostMetrics: true } })]
     : [];
 

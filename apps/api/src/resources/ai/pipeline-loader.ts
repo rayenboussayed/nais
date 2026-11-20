@@ -128,6 +128,26 @@ export class PipelineLoader {
 }
 
 /**
+ * Reads one narrow environment variable at module-import time with a safe
+ * fallback. Only for values that must be known before Nest boots (decorator
+ * options, prompt template choice, telemetry gate, model-id overrides).
+ * This is deliberately not a validator: required values stay validated by
+ * `validateEnv` at boot, and no full validation happens at import time.
+ * @param key - the environment variable name
+ * @param fallback - value returned when the variable is unset (default: empty string)
+ * @param source - env map to read from (defaults to `process.env`)
+ * @returns the raw value or `fallback` when unset
+ */
+export function importTimeEnv(
+  key: string,
+  fallback: string = '',
+  source: Readonly<Record<string, string | undefined>> = process.env,
+): string {
+  const value: unknown = Reflect.get(source, key);
+  return typeof value === 'string' ? value : fallback;
+}
+
+/**
  * Resolves the effective model id for a task: `AI_<TASK>_MODEL` override or the registry default.
  * @param task - the task whose effective model to resolve
  * @param env - the env map to read overrides from (defaults to process.env)
@@ -137,6 +157,6 @@ export function resolveModelId(
   task: AiTask,
   env: Record<string, string | undefined> = process.env,
 ): string {
-  const override = env[modelEnvKey(task)];
-  return override && override.trim().length > 0 ? override.trim() : defaultModelFor(task);
+  const override = importTimeEnv(modelEnvKey(task), '', env);
+  return override.trim().length > 0 ? override.trim() : defaultModelFor(task);
 }
