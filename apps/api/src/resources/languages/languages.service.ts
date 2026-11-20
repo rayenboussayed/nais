@@ -30,6 +30,15 @@ type LanguageRow = typeof languages.$inferSelect;
 /** Language catalogue and admin CRUD; iso639_1 is enforced unique by the database. */
 @Injectable()
 export class LanguagesService {
+  /**
+   * Bumped on every successful write so an in-flight `findByIso` SELECT that
+   * resolves after the write cannot repopulate the cache with a stale snapshot.
+   */
+  private cacheGeneration = 0;
+
+  /** Process-local cache of ISO 639-1 code to wire row, populated by `findByIso`. */
+  private readonly isoCache = new Map<string, Language>();
+
   constructor(@Inject(DRIZZLE) private readonly db: Database) {}
 
   /**
@@ -52,7 +61,12 @@ export class LanguagesService {
         .returning();
       const row = rows[0];
       if (!row) throw new Error('insert returned no row');
-      return rowToLanguage(row);
+      const language = rowToLanguage(row);
+      // Clear any entry for the inserted iso so a committed row is never
+      // hidden by stale cached state.
+      this.isoCache.delete(language.iso6391);
+      this.cacheGeneration += 1;
+      return language;
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new ConflictException('Language with this ISO 639-1 code already exists');
@@ -66,13 +80,23 @@ export class LanguagesService {
    * @returns the language row or null when missing/soft-deleted
    */
   async findByIso(iso6391: string): Promise<Language | null> {
+    const cached = this.isoCache.get(iso6391);
+    if (cached) return cached;
+
+    // Capture before the await: a write that lands while the SELECT is open
+    // bumps the generation and forbids this snapshot from entering the cache.
+    const generation = this.cacheGeneration;
     const rows = await this.db
       .select()
       .from(languages)
       .where(and(eq(languages.iso6391, iso6391), isNull(languages.deletedAt)))
       .limit(1);
     const row = rows[0];
-    return row ? rowToLanguage(row) : null;
+    if (!row) return null;
+
+    const language = rowToLanguage(row);
+    if (this.cacheGeneration === generation) this.isoCache.set(iso6391, language);
+    return language;
   }
 
   /**
@@ -138,8 +162,12 @@ export class LanguagesService {
       .update(languages)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(and(eq(languages.id, id), isNull(languages.deletedAt)))
-      .returning({ id: languages.id });
-    if (rows.length === 0) throw new NotFoundException('Language not found');
+      .returning({ id: languages.id, iso6391: languages.iso6391 });
+    const row = rows[0];
+    if (!row) throw new NotFoundException('Language not found');
+    // The row is no longer visible to findByIso; drop its cached entry.
+    this.isoCache.delete(row.iso6391);
+    this.cacheGeneration += 1;
   }
 
   /**
@@ -179,7 +207,13 @@ export class LanguagesService {
       const row = updated[0];
       // 0 rows: the row was soft-deleted between the read above and this write.
       if (!row) throw new NotFoundException('Language not found');
-      return rowToLanguage(row);
+      const language = rowToLanguage(row);
+      // Invalidate the old iso even when it is unchanged (other fields may have
+      // changed), and the new one when the code moved — both entries are stale.
+      this.isoCache.delete(before.iso6391);
+      this.isoCache.delete(language.iso6391);
+      this.cacheGeneration += 1;
+      return language;
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new ConflictException('Language with this ISO 639-1 code already exists');
