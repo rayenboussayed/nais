@@ -2,6 +2,7 @@ import type { ExecutionContext } from '@nestjs/common';
 
 import { describe, expect, it } from 'vitest';
 
+import { HEALTH_PATH } from '../modules/auth/public-path.js';
 import { skipHealthProbe } from './throttle.js';
 
 /**
@@ -24,9 +25,18 @@ describe('skipHealthProbe', () => {
     expect(skipHealthProbe(httpContext('/api/health/'))).toBe(true);
   });
 
+  it('keeps startsWith semantics on the raw url (prefixes and queries still skip)', () => {
+    expect(skipHealthProbe(httpContext(`${HEALTH_PATH}/foo`))).toBe(true);
+    expect(skipHealthProbe(httpContext(`${HEALTH_PATH}?x=1`))).toBe(true);
+    expect(skipHealthProbe(httpContext(`${HEALTH_PATH}foo`))).toBe(true);
+    expect(skipHealthProbe(httpContext(`${HEALTH_PATH}///`))).toBe(true);
+  });
+
   it('does not skip other paths', () => {
     expect(skipHealthProbe(httpContext('/api/languages'))).toBe(false);
     expect(skipHealthProbe(httpContext('/'))).toBe(false);
+    expect(skipHealthProbe(httpContext(`/x${HEALTH_PATH}`))).toBe(false);
+    expect(skipHealthProbe(httpContext('/API/HEALTH'))).toBe(false);
   });
 
   it('returns false when the request or url is missing', () => {

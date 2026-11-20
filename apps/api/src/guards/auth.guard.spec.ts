@@ -62,6 +62,23 @@ describe('HttpAuthGuard', () => {
     await expect(guard.canActivate(httpContext({}, '/api/health?probe=1'))).resolves.toBe(true);
   });
 
+  it('keeps exact-match allowlist semantics', async () => {
+    const guard = new HttpAuthGuard(configStub());
+    const call = (url: string) => guard.canActivate(httpContext({}, url));
+
+    // Shapes that normalize into the allowlist stay public.
+    await expect(call('/api/health///')).resolves.toBe(true);
+    await expect(call('/api/auth/login/')).resolves.toBe(true);
+    await expect(call('/api/auth/login?next=%2Fadmin')).resolves.toBe(true);
+    await expect(call('/api/health?probe=1&verbose')).resolves.toBe(true);
+
+    // Prefixes, suffixes and look-alikes are NOT public: membership is exact.
+    await expect(call('/api/health/foo')).rejects.toThrow(/Unauthorized/);
+    await expect(call('/api/healthfoo')).rejects.toThrow(/Unauthorized/);
+    await expect(call('/api/auth')).rejects.toThrow(/Unauthorized/);
+    await expect(call('/api/auth/login/extra')).rejects.toThrow(/Unauthorized/);
+  });
+
   it('rejects unauthenticated requests to protected routes', async () => {
     const guard = new HttpAuthGuard(configStub());
     await expect(guard.canActivate(httpContext({}))).rejects.toThrow('Unauthorized');

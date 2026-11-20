@@ -6,15 +6,16 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../environment.js';
 
 import { authenticateHeaders } from '../modules/auth/authenticate.js';
+import { HEALTH_PATH, LOGIN_PATH, normalizePath } from '../modules/auth/public-path.js';
 
 /** Routes that answer without credentials (liveness probe, login). */
-const AUTH_ALLOWLIST = new Set(['/api/auth/login', '/api/health']);
+const AUTH_ALLOWLIST: ReadonlySet<string> = new Set([HEALTH_PATH, LOGIN_PATH]);
 
 /**
  * HTTP Basic-or-cookie authentication as a Nest guard, registered AFTER the
  * ThrottlerGuard so unauthenticated floods are 429'd before any scrypt work
  * happens. WebSocket contexts pass through (the WS handshake enforces auth
- * itself); /api/health and /api/auth/login are public by design.
+ * itself); the paths in AUTH_ALLOWLIST are public by design.
  */
 @Injectable()
 export class HttpAuthGuard implements CanActivate {
@@ -29,10 +30,7 @@ export class HttpAuthGuard implements CanActivate {
     if (context.getType() !== 'http') return true;
 
     const request = context.switchToHttp().getRequest<FastifyRequest>();
-    const rawPath = String(request.url.split('?')[0]);
-    let pathEnd = rawPath.length;
-    while (pathEnd > 0 && rawPath[pathEnd - 1] === '/') pathEnd -= 1;
-    const path = rawPath.slice(0, pathEnd);
+    const path = normalizePath(request.url);
     if (AUTH_ALLOWLIST.has(path)) return true;
 
     const auth = await authenticateHeaders(request.headers, this.config);
