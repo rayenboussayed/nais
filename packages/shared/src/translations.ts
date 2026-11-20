@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { iso6391Schema, isoDateTimeSchema } from './common';
+import { iso6391Schema, isoDateTimeSchema, wsAckStatusCodeSchema } from './common';
 import { translationNamespaceSchema } from './enums';
 
 /** Maximum length of the source or translated text accepted by the API. */
@@ -106,14 +106,7 @@ export const wsTranslateAckSchema = z.object({
   requestId: z.union([z.uuid(), z.null()]),
   /** Present only on 429: how long to wait before retrying, in milliseconds. */
   retryAfterMs: z.number().int().nonnegative().optional(),
-  statusCode: z.union([
-    z.literal(200),
-    z.literal(202),
-    z.literal(400),
-    z.literal(404),
-    z.literal(429),
-    z.literal(500),
-  ]),
+  statusCode: wsAckStatusCodeSchema,
 });
 
 /** Server-to-client event emitted when an async translation fails. */

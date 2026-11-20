@@ -80,3 +80,17 @@ export type Pagination = z.infer<typeof paginationSchema>;
 
 /** Optional namespace filter, shared by list endpoints. */
 export const namespaceFilterSchema = translationNamespaceSchema.optional();
+
+/**
+ * Status codes carried by the WebSocket ack frames for both `translate` and `ai`:
+ * 200 inline cache hit, 202 queued, 400 malformed request, 404 unknown language/task,
+ * 429 rate-limited, 500 backend failure. Single source of truth for both ack contracts.
+ */
+export const wsAckStatusCodeSchema = z.union([
+  z.literal(200),
+  z.literal(202),
+  z.literal(400),
+  z.literal(404),
+  z.literal(429),
+  z.literal(500),
+]);

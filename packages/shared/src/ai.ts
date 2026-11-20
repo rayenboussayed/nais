@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { iso6391Schema, isoDateTimeSchema } from './common';
+import { iso6391Schema, isoDateTimeSchema, wsAckStatusCodeSchema } from './common';
 
 /** Maximum length of a text field accepted by the AI endpoints. */
 export const MAX_AI_TEXT_LENGTH = 50_000;
@@ -162,14 +162,7 @@ export const wsAiAckSchema = z.object({
   result: z.record(z.string(), z.unknown()).nullable(),
   /** Present only on 429: how long to wait before retrying, in milliseconds. */
   retryAfterMs: z.number().int().nonnegative().optional(),
-  statusCode: z.union([
-    z.literal(200),
-    z.literal(202),
-    z.literal(400),
-    z.literal(404),
-    z.literal(429),
-    z.literal(500),
-  ]),
+  statusCode: wsAckStatusCodeSchema,
 });
 export type WsAiAck = z.infer<typeof wsAiAckSchema>;
 

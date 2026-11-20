@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { cursorTimestampSchema, iso6391Schema, paginationSchema } from './common';
+import {
+  cursorTimestampSchema,
+  iso6391Schema,
+  paginationSchema,
+  wsAckStatusCodeSchema,
+} from './common';
 
 describe('iso6391Schema', () => {
   it('accepts two-letter lowercase codes', () => {
@@ -93,5 +98,25 @@ describe('paginationSchema', () => {
 
   it('rejects queries longer than 255 characters', () => {
     expect(() => paginationSchema.parse({ q: 'a'.repeat(256) })).toThrow();
+  });
+});
+
+describe('wsAckStatusCodeSchema', () => {
+  it('accepts all six WS ack status codes', () => {
+    for (const code of [200, 202, 400, 404, 429, 500]) {
+      expect(wsAckStatusCodeSchema.parse(code)).toBe(code);
+    }
+  });
+
+  it('rejects numeric codes outside the ack contract', () => {
+    for (const code of [-1, 0, 100, 201, 204, 301, 403, 408, 418, 422, 501, 503, 200.5]) {
+      expect(() => wsAckStatusCodeSchema.parse(code)).toThrow();
+    }
+  });
+
+  it('rejects non-numeric inputs', () => {
+    for (const input of ['200', null, undefined, true, {}, []]) {
+      expect(() => wsAckStatusCodeSchema.parse(input)).toThrow();
+    }
   });
 });
