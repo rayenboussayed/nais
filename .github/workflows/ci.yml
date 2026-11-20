@@ -13,6 +13,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The changed-file coverage gate needs the PR base / previous commit
+          # to exist locally so the pushed diff can be staged (see the gate step).
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
@@ -32,6 +36,20 @@ jobs:
         run: git diff --exit-code -- apps/api/drizzle
       - run: npm run knip
       - run: npm audit --omit=dev --audit-level=high
+      - name: changed-file coverage gate (CI only; not in check or husky)
+        # Bare `--changed` only sees staged/uncommitted files and a CI checkout
+        # is clean. Move HEAD to the base so the pushed/PR diff becomes staged,
+        # which is exactly what `vitest --changed` inspects. Clear the summary
+        # from the earlier full run so the guard below cannot read stale totals.
+        run: |
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          case "$BASE" in
+            ''|0000000000000000000000000000000000000000) BASE=HEAD~1 ;;
+          esac
+          git reset --soft "$BASE"
+          rm -f coverage/coverage-summary.json
+          npm run test:cov:changed
+          node scripts/assert-changed-coverage.mjs
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15

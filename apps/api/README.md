@@ -42,6 +42,15 @@ Tasks (`POST /api/ai/<task>`): `translate` (Ollama), `sentiment`, `summarize`,
 `zero-shot-classification` and `feature-extraction` (ONNX pipelines). See
 `docs/ai-v1.md` in the repo root for the design.
 
+WebSocket translate calls resolve their target language through
+`LanguagesService.findByIso`, which memoizes ISO 639-1 → language rows in an
+in-process map and evicts entries on every successful language create/update/
+delete (a generation guard stops an in-flight lookup from restoring a stale
+row). This is a single-replica optimization: the cache and its invalidation are
+process-local, so multiple API replicas or language writes outside this service
+need shared invalidation. The REST `POST /api/translate` path queries the
+catalogue directly and is unaffected.
+
 ## Environment
 
 Validated at boot (`src/environment.ts`); the process fails fast on invalid
@@ -109,7 +118,9 @@ never downloaded in tests; the AI suite stubs the loader.
   `translations`, `health`, `auth`), `modules/<name>/` (cross-cutting
   providers: `auth` — authenticate/session/validator/origin; `queue` —
   the `ai-task` pg-boss worker), `guards/` (HTTP guard + fastify hook
-  registration), `db/` (Drizzle + migrations tracked in `drizzle/`),
+  registration), `db/` (Drizzle + migrations tracked in `drizzle/`; the
+  `pgEnum` values are derived from the shared zod enums' `.options`, so the
+  database labels stay in sync with the wire contracts),
   `constants/` (static literals), `configs/` (framework wiring helpers),
   `utils/` (pure helpers), `schemas/` (zod), `environment.ts` (env
   validation), `app.module.ts`, `main.ts`.
