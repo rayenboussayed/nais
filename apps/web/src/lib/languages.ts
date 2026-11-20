@@ -1,4 +1,4 @@
-import type { KeysetList, Language } from '@trainslator/shared';
+import type { KeysetCursor, KeysetList, Language } from '@trainslator/shared';
 
 import { useQuery } from '@tanstack/react-query';
 
@@ -26,7 +26,7 @@ export function useLanguages() {
  */
 async function fetchAllLanguages(): Promise<LanguageRow[]> {
   const collected: LanguageRow[] = [];
-  let cursor: null | { lastCreatedAt: string; lastId: string } = null;
+  let cursor: KeysetCursor | null = null;
   for (let hop = 0; hop < 10; hop += 1) {
     const query = new URLSearchParams({ orderBy: 'asc', pageSize: '100' });
     if (cursor) {

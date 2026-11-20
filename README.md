@@ -122,7 +122,7 @@ npm run test:mem     # heap-delta memory test (--expose-gc)
 
 Integration specs create a throwaway PostgreSQL cluster in /tmp (unix sockets, migrations applied, torn down after). Nothing touches a developer or production database. The dedicated ONNX pipelines are never downloaded in tests: the AI suite stubs the pipeline loader and asserts shapes/normalization against the real contracts (integration runs on the throwaway cluster). A real pipeline smoke can be run manually with `npm run transformers:warmup -w @trainslator/api`.
 
-Coverage of `.tsx` route components is excluded from the gate (v8 cannot map rolldown-compiled JSX reliably — upstream vitest#10475); component behavior is asserted by the jsdom suites (`apps/web/src/routes/*.test.tsx`).
+Coverage of `.tsx` route components is excluded from the gate (v8 cannot map rolldown-compiled JSX reliably — upstream vitest#10475); component behavior is asserted by the jsdom suites (`apps/web/src/**/*.test.tsx`).
 
 ## Layout
 

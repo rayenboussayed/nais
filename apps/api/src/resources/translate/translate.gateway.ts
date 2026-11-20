@@ -2,6 +2,7 @@ import type { OnGatewayInit } from '@nestjs/websockets';
 import type {
   AiTask,
   AiTaskJob,
+  AiTranslateRequest,
   WsAiAck,
   WsAiErrorEvent,
   WsAiResultEvent,
@@ -69,9 +70,6 @@ type PipelineOutcome =
   | { kind: 'invalid-input' }
   | { kind: 'missing-language' }
   | { kind: 'rate-limited' };
-
-/** The validated translate-task input used for catalogue lookups. */
-type TranslateInput = { targetLanguage: string; text: string };
 
 /**
  * socket.io gateway for the async AI flow. Clients emit `translate` (legacy,
@@ -181,8 +179,8 @@ export class TranslateGateway implements OnGatewayInit {
       peek: (input) =>
         task === 'translate'
           ? this.peekCatalogue(
-              (input as TranslateInput).targetLanguage,
-              (input as TranslateInput).text,
+              (input as AiTranslateRequest).targetLanguage,
+              (input as AiTranslateRequest).text,
             )
           : this.peekDedicated(task, input),
       requestId: message.requestId,
@@ -376,15 +374,17 @@ function translateAckFor(outcome: PipelineOutcome, requestId: string): WsTransla
       return { data: null, requestId, statusCode: 202 };
     case 'catalogue-hit':
       return { data: outcome.text, requestId, statusCode: 200 };
+    // Unreachable for translate: its validate never fails and its peek is
+    // catalogue-only. Both would be a 400 on the legacy contract. Listed so a
+    // future outcome kind is a compile error rather than a silent 400.
+    case 'dedicated-hit':
+    case 'invalid-input':
+      return { data: null, requestId, statusCode: 400 };
     case 'failed':
       return { data: null, requestId, statusCode: 500 };
     case 'missing-language':
       return { data: null, requestId, statusCode: 404 };
     case 'rate-limited':
       return { data: null, requestId, retryAfterMs: 60_000, statusCode: 429 };
-    default:
-      // Unreachable for translate: its validate never fails and its peek is
-      // catalogue-only. Both would be a 400 on the legacy contract.
-      return { data: null, requestId, statusCode: 400 };
   }
 }

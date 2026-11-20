@@ -21,28 +21,27 @@ const REPORT_PATH = 'coverage/coverage-summary.json';
  * @returns {number} 0 when the totals are non-zero, 1 otherwise
  */
 function checkCoverage() {
-  if (!existsSync('coverage/coverage-summary.json')) {
+  if (!existsSync(REPORT_PATH)) {
     console.error(`${PREFIX} missing report ${REPORT_PATH}`);
     return 1;
   }
 
   let summary;
   try {
-    summary = JSON.parse(readFileSync('coverage/coverage-summary.json', 'utf8'));
+    summary = JSON.parse(readFileSync(REPORT_PATH, 'utf8'));
   } catch (error) {
     console.error(`${PREFIX} unreadable report ${REPORT_PATH}: ${String(error)}`);
     return 1;
   }
 
   const total = summary?.total;
-  const counters = [
-    total?.branches?.total,
-    total?.functions?.total,
-    total?.lines?.total,
-    total?.statements?.total,
-  ];
+  const counters = [total?.branches, total?.functions, total?.lines, total?.statements];
   const instrumented = counters.reduce(
-    (sum, counter) => sum + (typeof counter === 'number' ? counter : 0),
+    (sum, counter) => sum + (typeof counter?.total === 'number' ? counter.total : 0),
+    0,
+  );
+  const covered = counters.reduce(
+    (sum, counter) => sum + (typeof counter?.covered === 'number' ? counter.covered : 0),
     0,
   );
 
@@ -50,8 +49,12 @@ function checkCoverage() {
     console.error(`${PREFIX} ${REPORT_PATH} has zero totals (no files were covered)`);
     return 1;
   }
+  if (covered <= 0) {
+    console.error(`${PREFIX} ${REPORT_PATH} has zero covered entries (no code was exercised)`);
+    return 1;
+  }
 
-  console.log(`${PREFIX} ${instrumented} instrumented counters in ${REPORT_PATH}`);
+  console.log(`${PREFIX} ${covered}/${instrumented} counters covered in ${REPORT_PATH}`);
   return 0;
 }
 

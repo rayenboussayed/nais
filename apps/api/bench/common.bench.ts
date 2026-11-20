@@ -19,8 +19,9 @@ const changedFields = changedFieldsFn;
 /**
  * Microbenchmarks for the hot, pure paths on every request and model call.
  * Run: npm run test:perf
- * Save a baseline with: npm run test:perf -- --reporter=json --outputFile=bench-baseline.json
- * Compare against it with: npm run test:perf -- --compare bench-baseline.json
+ * Save a baseline with: npx vitest bench --reporter=json --outputFile=bench-baseline.json
+ * Vitest 5 has no --compare flag; save current results to a second JSON file
+ * with the same command and diff the two reports to compare.
  */
 
 describe('translationKeyFor', () => {

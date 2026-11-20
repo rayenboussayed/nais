@@ -1,4 +1,4 @@
-import { describe, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 
 import type { Database } from '../src/db/drizzle.module.js';
 
@@ -41,18 +41,20 @@ function languageDb(rows: Array<typeof ROW>) {
 // Save a baseline with: npm run test:perf -- --reporter=json --outputFile=<path>
 
 describe('LanguagesService.findByIso', () => {
-  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; assertions inside the loop would distort the timing
   test('cached hit returns the memoized row', async ({ bench }) => {
     const service = new LanguagesService(languageDb([ROW]));
-    await service.findByIso('en'); // prime the single cache entry
+    const primed = await service.findByIso('en');
+    // Assert the setup outside the timed loop so it does not distort timing.
+    expect(primed?.iso6391).toBe(ROW.iso6391);
     await bench('cached lookup', () => service.findByIso('en')).run();
   });
 
-  // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; assertions inside the loop would distort the timing
   test('uncached miss pays the database query', async ({ bench }) => {
     // A missing iso returns null, which the memoizer deliberately does not
     // store, so every iteration exercises the full query path with no growth.
     const service = new LanguagesService(languageDb([]));
+    // Assert the setup outside the timed loop so it does not distort timing.
+    expect(await service.findByIso('probe')).toBeNull();
     await bench('uncached lookup', () => service.findByIso('missing')).run();
   });
 });
