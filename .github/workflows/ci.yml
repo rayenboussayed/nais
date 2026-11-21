@@ -23,9 +23,9 @@ jobs:
         with:
           postgres: 'true'
       - run: npm run typecheck
+      - run: npm run build
       - run: npm run lint
       - run: npm run format:check
-      - run: npm run build
       - name: verify generated API artifacts are current
         run: |
           npm run generate:api
