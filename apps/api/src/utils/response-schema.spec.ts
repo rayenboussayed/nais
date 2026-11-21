@@ -76,19 +76,21 @@ describe('ApiResponseSchema', () => {
       response: Record<number, unknown>;
     };
     const app = Fastify();
-    app.get('/translation', { schema: routeSchema }, () => ({
-      createdAt: '2026-01-01T00:00:00.000Z',
-      deletedAt: null,
-      id: '123e4567-e89b-42d3-a456-426655440001',
-      internalScore: 0.5,
-      key: 'greeting',
-      languageId: '123e4567-e89b-42d3-a456-426655440000',
-      namespace: 'dynamic',
-      parentId: null,
-      rowVersion: 7,
-      text: 'Hello',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    }));
+    app.get('/translation', { schema: routeSchema }, () =>
+      Object.fromEntries([
+        ['updatedAt', '2026-01-01T00:00:00.000Z'],
+        ['text', 'Hello'],
+        ['internalScore', 0.5],
+        ['createdAt', '2026-01-01T00:00:00.000Z'],
+        ['parentId', null],
+        ['rowVersion', 7],
+        ['namespace', 'dynamic'],
+        ['languageId', '123e4567-e89b-42d3-a456-426655440000'],
+        ['key', 'greeting'],
+        ['id', '123e4567-e89b-42d3-a456-426655440001'],
+        ['deletedAt', null],
+      ]),
+    );
     await app.ready();
 
     const response = await app.inject({ method: 'GET', url: '/translation' });
