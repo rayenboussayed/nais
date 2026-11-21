@@ -10,6 +10,7 @@ import { aiMessagePromptSchema, aiMessageSchema } from '../../schemas/ai-message
 import { paginationSchema } from '../../schemas/common.js';
 import { keysetListSchema } from '../../schemas/list.js';
 import { ApiErrorResponses } from '../../swagger.js';
+import { ApiResponseSchema } from '../../utils/response-schema.js';
 import { AiMessagesService } from './ai-messages.service.js';
 
 /** Read-only audit surface for AI provider calls. All routes sit behind basic-auth. */
@@ -23,7 +24,7 @@ export class AiMessagesController {
    * @param query - keyset pagination and search filters
    * @returns the keyset-paginated page of messages
    */
-  @ApiResponse({ standardSchema: keysetListSchema(aiMessageSchema), status: 200 })
+  @ApiResponseSchema(keysetListSchema(aiMessageSchema), 200)
   @Get()
   findAll(@Query({ schema: paginationSchema }) query: Pagination): Promise<KeysetList<AiMessage>> {
     return this.aiMessagesService.findPage(query);
@@ -35,7 +36,7 @@ export class AiMessagesController {
    * @returns the message
    */
   @ApiParam({ name: 'id', schema: { format: 'uuid', type: 'string' } })
-  @ApiResponse({ standardSchema: aiMessageSchema, status: 200 })
+  @ApiResponseSchema(aiMessageSchema, 200)
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string): Promise<AiMessage> {
     return this.aiMessagesService.findOne(id);
@@ -47,7 +48,7 @@ export class AiMessagesController {
    * @returns the prompts oldest first
    */
   @ApiParam({ name: 'id', schema: { format: 'uuid', type: 'string' } })
-  @ApiResponse({ standardSchema: z.array(aiMessagePromptSchema), status: 200 })
+  @ApiResponseSchema(z.array(aiMessagePromptSchema), 200)
   @Get(':id/prompts')
   findPrompts(@Param('id', ParseUUIDPipe) id: string): Promise<AiMessagePrompt[]> {
     return this.aiMessagesService.findPrompts(id);

@@ -28,6 +28,7 @@ import {
   updateTranslationBodySchema,
 } from '../../schemas/translations.js';
 import { ApiErrorResponses } from '../../swagger.js';
+import { ApiResponseSchema } from '../../utils/response-schema.js';
 import { TranslationsService } from './translations.service.js';
 
 /** REST surface for the translation catalogue. All routes sit behind basic-auth. */
@@ -41,7 +42,7 @@ export class TranslationsController {
    * @param input - the validated create body
    * @returns the created entity
    */
-  @ApiResponse({ standardSchema: translationSchema, status: 201 })
+  @ApiResponseSchema(translationSchema, 201)
   @Post()
   create(
     @Body({ schema: createTranslationSchema }) input: CreateTranslationInput,
@@ -54,7 +55,7 @@ export class TranslationsController {
    * @param query - keyset pagination and search filters
    * @returns the keyset-paginated page
    */
-  @ApiResponse({ standardSchema: keysetListSchema(translationSchema), status: 200 })
+  @ApiResponseSchema(keysetListSchema(translationSchema), 200)
   @Get()
   findAll(
     @Query({ schema: translationsListQuerySchema }) query: TranslationsListQuery,
@@ -68,7 +69,7 @@ export class TranslationsController {
    * @returns the requested row
    */
   @ApiParam({ name: 'id', schema: { format: 'uuid', type: 'string' } })
-  @ApiResponse({ standardSchema: translationSchema, status: 200 })
+  @ApiResponseSchema(translationSchema, 200)
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Translation> {
     return this.translationsService.findOne(id);
@@ -93,7 +94,7 @@ export class TranslationsController {
    * @returns the updated row
    */
   @ApiParam({ name: 'id', schema: { format: 'uuid', type: 'string' } })
-  @ApiResponse({ standardSchema: translationSchema, status: 200 })
+  @ApiResponseSchema(translationSchema, 200)
   @Patch(':id')
   update(
     @Param('id', ParseUUIDPipe) id: string,

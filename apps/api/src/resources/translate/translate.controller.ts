@@ -1,12 +1,12 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { Resilience } from '@nestjs/resilience';
-import { ApiResponse } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
 import type { TranslateRequest, TranslateResponse } from '../../schemas/translations.js';
 
 import { translateRequestSchema, translateResponseSchema } from '../../schemas/translations.js';
 import { ApiErrorResponses } from '../../swagger.js';
+import { ApiResponseSchema } from '../../utils/response-schema.js';
 import { TranslateService } from './translate.service.js';
 
 /** POST `/api/translate` — synchronous translation with cache-aside lookup. */
@@ -25,7 +25,7 @@ export class TranslateController {
    * @param input - the validated translate request body
    * @returns the translation response
    */
-  @ApiResponse({ standardSchema: translateResponseSchema, status: 201 })
+  @ApiResponseSchema(translateResponseSchema, 201)
   @Post()
   @Resilience('ollama')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })

@@ -28,6 +28,7 @@ import {
 } from '../../schemas/languages.js';
 import { keysetListSchema } from '../../schemas/list.js';
 import { ApiErrorResponses } from '../../swagger.js';
+import { ApiResponseSchema } from '../../utils/response-schema.js';
 import { LanguagesService } from './languages.service.js';
 
 /** REST surface for the language catalogue. All routes sit behind basic-auth. */
@@ -41,7 +42,7 @@ export class LanguagesController {
    * @param input - the validated create body
    * @returns the created entity
    */
-  @ApiResponse({ standardSchema: languageSchema, status: 201 })
+  @ApiResponseSchema(languageSchema, 201)
   @Post()
   create(@Body({ schema: createLanguageSchema }) input: CreateLanguageInput): Promise<Language> {
     return this.languagesService.create(input);
@@ -52,7 +53,7 @@ export class LanguagesController {
    * @param query - keyset pagination and search filters
    * @returns the keyset-paginated page
    */
-  @ApiResponse({ standardSchema: keysetListSchema(languageSchema), status: 200 })
+  @ApiResponseSchema(keysetListSchema(languageSchema), 200)
   @Get()
   findAll(@Query({ schema: paginationSchema }) query: Pagination): Promise<KeysetList<Language>> {
     return this.languagesService.findPage(query);
@@ -64,7 +65,7 @@ export class LanguagesController {
    * @returns the requested row
    */
   @ApiParam({ name: 'id', schema: { format: 'uuid', type: 'string' } })
-  @ApiResponse({ standardSchema: languageSchema, status: 200 })
+  @ApiResponseSchema(languageSchema, 200)
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Language> {
     return this.languagesService.findOne(id);
@@ -89,7 +90,7 @@ export class LanguagesController {
    * @returns the updated row
    */
   @ApiParam({ name: 'id', schema: { format: 'uuid', type: 'string' } })
-  @ApiResponse({ standardSchema: languageSchema, status: 200 })
+  @ApiResponseSchema(languageSchema, 200)
   @Patch(':id')
   update(
     @Param('id', ParseUUIDPipe) id: string,
