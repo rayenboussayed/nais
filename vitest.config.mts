@@ -16,6 +16,7 @@ export default defineConfig({
         '**/routeTree.gen.ts', // generated
         'apps/api/src/main.ts', // boot entrypoint; exercised by the e2e suite instead
         'apps/api/test/memory/**', // measured by test:mem instead
+        'generated/**', // generated from the API's Zod contracts
       ],
       provider: 'v8',
       reporter: ['text', 'json-summary'],
@@ -34,8 +35,6 @@ export default defineConfig({
     fileParallelism: false,
     globals: false,
     include: [
-      'packages/shared/src/**/*.test.ts',
-      'packages/shared/test/**/*.spec.ts',
       'apps/**/src/**/*.spec.ts',
       'apps/**/src/**/*.test.{ts,tsx}',
       'apps/**/test/**/*.spec.ts',

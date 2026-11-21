@@ -124,12 +124,8 @@ export type TranslateRequest = z.infer<typeof translateRequestSchema>;
 export type TranslateResponse = z.infer<typeof translateResponseSchema>;
 /** Translation row as exposed by the admin API. */
 export type Translation = z.infer<typeof translationSchema>;
-/** Validated full update input including the route id. */
-export type UpdateTranslationInput = z.infer<typeof updateTranslationSchema>;
 /** Server ack for the `translate` WS message. */
 export type WsTranslateAck = z.infer<typeof wsTranslateAckSchema>;
-/** Client-to-server `translate` WS message. */
-export type WsTranslateMessage = z.infer<typeof wsTranslateMessageSchema>;
 /** Server-to-client WS event emitted when an async translation fails. */
 export type WsTranslationErrorEvent = z.infer<typeof wsTranslationErrorEventSchema>;
 /** Server-to-client WS event emitted when an async translation completes. */

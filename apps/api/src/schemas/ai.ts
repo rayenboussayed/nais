@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-import { iso6391Schema, isoDateTimeSchema } from './common.js';
+import { iso6391Schema } from './common.js';
 
 /** Maximum length of a text field accepted by the AI endpoints. */
-export const MAX_AI_TEXT_LENGTH = 50_000;
+const MAX_AI_TEXT_LENGTH = 50_000;
 
 /** Tasks the service can run; translation keeps the catalogue-backed implementation. */
 export const AI_TASKS = [
@@ -26,13 +26,11 @@ export const aiTranslateRequestSchema = z.object({
   targetLanguage: iso6391Schema,
   text: textSchema,
 });
-export const aiTranslateResultSchema = z.object({
-  /** True when served from the translations catalogue. */
+const aiTranslateResultSchema = z.object({
   cached: z.boolean(),
   text: z.string(),
 });
 export type AiTranslateRequest = z.infer<typeof aiTranslateRequestSchema>;
-export type AiTranslateResult = z.infer<typeof aiTranslateResultSchema>;
 
 /** sentiment: text in, label + score out. */
 export const aiSentimentRequestSchema = z.object({ text: textSchema });
@@ -41,7 +39,6 @@ export const aiSentimentResultSchema = z.object({
   label: z.string(),
   score: z.number().min(0).max(1),
 });
-export type AiSentimentRequest = z.infer<typeof aiSentimentRequestSchema>;
 export type AiSentimentResult = z.infer<typeof aiSentimentResultSchema>;
 
 /** summarize: document in, shorter text out. */
@@ -50,7 +47,6 @@ export const aiSummarizeResultSchema = z.object({
   cached: z.boolean(),
   text: z.string(),
 });
-export type AiSummarizeRequest = z.infer<typeof aiSummarizeRequestSchema>;
 export type AiSummarizeResult = z.infer<typeof aiSummarizeResultSchema>;
 
 /** question-answering: extractive — answer span inside `context`. */
@@ -65,11 +61,10 @@ export const aiQuestionAnsweringResultSchema = z.object({
   score: z.number().min(0).max(1),
   start: z.number().int().nonnegative(),
 });
-export type AiQuestionAnsweringRequest = z.infer<typeof aiQuestionAnsweringRequestSchema>;
 export type AiQuestionAnsweringResult = z.infer<typeof aiQuestionAnsweringResultSchema>;
 
 /** token-classification (NER): entities found in `text`. */
-export const aiEntitySchema = z.object({
+const aiEntitySchema = z.object({
   end: z.number().int().nonnegative(),
   entity_group: z.string(),
   score: z.number().min(0).max(1),
@@ -81,7 +76,6 @@ export const aiTokenClassificationResultSchema = z.object({
   cached: z.boolean(),
   entities: z.array(aiEntitySchema),
 });
-export type AiTokenClassificationRequest = z.infer<typeof aiTokenClassificationRequestSchema>;
 export type AiTokenClassificationResult = z.infer<typeof aiTokenClassificationResultSchema>;
 
 /** zero-shot-classification: classify into arbitrary labels without retraining. */
@@ -95,7 +89,6 @@ export const aiZeroShotClassificationResultSchema = z.object({
   scores: z.array(z.number().min(0).max(1)),
   sequence: z.string(),
 });
-export type AiZeroShotClassificationRequest = z.infer<typeof aiZeroShotClassificationRequestSchema>;
 export type AiZeroShotClassificationResult = z.infer<typeof aiZeroShotClassificationResultSchema>;
 
 /** feature-extraction: text in, dense embedding out. */
@@ -105,7 +98,6 @@ export const aiFeatureExtractionResultSchema = z.object({
   dimensions: z.number().int().nonnegative(),
   embedding: z.array(z.number()),
 });
-export type AiFeatureExtractionRequest = z.infer<typeof aiFeatureExtractionRequestSchema>;
 export type AiFeatureExtractionResult = z.infer<typeof aiFeatureExtractionResultSchema>;
 
 /** Per-task input/result schema lookup, keyed by task name. */
@@ -142,15 +134,4 @@ export const aiTaskDescriptorSchema = z.object({
 export type AiTaskDescriptor = z.infer<typeof aiTaskDescriptorSchema>;
 export const aiTaskListResponseSchema = z.object({
   items: z.array(aiTaskDescriptorSchema),
-});
-
-/** Stored row of the ai_cache table as returned by the admin API later; kept for contract stability. */
-export const aiCacheEntrySchema = z.object({
-  createdAt: isoDateTimeSchema,
-  deletedAt: isoDateTimeSchema.nullable(),
-  id: z.uuid(),
-  key: z.string(),
-  model: z.string(),
-  task: aiTaskSchema,
-  updatedAt: isoDateTimeSchema,
 });

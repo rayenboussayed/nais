@@ -55,5 +55,3 @@ export const updateLanguageSchema = updateLanguageBaseSchema
 export type CreateLanguageInput = z.infer<typeof createLanguageSchema>;
 /** Language row as exposed by the API. */
 export type Language = z.infer<typeof languageSchema>;
-/** Validated full update input including the route id. */
-export type UpdateLanguageInput = z.infer<typeof updateLanguageSchema>;

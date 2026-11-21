@@ -23,11 +23,11 @@
     "@opentelemetry/semantic-conventions": "^1.45.0",
     "@tanstack/react-query": "^5.108.0",
     "@tanstack/react-router": "^1.170.46",
-    "@trainslator/shared": "^0.1.0",
     "openapi-fetch": "^0.17.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "socket.io-client": "^4.8.4"
+    "socket.io-client": "^4.8.4",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tanstack/router-plugin": "^1.169.0",

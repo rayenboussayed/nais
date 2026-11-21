@@ -5,11 +5,10 @@
   "private": true,
   "license": "UNLICENSED",
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "apps/*"
   ],
   "scripts": {
-    "build": "npm run build -w packages/shared && npm run build --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
     "generate:api": "node apps/api/bin/openapi.mjs && npx openapi-typescript apps/api/test/fixtures/openapi.golden.json -o generated/api.d.ts && npx openapi-typescript generated/ws.openapi.json -o generated/ws.d.ts",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint . --max-warnings 0",

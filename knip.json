@@ -1,5 +1,5 @@
 {
-  "ignore": [".agents/**"],
+  "ignore": [".agents/**", "generated/**"],
   "workspaces": {
     ".": {
       "entry": ["scripts/ollama-smoke.mjs"]
@@ -7,7 +7,6 @@
     "apps/api": {
       "entry": ["src/main.ts"]
     },
-    "apps/web": {},
-    "packages/shared": {}
+    "apps/web": {}
   }
 }

@@ -13,14 +13,10 @@ FROM node:24-bookworm-slim
 WORKDIR /repo
 
 COPY package.json package-lock.json tsconfig.base.json ./
-COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 
 RUN npm ci
-
-# The API imports the built shared package; bake it in for watch mode.
-RUN npm run build -w packages/shared
 
 COPY . .
 

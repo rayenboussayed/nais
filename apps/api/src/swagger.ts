@@ -19,20 +19,6 @@ export function ApiErrorResponses(): ClassDecorator {
 }
 
 /**
- * Builds the OpenAPI metadata shared by the served document and the golden
- * fixture generator. Pure: reads no application or environment state.
- * @returns the DocumentBuilder configuration
- */
-export function buildDocConfig(): Omit<OpenAPIObject, 'paths'> {
-  return new DocumentBuilder()
-    .setTitle('trainslator')
-    .setDescription('Standalone AI translation service: cached, model-backed, admin-editable')
-    .setVersion('0.1.0')
-    .addBasicAuth({ name: 'trainslator', scheme: 'basic', type: 'http' })
-    .build();
-}
-
-/**
  * Creates the OpenAPI document from controller metadata alone.
  * @param app - a Nest application whose controllers are registered
  * @returns the generated OpenAPI document
@@ -54,4 +40,18 @@ export function setupSwagger(app: NestFastifyApplication): void {
     jsonDocumentUrl: 'api/docs-json',
     swaggerOptions: { persistAuthorization: false },
   });
+}
+
+/**
+ * Builds the OpenAPI metadata shared by the served document and the golden
+ * fixture generator. Pure: reads no application or environment state.
+ * @returns the DocumentBuilder configuration
+ */
+function buildDocConfig(): Omit<OpenAPIObject, 'paths'> {
+  return new DocumentBuilder()
+    .setTitle('trainslator')
+    .setDescription('Standalone AI translation service: cached, model-backed, admin-editable')
+    .setVersion('0.1.0')
+    .addBasicAuth({ name: 'trainslator', scheme: 'basic', type: 'http' })
+    .build();
 }

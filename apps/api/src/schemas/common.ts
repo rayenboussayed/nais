@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-import { translationNamespaceSchema } from '../schemas/enums.js';
-
 /**
  * Stored timestamptz renders as an ISO datetime, in either `Z` or a numeric
  * offset (e.g. `+00:00`) depending on the driver/serializer; both parse here.
@@ -91,12 +89,6 @@ export const keysetCursorSchema = z.object({
   /** Anchor row of the previous page (id half of the keyset). */
   lastId: z.uuid(),
 });
-
-/** A fully resolved keyset cursor `(lastCreatedAt, lastId)` from the API. */
-export type KeysetCursor = z.infer<typeof keysetCursorSchema>;
-
-/** Optional namespace filter, shared by list endpoints. */
-export const namespaceFilterSchema = translationNamespaceSchema.optional();
 
 /**
  * Status codes carried by the WebSocket ack frames for both `translate` and `ai`:

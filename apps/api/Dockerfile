@@ -2,7 +2,7 @@
 #
 # Production image for the trainslator API. Multi-stage: installs and builds
 # with devDependencies, then ships a lean runtime layer without them.
-# Build from the REPOSITORY ROOT (the context must include packages/shared):
+# Build from the REPOSITORY ROOT (the context must include generated/):
 #   docker build -f apps/api/Dockerfile -t trainslator/api:latest .
 # Run migrations once before the first start:
 #   docker run --rm --env-file .env trainslator/api:latest node apps/api/bin/db-migrate.mjs
@@ -13,20 +13,19 @@ WORKDIR /repo
 
 # Manifests first for layer caching.
 COPY package.json package-lock.json tsconfig.base.json ./
-COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 
 # Install every dependency needed to build (hoisted to the root).
-RUN npm ci --workspace=@trainslator/shared --workspace=@trainslator/api \
+RUN npm ci --workspace=@trainslator/api \
     --include-workspace-root=false --ignore-scripts
 
 COPY tsconfig.base.json ./
-COPY packages/shared ./packages/shared
+COPY generated ./generated
 COPY apps/api ./apps/api
 
-RUN npm run build -w packages/shared && npm run build -w @trainslator/api
+RUN npm run build -w @trainslator/api
 # Drop devDependencies so the runtime layer carries only production deps.
-RUN npm prune --omit=dev --workspace=@trainslator/shared --workspace=@trainslator/api \
+RUN npm prune --omit=dev --workspace=@trainslator/api \
     --include-workspace-root=false --ignore-scripts
 
 # ──────────────────────────── runtime stage ─────────────────────────────
@@ -40,8 +39,7 @@ ENV NODE_ENV=production
 # because /repo layout is preserved).
 COPY --from=build --chown=node:node /repo/node_modules ./node_modules
 COPY --from=build --chown=node:node /repo/package.json ./
-COPY --from=build --chown=node:node /repo/packages/shared/package.json ./packages/shared/
-COPY --from=build --chown=node:node /repo/packages/shared/dist ./packages/shared/dist
+COPY --from=build --chown=node:node /repo/generated ./generated
 COPY --from=build --chown=node:node /repo/apps/api/package.json ./apps/api/
 COPY --from=build --chown=node:node /repo/apps/api/dist ./apps/api/dist
 COPY --from=build --chown=node:node /repo/apps/api/bin ./apps/api/bin

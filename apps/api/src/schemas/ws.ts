@@ -9,7 +9,6 @@ export const wsAiMessageSchema = z.object({
   requestId: z.uuid(),
   task: aiTaskSchema,
 });
-export type WsAiMessage = z.infer<typeof wsAiMessageSchema>;
 
 /** Server ack for the `ai` message — same contract as `translate`. */
 export const wsAiAckSchema = z.object({
