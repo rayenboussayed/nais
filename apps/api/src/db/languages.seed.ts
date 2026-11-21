@@ -1,4 +1,4 @@
-import type { LanguageDir } from '@trainslator/shared';
+import type { LanguageDir } from '../schemas/enums.js';
 
 /**
  * Seed payload for the languages table (184 ISO 639-1 entries, lowercased).

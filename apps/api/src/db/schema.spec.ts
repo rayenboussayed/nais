@@ -1,11 +1,11 @@
+import { getTableConfig } from 'drizzle-orm/pg-core';
+import { describe, expect, it } from 'vitest';
+
 import {
   aiMessageStatusSchema,
   languageDirSchema,
   translationNamespaceSchema,
-} from '@trainslator/shared';
-import { getTableConfig } from 'drizzle-orm/pg-core';
-import { describe, expect, it } from 'vitest';
-
+} from '../schemas/enums.js';
 import {
   aiMessagePrompts,
   aiMessages,

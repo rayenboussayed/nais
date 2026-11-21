@@ -1,10 +1,3 @@
-import type { AiMessage as AiMessageWire } from '@trainslator/shared';
-
-import {
-  aiMessageStatusSchema,
-  languageDirSchema,
-  translationNamespaceSchema,
-} from '@trainslator/shared';
 import { isNull } from 'drizzle-orm';
 import {
   boolean,
@@ -20,6 +13,13 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core';
 
+import type { AiMessageWireUsage } from '../schemas/ai-messages.js';
+
+import {
+  aiMessageStatusSchema,
+  languageDirSchema,
+  translationNamespaceSchema,
+} from '../schemas/enums.js';
 import { toPgEnumValues } from './enum-values.js';
 
 /**
@@ -122,7 +122,7 @@ export const aiMessages = pgTable(
     task: varchar('task', { length: 64 }).notNull().default('translate'),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     /** Token/cost accounting as reported by the provider (jsonb). */
-    usage: jsonb('usage').$type<AiMessageWire['usage']>(),
+    usage: jsonb('usage').$type<AiMessageWireUsage>(),
   },
   (table) => [index('ai_messages_created_at_id_idx').on(table.createdAt, table.id)],
 );
