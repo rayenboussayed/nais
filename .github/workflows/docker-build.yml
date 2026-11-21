@@ -22,8 +22,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # workflow_run also fires for called runs and PRs; push on main only keeps untrusted PR code out of this build.
-    if: ${{ github.event_name == 'workflow_call' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main') }}
+    # A called workflow sees the caller's event, so a non-empty ref marks the PR gate path.
+    # workflow_run also fires for called runs; push on main keeps untrusted PR code out of this build.
+    if: >-
+      ${{ (inputs.ref != null && inputs.ref != '') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main') }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
