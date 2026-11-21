@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { loginResponseSchema } from '../schemas/auth.js';
+import { translationSchema } from '../schemas/translations.js';
 import { ApiResponseSchema } from './response-schema.js';
 
 // Metadata keys used by @RouteSchema and @ApiResponse on the handler function.
@@ -65,6 +66,47 @@ describe('ApiResponseSchema', () => {
     const response = await app.inject({ method: 'POST', url: '/login' });
     expect(response.body).toBe('{"username":"admin"}');
     expect(response.json()).not.toHaveProperty('extra');
+
+    await app.close();
+  });
+
+  it('serializes a real multi-field contract in schema order and drops extras', async () => {
+    const handler = applyToHandler(translationSchema, HttpStatus.OK);
+    const routeSchema = Reflect.getMetadata(ROUTE_SCHEMA_KEY, handler) as {
+      response: Record<number, unknown>;
+    };
+    const app = Fastify();
+    app.get('/translation', { schema: routeSchema }, () => ({
+      createdAt: '2026-01-01T00:00:00.000Z',
+      deletedAt: null,
+      id: '123e4567-e89b-42d3-a456-426655440001',
+      internalScore: 0.5,
+      key: 'greeting',
+      languageId: '123e4567-e89b-42d3-a456-426655440000',
+      namespace: 'dynamic',
+      parentId: null,
+      rowVersion: 7,
+      text: 'Hello',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }));
+    await app.ready();
+
+    const response = await app.inject({ method: 'GET', url: '/translation' });
+    expect(response.body).toBe(
+      JSON.stringify({
+        createdAt: '2026-01-01T00:00:00.000Z',
+        deletedAt: null,
+        id: '123e4567-e89b-42d3-a456-426655440001',
+        key: 'greeting',
+        languageId: '123e4567-e89b-42d3-a456-426655440000',
+        namespace: 'dynamic',
+        parentId: null,
+        text: 'Hello',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }),
+    );
+    expect(response.body).not.toContain('rowVersion');
+    expect(response.body).not.toContain('internalScore');
 
     await app.close();
   });

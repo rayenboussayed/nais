@@ -15,6 +15,7 @@ import { z } from 'zod';
  * @param schema - the zod contract describing the response body for the status
  * @param status - the HTTP status code the response schema applies to
  * @returns a method decorator applying both the Swagger and the Fastify response metadata
+ * @throws if the derived schema uses format unsafe, a remote ref or a remote id
  * @example
  * ```ts
  * class AuthController {
