@@ -1,0 +1,21 @@
+name: setup
+description: 'Installs Node from .nvmrc, npm dependencies, and optionally PostgreSQL binaries for throwaway test clusters. Callers check out the repository first.'
+inputs:
+  postgres:
+    description: 'Whether to install the PostgreSQL binaries used by throwaway test clusters'
+    required: false
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+    - if: ${{ inputs.postgres == 'true' }}
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends postgresql
+    - shell: bash
+      run: npm ci
