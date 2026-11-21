@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { KeysetList, Language } from './types';
 
 import { apiFetch } from './api';
-import { useLanguages } from './languages';
+import { useInvalidateLanguages, useLanguages } from './languages';
 
 vi.mock('./api', async (importOriginal) => {
   const original = await importOriginal<typeof import('./api')>();
@@ -40,6 +40,28 @@ const languages: Language[] = [
     updatedAt: '2026-11-18T00:00:00.000Z',
   },
 ];
+
+/**
+ * Probe exposing the catalogue and a control that invalidates its cache.
+ * @returns the probe element
+ */
+function InvalidateProbe() {
+  const { data = [], isLoading } = useLanguages();
+  const invalidateLanguages = useInvalidateLanguages();
+  if (isLoading) return <p>loading</p>;
+  return (
+    <div>
+      <button onClick={() => void invalidateLanguages()} type="button">
+        Invalidate
+      </button>
+      <ul>
+        {data.map((language) => (
+          <li key={language.id}>{language.iso6391}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 /**
  * Probe component rendering the loaded languages.
@@ -103,8 +125,42 @@ describe('useLanguages', () => {
     });
     expect(screen.getByText('ar')).toBeTruthy();
     expect(vi.mocked(apiFetch)).toHaveBeenCalledTimes(2);
+    const firstUrl = vi.mocked(apiFetch).mock.calls[0]?.[0];
+    expect(firstUrl).toContain('orderBy=asc');
+    expect(firstUrl).toContain('pageSize=100');
     const secondUrl = vi.mocked(apiFetch).mock.calls[1]?.[0];
     expect(secondUrl).toContain('lastId=');
+  });
+
+  it('invalidating the catalogue refetches a stale language selector', async () => {
+    vi.mocked(apiFetch)
+      .mockResolvedValueOnce({ items: [languages[0] as Language], next: null })
+      .mockResolvedValueOnce({
+        items: [languages[0] as Language, languages[1] as Language],
+        next: null,
+      });
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { gcTime: 0, retry: false } },
+    });
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries');
+
+    render(<InvalidateProbe />, { wrapper: wrapper(client) });
+
+    await waitFor(() => {
+      expect(screen.queryByText('en')).toBeTruthy();
+    });
+    expect(vi.mocked(apiFetch)).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Invalidate' }));
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['languages'] });
+    });
+    await waitFor(() => {
+      expect(vi.mocked(apiFetch)).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.getByText('ar')).toBeTruthy();
   });
 
   it('surfaces a fetch failure as an error state', async () => {

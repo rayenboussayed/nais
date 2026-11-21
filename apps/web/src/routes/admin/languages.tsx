@@ -7,6 +7,7 @@ import { AdminSearch, Modal, Pagination } from '../../components/AdminBits';
 import { formatTimestamp } from '../../lib/admin';
 import { ApiError, apiFetch } from '../../lib/api';
 import { createLanguageSchema, updateLanguageBodySchema } from '../../lib/forms';
+import { useInvalidateLanguages } from '../../lib/languages';
 import { useAdminList } from '../../lib/use-admin-list';
 import { Route as adminRoute } from '../admin';
 
@@ -49,6 +50,7 @@ function LanguagesAdmin() {
     pageSize: PAGE_SIZE,
     resource: 'languages',
   });
+  const invalidateLanguages = useInvalidateLanguages();
 
   const [editing, setEditing] = useState<Editing>(null);
   const [formError, setFormError] = useState<null | string>(null);
@@ -140,6 +142,7 @@ function LanguagesAdmin() {
 
       setEditing(null);
       await invalidate();
+      await invalidateLanguages();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setFormError(cause.apiMessage ?? cause.message);
@@ -159,6 +162,7 @@ function LanguagesAdmin() {
     if (!window.confirm(`Soft-delete ${row.nativeName} (${row.iso6391})?`)) return;
     try {
       await deleteRow(row.id);
+      await invalidateLanguages();
     } catch {
       window.alert('Could not delete the language.');
     }
