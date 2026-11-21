@@ -7,6 +7,7 @@ import {
   translationNamespaceSchema,
 } from '../schemas/enums.js';
 import {
+  aiCache,
   aiMessagePrompts,
   aiMessages,
   aiMessageStatusEnum,
@@ -70,6 +71,17 @@ describe('drizzle schema invariants', () => {
     const config = getTableConfig(aiMessagePrompts);
     const fk = config.foreignKeys[0];
     expect(fk?.reference().foreignColumns.map((column) => column.name)).toEqual(['id']);
+  });
+
+  it('ai_cache pins its task-model-key unique index and task created-at index', () => {
+    const config = getTableConfig(aiCache);
+    const names = config.indexes.map((index) => index.config.name);
+    expect(names).toContain('ai_cache_task_model_key_unique');
+    expect(names).toContain('ai_cache_task_created_at_idx');
+    expect(
+      config.indexes.find((index) => index.config.name === 'ai_cache_task_model_key_unique')?.config
+        .unique,
+    ).toBe(true);
   });
 
   it('ai_messages, translations and languages have the (created_at, id) keyset index', () => {
