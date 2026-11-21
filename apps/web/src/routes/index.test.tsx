@@ -73,11 +73,7 @@ function deferTranslation() {
  */
 function stubClipboard() {
   const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
-  // eslint-disable-next-line n/no-unsupported-features/node-builtins -- jsdom browser global
-  Object.defineProperty(window.navigator, 'clipboard', {
-    configurable: true,
-    value: { writeText },
-  });
+  vi.stubGlobal('navigator', { clipboard: { writeText } });
   return writeText;
 }
 
@@ -107,6 +103,7 @@ describe('Playground', () => {
 
   afterEach(() => {
     cleanup();
+    vi.unstubAllGlobals();
   });
 
   it('does not translate an empty source', async () => {
