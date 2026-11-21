@@ -2,8 +2,12 @@ import { defineConfig } from 'vitest/config';
 
 import baseConfig from './vitest.config.mts';
 
-// Mirrors jutilities' profile config for CPU/heap profiling runs.
+// Profiles benchmarks only. The base config's test globs include PostgreSQL
+// integration specs, which would boot throwaway clusters under the profiler.
 export default defineConfig({
+  benchmark: {
+    include: ['apps/api/bench/**/*.bench.ts'],
+  },
   test: {
     ...baseConfig.test,
     coverage: { enabled: false },
@@ -11,5 +15,6 @@ export default defineConfig({
     fileParallelism: false,
     isolate: false,
     maxWorkers: 1,
+    passWithNoTests: false,
   },
 });
