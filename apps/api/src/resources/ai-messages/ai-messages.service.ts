@@ -1,10 +1,12 @@
-import type { AiMessage, AiMessagePrompt, KeysetList, Pagination } from '@trainslator/shared';
 import type { SQL } from 'drizzle-orm';
 
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, getTableColumns, isNotNull, isNull, sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/drizzle.module.js';
+import type { AiMessage, AiMessagePrompt } from '../../schemas/ai-messages.js';
+import type { Pagination } from '../../schemas/common.js';
+import type { KeysetList } from '../../schemas/list.js';
 
 import { DRIZZLE } from '../../db/drizzle.module.js';
 import { aiMessagePrompts, aiMessages } from '../../db/schema.js';

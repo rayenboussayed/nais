@@ -1,9 +1,3 @@
-import type {
-  CreateTranslationInput,
-  KeysetList,
-  Translation,
-  UpdateTranslationBodyInput,
-} from '@trainslator/shared';
 import type { SQL } from 'drizzle-orm';
 
 import {
@@ -17,6 +11,12 @@ import { and, asc, desc, eq, getTableColumns, isNotNull, isNull, sql } from 'dri
 
 import type { Database } from '../../db/drizzle.module.js';
 import type { TranslationsListQuery } from '../../schemas/list-query.js';
+import type { KeysetList } from '../../schemas/list.js';
+import type {
+  CreateTranslationInput,
+  Translation,
+  UpdateTranslationBodyInput,
+} from '../../schemas/translations.js';
 
 import { DRIZZLE } from '../../db/drizzle.module.js';
 import { translations } from '../../db/schema.js';

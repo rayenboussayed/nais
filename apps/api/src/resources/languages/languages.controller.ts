@@ -1,11 +1,3 @@
-import type {
-  CreateLanguageInput,
-  KeysetList,
-  Language,
-  Pagination,
-  UpdateLanguageBodyInput,
-} from '@trainslator/shared';
-
 import {
   Body,
   Controller,
@@ -18,12 +10,17 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import {
-  createLanguageSchema,
-  paginationSchema,
-  updateLanguageBodySchema,
-} from '@trainslator/shared';
 
+import type { Pagination } from '../../schemas/common.js';
+import type {
+  CreateLanguageInput,
+  Language,
+  UpdateLanguageBodyInput,
+} from '../../schemas/languages.js';
+import type { KeysetList } from '../../schemas/list.js';
+
+import { paginationSchema } from '../../schemas/common.js';
+import { createLanguageSchema, updateLanguageBodySchema } from '../../schemas/languages.js';
 import { LanguagesService } from './languages.service.js';
 
 /** REST surface for the language catalogue. All routes sit behind basic-auth. */

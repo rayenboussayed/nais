@@ -1,10 +1,3 @@
-import type {
-  CreateLanguageInput,
-  KeysetList,
-  Language,
-  Pagination,
-  UpdateLanguageBodyInput,
-} from '@trainslator/shared';
 import type { SQL } from 'drizzle-orm';
 
 import {
@@ -17,6 +10,13 @@ import {
 import { and, asc, desc, eq, getTableColumns, isNotNull, isNull, sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/drizzle.module.js';
+import type { Pagination } from '../../schemas/common.js';
+import type {
+  CreateLanguageInput,
+  Language,
+  UpdateLanguageBodyInput,
+} from '../../schemas/languages.js';
+import type { KeysetList } from '../../schemas/list.js';
 
 import { DRIZZLE } from '../../db/drizzle.module.js';
 import { languages } from '../../db/schema.js';

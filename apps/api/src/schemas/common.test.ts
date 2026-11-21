@@ -1,0 +1,164 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  cursorTimestampSchema,
+  iso6391Schema,
+  keysetCursorSchema,
+  paginationSchema,
+  wsAckStatusCodeSchema,
+} from './common.js';
+
+describe('iso6391Schema', () => {
+  it('accepts two-letter lowercase codes', () => {
+    expect(iso6391Schema.parse('en')).toBe('en');
+    expect(iso6391Schema.parse('ar')).toBe('ar');
+  });
+
+  it('rejects malformed codes', () => {
+    for (const input of ['', 'e', 'eng', 'EN', 'e1', '1a']) {
+      expect(() => iso6391Schema.parse(input)).toThrow();
+    }
+  });
+});
+
+describe('paginationSchema', () => {
+  it('applies defaults', () => {
+    expect(paginationSchema.parse({})).toEqual({
+      onlyDeleted: false,
+      orderBy: 'desc',
+      pageSize: 20,
+    });
+  });
+
+  it('coerces numeric strings from query params', () => {
+    const parsed = paginationSchema.parse({ pageSize: '50' });
+    expect(parsed.pageSize).toBe(50);
+    expect(() => paginationSchema.parse({ pageSize: '101' })).toThrow();
+    expect(() => paginationSchema.parse({ pageSize: '0' })).toThrow();
+    expect(() => paginationSchema.parse({ pageSize: 'abc' })).toThrow();
+  });
+
+  it('parses stringbool onlyDeleted values correctly', () => {
+    expect(paginationSchema.parse({ onlyDeleted: 'false' }).onlyDeleted).toBe(false);
+    expect(paginationSchema.parse({ onlyDeleted: 'true' }).onlyDeleted).toBe(true);
+    expect(paginationSchema.parse({ onlyDeleted: '1' }).onlyDeleted).toBe(true);
+  });
+
+  it('rejects a partial cursor pair', () => {
+    expect(() =>
+      paginationSchema.parse({ lastId: '123e4567-e89b-42d3-a456-426655440000' }),
+    ).toThrow();
+    expect(() =>
+      paginationSchema.parse({ lastCreatedAt: '2026-11-18T00:00:00.000000+00:00' }),
+    ).toThrow();
+  });
+
+  it('rejects an invalid cursor timestamp', () => {
+    expect(() =>
+      paginationSchema.parse({
+        lastCreatedAt: 'not-a-timestamp',
+        lastId: '123e4567-e89b-42d3-a456-426655440000',
+      }),
+    ).toThrow();
+  });
+
+  it('rejects invalid orderBy and uuids', () => {
+    expect(() => paginationSchema.parse({ orderBy: 'newest' })).toThrow();
+    expect(() => paginationSchema.parse({ lastId: 'not-a-uuid' })).toThrow();
+  });
+
+  it('parses a valid cursor and query string', () => {
+    const parsed = paginationSchema.parse({
+      lastCreatedAt: '2026-11-18T00:00:00.000Z',
+      lastId: '123e4567-e89b-42d3-a456-426655440000',
+      q: 'hello',
+    });
+    expect(parsed.lastId).toBe('123e4567-e89b-42d3-a456-426655440000');
+    expect(parsed.lastCreatedAt).toBe('2026-11-18T00:00:00.000Z');
+    expect(parsed.q).toBe('hello');
+  });
+
+  it('accepts the three pg timestamptz offset shapes', () => {
+    for (const value of [
+      '2026-11-18T23:05:21.809035+00',
+      '2026-11-18T23:05:21.809035+00:00',
+      '2026-11-18T23:05:21.809035Z',
+    ]) {
+      expect(cursorTimestampSchema.parse(value).length).toBeGreaterThan(10);
+    }
+  });
+
+  it('rejects calendar-impossible instants', () => {
+    expect(() => cursorTimestampSchema.parse('9999-99-99T99:99:99+99')).toThrow();
+  });
+
+  it('rejects cursors with malformed shape', () => {
+    expect(() => cursorTimestampSchema.parse('2026-11-18 23:05:21.809035+00')).toThrow();
+    expect(() => cursorTimestampSchema.parse('not-a-date')).toThrow();
+  });
+
+  it('rejects queries longer than 255 characters', () => {
+    expect(() => paginationSchema.parse({ q: 'a'.repeat(256) })).toThrow();
+  });
+});
+
+describe('keysetCursorSchema', () => {
+  const validId = '123e4567-e89b-42d3-a456-426655440000';
+  const validAt = '2026-11-18T00:00:00.000Z';
+  const offsetAt = '2026-11-18T00:00:00.000+00:00';
+
+  it('accepts a complete cursor', () => {
+    expect(keysetCursorSchema.parse({ lastCreatedAt: validAt, lastId: validId })).toEqual({
+      lastCreatedAt: validAt,
+      lastId: validId,
+    });
+  });
+
+  it('accepts a numeric-offset ISO datetime', () => {
+    const parsed = keysetCursorSchema.parse({ lastCreatedAt: offsetAt, lastId: validId });
+    expect(parsed.lastCreatedAt).toBe(offsetAt);
+  });
+
+  it('accepts the DB-shaped cursor with six fractional digits and short offset', () => {
+    const dbCursor = '2026-11-18T23:05:21.809035+00';
+    expect(keysetCursorSchema.parse({ lastCreatedAt: dbCursor, lastId: validId })).toEqual({
+      lastCreatedAt: dbCursor,
+      lastId: validId,
+    });
+  });
+
+  it('requires both fields', () => {
+    expect(() => keysetCursorSchema.parse({})).toThrow();
+    expect(() => keysetCursorSchema.parse({ lastId: validId })).toThrow();
+    expect(() => keysetCursorSchema.parse({ lastCreatedAt: validAt })).toThrow();
+  });
+
+  it('rejects malformed values', () => {
+    expect(() =>
+      keysetCursorSchema.parse({ lastCreatedAt: 'not-a-timestamp', lastId: validId }),
+    ).toThrow();
+    expect(() =>
+      keysetCursorSchema.parse({ lastCreatedAt: validAt, lastId: 'not-a-uuid' }),
+    ).toThrow();
+  });
+});
+
+describe('wsAckStatusCodeSchema', () => {
+  it('accepts all six WS ack status codes', () => {
+    for (const code of [200, 202, 400, 404, 429, 500]) {
+      expect(wsAckStatusCodeSchema.parse(code)).toBe(code);
+    }
+  });
+
+  it('rejects numeric codes outside the ack contract', () => {
+    for (const code of [-1, 0, 100, 201, 204, 301, 403, 408, 418, 422, 501, 503, 200.5]) {
+      expect(() => wsAckStatusCodeSchema.parse(code)).toThrow();
+    }
+  });
+
+  it('rejects non-numeric inputs', () => {
+    for (const input of ['200', null, undefined, true, {}, []]) {
+      expect(() => wsAckStatusCodeSchema.parse(input)).toThrow();
+    }
+  });
+});

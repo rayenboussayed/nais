@@ -1,8 +1,9 @@
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
-import type { ApiError } from '@trainslator/shared';
 import type { FastifyReply } from 'fastify';
 
 import { HttpException, HttpStatus, Logger } from '@nestjs/common';
+
+import type { ApiError } from './schemas/errors.js';
 
 /**
  * Maps every thrown value to the shared `ApiError` wire shape. Nest HTTP

@@ -1,8 +1,10 @@
-import type { AiMessage, AiMessagePrompt, KeysetList, Pagination } from '@trainslator/shared';
-
 import { Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Query } from '@nestjs/common';
-import { paginationSchema } from '@trainslator/shared';
 
+import type { AiMessage, AiMessagePrompt } from '../../schemas/ai-messages.js';
+import type { Pagination } from '../../schemas/common.js';
+import type { KeysetList } from '../../schemas/list.js';
+
+import { paginationSchema } from '../../schemas/common.js';
 import { AiMessagesService } from './ai-messages.service.js';
 
 /** Read-only audit surface for AI provider calls. All routes sit behind basic-auth. */

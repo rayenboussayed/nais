@@ -1,10 +1,10 @@
-import type { TranslateRequest, TranslateResponse } from '@trainslator/shared';
-
 import { Body, Controller, Post } from '@nestjs/common';
 import { Resilience } from '@nestjs/resilience';
 import { Throttle } from '@nestjs/throttler';
-import { translateRequestSchema } from '@trainslator/shared';
 
+import type { TranslateRequest, TranslateResponse } from '../../schemas/translations.js';
+
+import { translateRequestSchema } from '../../schemas/translations.js';
 import { TranslateService } from './translate.service.js';
 
 /** POST `/api/translate` — synchronous translation with cache-aside lookup. */

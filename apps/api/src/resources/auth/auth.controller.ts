@@ -1,4 +1,3 @@
-import type { LoginRequest } from '@trainslator/shared';
 import type { FastifyReply } from 'fastify';
 
 import {
@@ -14,12 +13,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { loginRequestSchema } from '@trainslator/shared';
 
 import type { Env } from '../../environment.js';
+import type { LoginRequest } from '../../schemas/auth.js';
 
 import { SESSION_COOKIE_NAME, signSession } from '../../modules/auth/session.js';
 import { DUMMY_SCRYPT_HASH, verifyScryptPassword } from '../../modules/auth/validator.js';
+import { loginRequestSchema } from '../../schemas/auth.js';
 import { RateLimiter } from '../../utils/rate-limit.js';
 
 const COOKIE_MAX_AGE_SECONDS = 12 * 60 * 60;

@@ -1,10 +1,3 @@
-import type {
-  CreateTranslationInput,
-  KeysetList,
-  Translation,
-  UpdateTranslationBodyInput,
-} from '@trainslator/shared';
-
 import {
   Body,
   Controller,
@@ -17,11 +10,20 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { createTranslationSchema, updateTranslationBodySchema } from '@trainslator/shared';
 
 import type { TranslationsListQuery } from '../../schemas/list-query.js';
+import type { KeysetList } from '../../schemas/list.js';
+import type {
+  CreateTranslationInput,
+  Translation,
+  UpdateTranslationBodyInput,
+} from '../../schemas/translations.js';
 
 import { translationsListQuerySchema } from '../../schemas/list-query.js';
+import {
+  createTranslationSchema,
+  updateTranslationBodySchema,
+} from '../../schemas/translations.js';
 import { TranslationsService } from './translations.service.js';
 
 /** REST surface for the translation catalogue. All routes sit behind basic-auth. */

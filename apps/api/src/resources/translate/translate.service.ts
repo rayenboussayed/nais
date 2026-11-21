@@ -1,5 +1,4 @@
 import type { AiUsageEvent } from '@nestjs/ai';
-import type { TranslateRequest, TranslateResponse } from '@trainslator/shared';
 
 import { AiService } from '@nestjs/ai';
 import {
@@ -15,6 +14,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 
 import type { Database } from '../../db/drizzle.module.js';
 import type { Env } from '../../environment.js';
+import type { TranslateRequest, TranslateResponse } from '../../schemas/translations.js';
 
 import { DRIZZLE } from '../../db/drizzle.module.js';
 import { aiMessagePrompts, aiMessages, languages, translations } from '../../db/schema.js';

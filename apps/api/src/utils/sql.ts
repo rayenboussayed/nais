@@ -1,7 +1,8 @@
-import type { KeysetList } from '@trainslator/shared';
 import type { Column } from 'drizzle-orm';
 
 import { sql } from 'drizzle-orm';
+
+import type { KeysetList } from '../schemas/list.js';
 
 /**
  * Escapes user input for use inside a LIKE/ILIKE pattern with `ESCAPE '\'`.
