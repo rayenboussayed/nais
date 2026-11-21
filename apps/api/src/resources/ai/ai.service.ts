@@ -18,6 +18,7 @@ import { DRIZZLE } from '../../db/drizzle.module.js';
 import { aiCache, aiMessages } from '../../db/schema.js';
 import { AI_TASKS, aiRequestSchemas, aiTaskSchema } from '../../schemas/ai.js';
 import { normalizeResult } from '../../utils/ai-result.js';
+import { markAuditFailed } from '../../utils/audit.js';
 import { Inflight } from '../../utils/inflight.js';
 import { inputHashFor, taskKeyFor } from '../../utils/key.js';
 import { Semaphore } from '../../utils/semaphore.js';
@@ -285,18 +286,7 @@ export class AiService implements OnModuleInit {
 
       return { cached: false, model, result: { ...finalResult, cached: false }, task };
     } catch (error) {
-      await this.db
-        .update(aiMessages)
-        .set({ status: 'failed', updatedAt: new Date() })
-        .where(eq(aiMessages.id, message.id))
-        .catch((secondaryError: unknown) => {
-          // Best-effort audit; never mask the original failure with a database error.
-          this.logger.error(
-            `audit row ${message.id} could not be marked failed: ${
-              secondaryError instanceof Error ? secondaryError.name : 'unknown error'
-            }`,
-          );
-        });
+      await markAuditFailed(this.db, message.id, (auditMessage) => this.logger.error(auditMessage));
 
       if (isTimeoutError(error)) {
         throw new GatewayTimeoutException('The AI task timed out');

@@ -18,6 +18,7 @@ import type { TranslateRequest, TranslateResponse } from '../../schemas/translat
 
 import { DRIZZLE } from '../../db/drizzle.module.js';
 import { aiMessagePrompts, aiMessages, languages, translations } from '../../db/schema.js';
+import { markAuditFailed } from '../../utils/audit.js';
 import { Inflight } from '../../utils/inflight.js';
 import { translationKeyFor } from '../../utils/key.js';
 import {
@@ -167,16 +168,7 @@ export class TranslateService {
       this.logger.error(
         `translation failed for key=${key.slice(0, 12)}… (${isTimeoutError(error) ? 'timeout' : 'upstream'})`,
       );
-      await this.db
-        .update(aiMessages)
-        .set({ status: 'failed', updatedAt: new Date() })
-        .where(eq(aiMessages.id, message.id))
-        .catch((secondaryError: unknown) => {
-          // Best-effort audit; never mask the original failure with a database error.
-          this.logger.error(
-            `audit row ${message.id} could not be marked failed: ${secondaryError instanceof Error ? secondaryError.name : 'unknown error'}`,
-          );
-        });
+      await markAuditFailed(this.db, message.id, (auditMessage) => this.logger.error(auditMessage));
 
       if (isTimeoutError(error)) {
         throw new GatewayTimeoutException('Translation timed out');
