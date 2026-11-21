@@ -115,4 +115,54 @@ describe('TranslationsAdmin', () => {
     });
     confirmSpy.mockRestore();
   });
+
+  it('reseeds the edit draft when editing switches to another row while the modal is open', async () => {
+    const first: Translation = {
+      createdAt: '2026-11-18T00:00:00.000Z',
+      deletedAt: null,
+      id: '10000000-0000-4000-8000-000000000020',
+      key: 'first.key',
+      languageId: languages[0]?.id ?? '',
+      namespace: 'static',
+      parentId: null,
+      text: 'First row text',
+      updatedAt: '2026-11-18T00:00:00.000Z',
+    };
+    const second: Translation = {
+      createdAt: '2026-11-18T00:00:00.000Z',
+      deletedAt: null,
+      id: '10000000-0000-4000-8000-000000000021',
+      key: 'second.key',
+      languageId: languages[0]?.id ?? '',
+      namespace: 'static',
+      parentId: null,
+      text: 'Second row text',
+      updatedAt: '2026-11-18T00:00:00.000Z',
+    };
+    vi.mocked(apiFetch).mockImplementation(async (url) => {
+      const path = typeof url === 'string' ? url : String(url);
+      if (path.startsWith('/api/languages'))
+        return { items: languages, next: null } as KeysetList<Language>;
+      if (path.startsWith('/api/translations'))
+        return { items: [first, second], next: null } as KeysetList<Translation>;
+      throw new Error(`unexpected url in test: ${path}`);
+    });
+
+    render(<TranslationsAdmin />, { wrapper: wrapper() });
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(2);
+    });
+
+    const editButtons = screen.getAllByRole('button', { name: 'Edit' });
+    const [firstEdit, secondEdit] = editButtons;
+    if (!firstEdit || !secondEdit) throw new Error('Edit buttons were not rendered');
+
+    fireEvent.click(firstEdit);
+    expect(screen.getByLabelText('Text')).toHaveProperty('value', 'First row text');
+
+    fireEvent.click(secondEdit);
+    expect(screen.getByLabelText('Text')).toHaveProperty('value', 'Second row text');
+    expect(screen.getByLabelText('Key')).toHaveProperty('value', 'second.key');
+  });
 });

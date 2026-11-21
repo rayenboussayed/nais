@@ -105,6 +105,7 @@ export function TranslationsAdmin() {
       {editing && (
         <TranslationsForm
           editing={editing}
+          key={editing.mode === 'create' ? 'create' : `edit:${editing.row.id}`}
           languages={languages}
           onClose={() => setEditing(null)}
           onSaved={invalidate}
