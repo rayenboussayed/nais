@@ -1,12 +1,21 @@
+import { readFileSync } from 'node:fs';
 import 'zod/compile';
 import { describe, expect, it } from 'vitest';
 
 import { loginRequestSchema } from './schemas/auth.js';
 import { paginationSchema } from './schemas/common.js';
 
-// The side-effect import stays first so the compiler's post processor is
-// installed before the real contract modules below evaluate and build schemas.
+// The side-effect import runs before the contract modules below, so the
+// compiler's post processor is installed when those schemas are built.
 describe('zod/compile side-effect import', () => {
+  it('keeps the side-effect import ahead of the app module in main.ts', () => {
+    const source = readFileSync('apps/api/src/main.ts', 'utf8');
+    const compileAt = source.indexOf("import 'zod/compile';");
+    const appModuleAt = source.indexOf('import { AppModule }');
+    expect(compileAt).toBeGreaterThanOrEqual(0);
+    expect(appModuleAt).toBeGreaterThan(compileAt);
+  });
+
   it('parses valid input with a contract built after the import', () => {
     expect(loginRequestSchema.parse({ password: 'secret', username: '  admin  ' })).toEqual({
       password: 'secret',

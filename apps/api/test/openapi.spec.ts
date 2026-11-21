@@ -4,8 +4,16 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { API_GLOBAL_PREFIX } from '../src/constants/app.js';
+import { loginRequestSchema } from '../src/schemas/auth.js';
+import { createLanguageSchema, updateLanguageBodySchema } from '../src/schemas/languages.js';
+import {
+  createTranslationSchema,
+  translateRequestSchema,
+  updateTranslationBodySchema,
+} from '../src/schemas/translations.js';
 import { createOpenApiDocument } from '../src/swagger.js';
 import { TEST_BASIC_AUTH_ENV } from './auth.js';
 
@@ -63,6 +71,23 @@ function expectSuccess(
     responseSchema(document, path, method, status),
     `${method} ${path} ${status}`,
   ).toBeDefined();
+}
+
+/**
+ * Reads the JSON request body schema of one operation.
+ * @param document - the generated OpenAPI document
+ * @param path - the path key of the operation
+ * @param method - the HTTP method key of the operation
+ * @returns the request body schema, or undefined when no JSON body is documented
+ */
+function requestBodySchema(document: GeneratedDocument, path: string, method: string): unknown {
+  const pathItem: unknown = Reflect.get(document.paths, path);
+  const operation: unknown = Reflect.get(pathItem ?? {}, method);
+  const body: unknown = Reflect.get(operation ?? {}, 'requestBody');
+  const content: unknown = Reflect.get(body ?? {}, 'content');
+  const json: unknown = Reflect.get(content ?? {}, 'application/json');
+  if (!json || typeof json !== 'object' || !('schema' in json)) return undefined;
+  return json.schema;
 }
 
 /**
@@ -257,5 +282,44 @@ describe('browser-safe generated contracts', () => {
       }
     }
     expect(index).toBe(expected.length);
+  });
+});
+
+describe('Swagger body schemas from zod contracts', () => {
+  it('documents a JSON request body for every operation that accepts one', () => {
+    const document: GeneratedDocument = JSON.parse(
+      readFileSync('apps/api/test/fixtures/openapi.golden.json', 'utf8'),
+    );
+    let checked = 0;
+    for (const [path, item] of Object.entries(document.paths)) {
+      for (const [method, operation] of Object.entries(item)) {
+        if (!operation || typeof operation !== 'object' || !('responses' in operation)) continue;
+        if (!['patch', 'post'].includes(method)) continue;
+        // Logout carries no body; every other mutating route has a zod contract.
+        if (path === '/api/auth/logout') continue;
+        expect(requestBodySchema(document, path, method), `${method} ${path}`).toBeDefined();
+        checked += 1;
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it('matches the JSON Schema derived from each route zod contract', () => {
+    const document: GeneratedDocument = JSON.parse(
+      readFileSync('apps/api/test/fixtures/openapi.golden.json', 'utf8'),
+    );
+    const contracts = [
+      ['/api/auth/login', 'post', loginRequestSchema],
+      ['/api/languages', 'post', createLanguageSchema],
+      ['/api/languages/{id}', 'patch', updateLanguageBodySchema],
+      ['/api/translations', 'post', createTranslationSchema],
+      ['/api/translations/{id}', 'patch', updateTranslationBodySchema],
+      ['/api/translate', 'post', translateRequestSchema],
+    ] as const;
+
+    for (const [path, method, schema] of contracts) {
+      const expected = z.toJSONSchema(schema, { io: 'input', target: 'openapi-3.0' });
+      expect(requestBodySchema(document, path, method), `${method} ${path}`).toEqual(expected);
+    }
   });
 });

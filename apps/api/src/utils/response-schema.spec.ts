@@ -1,4 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
+import { FASTIFY_ROUTE_SCHEMA_METADATA } from '@nestjs/platform-fastify/constants';
 import { DECORATORS } from '@nestjs/swagger';
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
@@ -8,7 +9,7 @@ import { loginResponseSchema } from '../schemas/auth.js';
 import { ApiResponseSchema } from './response-schema.js';
 
 // Metadata keys used by @RouteSchema and @ApiResponse on the handler function.
-const ROUTE_SCHEMA_KEY = '__fastify_route_schema__';
+const ROUTE_SCHEMA_KEY = FASTIFY_ROUTE_SCHEMA_METADATA;
 const API_RESPONSE_KEY = DECORATORS.API_RESPONSE;
 
 /**
