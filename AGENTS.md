@@ -30,8 +30,10 @@ native Standard Schema and generates the types used by the web app.
    (migration `brave_karen_page`). Without the partial predicate, a soft delete
    poisons the `(language_id, key)` slot forever.
 5. **Microsecond precision:** JS `Date` truncates timestamptz to milliseconds;
-   the keyset cursor must come from the DB
-   (`replace(created_at::text, ' ', 'T')` cast) or anchor rows leak across pages.
+   the keyset cursor must come from the DB. `timestamptzCursor` uses
+   `to_char(column, 'YYYY-MM-DD"T"HH24:MI:SS.USOF')` because a `::text` cast
+   depends on the session `DateStyle` setting. Anchor rows leak across pages
+   without the database formatted value.
 6. **Changing `tsx` → vitest:** `.tsx` files with JSX produce no coverage signal
    in v8 (upstream vitest#10475: `parseAstAsync` defaults to `lang: 'js'`).
    Component behavior is asserted via `@testing-library/react` jsdom tests
