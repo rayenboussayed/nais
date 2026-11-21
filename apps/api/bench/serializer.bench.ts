@@ -51,11 +51,7 @@ const compiledTranslationSchema = z.compile(translationSchema);
 function buildApp() {
   const app = Fastify();
   app.get(PLAIN_ROUTE, () => LOGIN_PAYLOAD);
-  app.get(
-    SCHEMA_ROUTE,
-    { schema: { response: { 200: responseSchema } } },
-    () => LOGIN_PAYLOAD,
-  );
+  app.get(SCHEMA_ROUTE, { schema: { response: { 200: responseSchema } } }, () => LOGIN_PAYLOAD);
   return app;
 }
 
