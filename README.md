@@ -128,7 +128,7 @@ Coverage of `.tsx` route components is excluded from the gate (v8 cannot map rol
 
 - [`apps/api`](apps/api) — NestJS 12 API + WebSocket gateway + pg-boss worker (`ai-task` queue) + transformers.js pipeline loader ([README](apps/api/README.md) · [AGENTS](apps/api/AGENTS.md) · [CHANGELOG](apps/api/CHANGELOG.md))
 - [`apps/web`](apps/web) — React 19 + Vite playground, AI Studio (`/studio`) and admin console ([README](apps/web/README.md) · [AGENTS](apps/web/AGENTS.md) · [CHANGELOG](apps/web/CHANGELOG.md))
-- [`generated`](generated) — committed HTTP types, WebSocket envelope document and WebSocket types generated from the API's zod contracts by `npm run generate:api` after the API build
+- [`generated`](generated) — committed HTTP types, WebSocket envelope document, WebSocket types and browser form validators generated from the API's zod contracts by `npm run generate:api` after the API build
 
 Repo-wide history lives in [CHANGELOG.md](CHANGELOG.md); per-workspace guidance in each workspace's `AGENTS.md`.
 

@@ -71,9 +71,11 @@ native Standard Schema and generates the types used by the web app.
     audit trail are covered without network.
 14. **Generated types are committed artifacts.** Build the API first, then
     `npm run generate:api` writes `apps/api/test/fixtures/openapi.golden.json`,
-    `generated/api.d.ts`, `generated/ws.openapi.json` and `generated/ws.d.ts`
-    from the API's own Zod contracts. CI regenerates them after the build and
-    fails on drift. Never hand-edit generated files.
+    `generated/api.d.ts`, `generated/ws.openapi.json`, `generated/ws.d.ts` and
+    `generated/contracts.ts` from the API's own Zod contracts. The last file
+    carries the browser form validators, so the web has no second copy of the
+    API constraints. CI regenerates everything after the build and fails on
+    drift. Never hand-edit generated files.
 
 15. **onnxruntime-node ships native binaries in the package (548 MB).** Its
     postinstall only prunes; this repo's npm install-scripts policy is left

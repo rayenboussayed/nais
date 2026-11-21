@@ -25,9 +25,11 @@ what is specific to `apps/web`.
 7. **Admin pages share `AdminBits.tsx`** (`AdminSearch`, `Pagination`,
    `Modal`). Add new admin surfaces with these, not new ad-hoc markup.
 8. **Studio consumes the same contracts as the API** — `GET /api/ai/tasks`
-   descriptors are re-parsed with the shared zod schema before rendering, and
+   descriptors are re-parsed with the generated validator before rendering, and
    a static fallback list ships so Studio still boots when the endpoint is
-   unreachable (by design — keep the fallback).
+   unreachable (by design — keep the fallback). `lib/forms.ts` only re-exports
+   validators from `generated/contracts.ts`; add constraints to the API Zod
+   schemas and regenerate, never to the web copy.
 9. **Error rendering must not trust the wire.** `ApiError` carries a safe,
    constant message; response bodies are parsed with shared zod schemas or
    ignored.

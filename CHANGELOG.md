@@ -10,6 +10,8 @@ tagged releases yet. Dates are UTC, taken from the commit history.
 - Removed `packages/shared`. Runtime zod contracts now live in `apps/api/src/schemas`, and the web uses HTTP and WebSocket types generated from those contracts by `openapi-typescript` and consumed with `openapi-fetch`.
 - Added an official NestJS agent-skills set and switched the git remote to `rayenboussayed/nais`.
 - OpenAPI now documents response bodies, UUID path params and shared error envelopes; a committed golden fixture and CI freshness guard keep generated artifacts current.
+- Deep refactoring pass: AI result normalization and failed-audit updates moved into pure utilities, the web response paths share one mapper, the translations admin route was split, and language selectors refresh after admin mutations.
+- Browser form validators are generated from the API Zod sources, so web validation has one source of truth. The profiler runs benchmark files only, and CI checks migration snapshots for consistency.
 
 ## Unreleased - 2026-11-18 .. 2026-11-19
 
