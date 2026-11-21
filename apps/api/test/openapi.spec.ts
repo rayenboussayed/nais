@@ -9,6 +9,29 @@ import { API_GLOBAL_PREFIX } from '../src/constants/app.js';
 import { createOpenApiDocument } from '../src/swagger.js';
 import { TEST_BASIC_AUTH_ENV } from './auth.js';
 
+/**
+ * Reads a schema source through a literal path, keeping the file-security
+ * rule satisfied while the emitted contract chunks are compared to source.
+ * @param path - one of the declared schema source paths
+ * @returns the source text
+ */
+function readSchemaSource(path: string): string {
+  switch (path) {
+    case 'apps/api/src/schemas/ai.ts':
+      return readFileSync('apps/api/src/schemas/ai.ts').toString();
+    case 'apps/api/src/schemas/common.ts':
+      return readFileSync('apps/api/src/schemas/common.ts').toString();
+    case 'apps/api/src/schemas/enums.ts':
+      return readFileSync('apps/api/src/schemas/enums.ts').toString();
+    case 'apps/api/src/schemas/languages.ts':
+      return readFileSync('apps/api/src/schemas/languages.ts').toString();
+    case 'apps/api/src/schemas/translations.ts':
+      return readFileSync('apps/api/src/schemas/translations.ts').toString();
+    default:
+      throw new Error(`unknown schema source ${path}`);
+  }
+}
+
 const originalDatabaseUrl = process.env.DATABASE_URL;
 const originalNodeEnv = process.env.NODE_ENV;
 const originalAuthHash = process.env.BASIC_AUTH_PASSWORD_HASH;
@@ -165,5 +188,68 @@ describe('OpenAPI golden document', () => {
     } finally {
       await app.close();
     }
+  });
+});
+
+describe('browser-safe generated contracts', () => {
+  const declarations: Array<[string, string[]]> = [
+    ['apps/api/src/schemas/enums.ts', ['translationNamespaceSchema', 'languageDirSchema']],
+    ['apps/api/src/schemas/common.ts', ['iso6391Schema']],
+    [
+      'apps/api/src/schemas/languages.ts',
+      ['createLanguageSchema', 'updateLanguageBaseSchema', 'updateLanguageBodySchema'],
+    ],
+    [
+      'apps/api/src/schemas/translations.ts',
+      [
+        'MAX_TRANSLATION_TEXT_LENGTH',
+        'textSchema',
+        'createTranslationSchema',
+        'updateTranslationBaseSchema',
+        'updateTranslationBodySchema',
+      ],
+    ],
+    ['apps/api/src/schemas/ai.ts', ['AI_TASKS', 'aiTaskSchema', 'aiTaskDescriptorSchema']],
+  ];
+
+  it('emits every API declaration verbatim, in order and only once', () => {
+    const text = readFileSync('generated/contracts.ts').toString();
+    const header = `import { z } from 'zod';\n\n`;
+    expect(text.startsWith(header)).toBe(true);
+    expect(text.endsWith('\n')).toBe(true);
+
+    const chunks = text.slice(header.length).trimEnd().split('\n\n');
+    const expected = declarations.flatMap(([, names]) => names);
+    expect(chunks).toHaveLength(expected.length);
+
+    const emitted = chunks.map((chunk) => {
+      for (const line of chunk.split('\n')) {
+        const body = line.trimStart();
+        const head = body.startsWith('export ') ? body.slice('export '.length).trimStart() : body;
+        for (const keyword of ['const ', 'type ']) {
+          if (head.startsWith(keyword)) {
+            const rest = head.slice(keyword.length);
+            const end = rest.search(/[\s=]/);
+            return end < 0 ? rest : rest.slice(0, end);
+          }
+        }
+      }
+      throw new Error('generated contract chunk has no declaration');
+    });
+    expect(emitted).toEqual(expected);
+    expect(new Set(emitted).size).toBe(emitted.length);
+
+    let index = 0;
+    for (const [path, names] of declarations) {
+      const source = readSchemaSource(path);
+      for (const name of names) {
+        const chunk = chunks.at(index);
+        if (chunk === undefined) throw new Error(`missing chunk for ${name}`);
+        expect(source).toContain(chunk);
+        expect(chunk).toContain(name);
+        index += 1;
+      }
+    }
+    expect(index).toBe(expected.length);
   });
 });

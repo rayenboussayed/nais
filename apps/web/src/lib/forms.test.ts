@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  aiTaskDescriptorSchema as generatedAiTaskDescriptorSchema,
+  createLanguageSchema as generatedCreateLanguageSchema,
+  createTranslationSchema as generatedCreateTranslationSchema,
+  updateLanguageBodySchema as generatedUpdateLanguageBodySchema,
+  updateTranslationBodySchema as generatedUpdateTranslationBodySchema,
+} from '../../../../generated/contracts';
+import {
   aiTaskDescriptorSchema,
   createLanguageSchema,
   createTranslationSchema,
@@ -9,6 +16,16 @@ import {
 } from './forms';
 
 const languageId = '123e4567-e89b-42d3-a456-426655440000';
+
+describe('generated contracts', () => {
+  it('re-exports the generated schemas unchanged', () => {
+    expect(createLanguageSchema).toBe(generatedCreateLanguageSchema);
+    expect(updateLanguageBodySchema).toBe(generatedUpdateLanguageBodySchema);
+    expect(createTranslationSchema).toBe(generatedCreateTranslationSchema);
+    expect(updateTranslationBodySchema).toBe(generatedUpdateTranslationBodySchema);
+    expect(aiTaskDescriptorSchema).toBe(generatedAiTaskDescriptorSchema);
+  });
+});
 
 describe('createLanguageSchema', () => {
   it('parses a full input, defaults isSource and trims names', () => {
