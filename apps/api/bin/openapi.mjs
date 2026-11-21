@@ -3,6 +3,7 @@
 // Requires `npm run build -w @trainslator/api` to have produced apps/api/dist.
 import { scryptSync } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { z } from 'zod';
 
 // @nestjs/config validates env at module-decorator time, so set dummies before
 // importing AppModule; all five are valid under validateEnv in test mode.
@@ -59,16 +60,13 @@ const OPENAPI_TARGET = 'openapi-3.0';
 
 /**
  * Converts one Zod schema into an OpenAPI 3.0 Schema Object via its native
- * Standard Schema `~standard.jsonSchema` converter.
- * @param {object} schema - Zod schema exposing the Standard JSON Schema converter
+ * Zod's public JSON Schema converter.
+ * @param {object} schema - Zod schema to convert
  * @param {'input'|'output'} io - direction of conversion
  * @returns {object} the OpenAPI 3.0 schema object
  */
 function toOpenApiSchema(schema, io) {
-  const converter = schema['~standard'].jsonSchema;
-  return io === 'input'
-    ? converter.input({ target: OPENAPI_TARGET })
-    : converter.output({ target: OPENAPI_TARGET });
+  return z.toJSONSchema(schema, { io, target: OPENAPI_TARGET });
 }
 
 const wsDocument = {

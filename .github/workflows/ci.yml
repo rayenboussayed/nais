@@ -26,13 +26,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends postgresql
       - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
       - name: verify generated API artifacts are current
         run: |
           npm run generate:api
           git diff --exit-code -- generated/ apps/api/test/fixtures/openapi.golden.json
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm run build
       - run: npm run test:cov
       - name: drizzle migration drift check
         run: npm run db:generate --workspace=@trainslator/api

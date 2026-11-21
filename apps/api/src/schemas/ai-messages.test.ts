@@ -13,8 +13,18 @@ describe('aiMessageUsageSchema', () => {
   });
 
   it('allows null response and usage for failed calls', () => {
-    const parsed = aiMessageUsageSchema.parse(null);
-    expect(parsed).toBeNull();
+    const parsed = aiMessageSchema.parse({
+      createdAt: '2026-11-18T00:00:00.000Z',
+      deletedAt: null,
+      id: '123e4567-e89b-42d3-a456-426655440000',
+      model: 'bonsai-2:2b',
+      provider: 'ollama',
+      response: null,
+      status: 'failed',
+      updatedAt: '2026-11-18T00:00:00.000Z',
+      usage: null,
+    });
+    expect(parsed.status).toBe('failed');
   });
 });
 

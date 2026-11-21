@@ -67,10 +67,11 @@ native Standard Schema and generates the types used by the web app.
     are lazy singletons cached by effective model id; the first request pays
     the model download (verified: all six dedicated pipelines download and run in this repo). Tests stub `PipelineLoader` — the registry, cache round-trip and
     audit trail are covered without network.
-14. **Generated types are committed artifacts.** `npm run generate:api` writes
-    `apps/api/test/fixtures/openapi.golden.json`, `generated/api.d.ts` and
-    `generated/ws.d.ts` from the API's own Zod contracts. CI regenerates them
-    and fails on drift. Never hand-edit generated files.
+14. **Generated types are committed artifacts.** Build the API first, then
+    `npm run generate:api` writes `apps/api/test/fixtures/openapi.golden.json`,
+    `generated/api.d.ts`, `generated/ws.openapi.json` and `generated/ws.d.ts`
+    from the API's own Zod contracts. CI regenerates them after the build and
+    fails on drift. Never hand-edit generated files.
 
 15. **onnxruntime-node ships native binaries in the package (548 MB).** Its
     postinstall only prunes; this repo's npm install-scripts policy is left

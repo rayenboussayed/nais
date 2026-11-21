@@ -1,4 +1,5 @@
 import createClient from 'openapi-fetch';
+import { z } from 'zod';
 
 import type { paths } from '../../../../generated/api';
 
@@ -15,7 +16,10 @@ type ClientInit = {
 };
 
 /** A typed GET call that resolves once openapi-fetch has issued the request. */
-type RouteCaller = (init: ClientInit) => Promise<unknown>;
+type RouteCaller = (init: ClientInit) => Promise<TypedResult>;
+
+/** The result of a typed GET, with the wire payloads read once by openapi-fetch. */
+type TypedResult = { data?: unknown; error?: unknown; response: Response };
 
 export class ApiError extends Error {
   /** Machine-readable message from the API error body when present. */
@@ -37,13 +41,6 @@ export class ApiError extends Error {
 const clientBaseUrl =
   typeof window === 'undefined' ? 'https://api.invalid' : window.location.origin;
 
-/** A structurally valid shared error envelope, without trusting the wire type. */
-interface SharedErrorBody {
-  error?: string;
-  message: string | string[];
-  statusCode: number;
-}
-
 /**
  * Performs a request, throwing {@link ApiError} on non-2xx responses.
  * Literal GET paths from the generated spec go through the typed client;
@@ -63,16 +60,9 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     ...(init.signal === undefined ? {} : { signal: init.signal }),
   };
 
-  let captured: Response | undefined;
   const client = createClient<paths>({
     baseUrl: clientBaseUrl,
     credentials: 'same-origin',
-    fetch: async (request) => {
-      const response = await globalThis.fetch(request);
-      captured = response;
-      // openapi-fetch parses this clone; the original is handled by handleResponse.
-      return response.clone();
-    },
     querySerializer: () => search,
   });
 
@@ -101,11 +91,18 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     );
   }
 
-  await route(clientInit);
-  if (captured === undefined) {
-    throw new ApiError(0, 'Request failed before a response was received');
+  const { data, error, response } = await route(clientInit);
+  if (response.status === 401) {
+    throw new ApiError(401, 'Authentication required');
   }
-  return handleResponse<T>(captured);
+  if (!response.ok) {
+    const apiMessage = messageOf(error);
+    throw new ApiError(response.status, apiMessage ?? response.statusText, apiMessage);
+  }
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  return data as T;
 }
 
 /**
@@ -153,34 +150,12 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-/**
- * Checks the full shared error envelope shape (statusCode plus message).
- * @param body - the parsed response body
- * @returns true when the body has a valid error envelope shape
- */
-function isSharedErrorBody(body: unknown): body is SharedErrorBody {
-  if (typeof body !== 'object' || body === null) return false;
-  if (!('message' in body) || !('statusCode' in body)) return false;
-  const statusCode: unknown = body.statusCode;
-  if (
-    typeof statusCode !== 'number' ||
-    !Number.isInteger(statusCode) ||
-    statusCode < 100 ||
-    statusCode > 599
-  ) {
-    return false;
-  }
-  return typeof body.message === 'string' || isStringArray(body.message);
-}
-
-/**
- * Narrows an unknown value to a string array without an unsafe cast.
- * @param value - the value to test
- * @returns true when every element is a string
- */
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((part): part is string => typeof part === 'string');
-}
+/** Shape of the API's shared error envelope, validated at the boundary. */
+const errorBodySchema = z.object({
+  error: z.string().optional(),
+  message: z.union([z.string(), z.array(z.string())]),
+  statusCode: z.number().int().min(100).max(599),
+});
 
 /**
  * Extracts the API error message from an error response body, if any.
@@ -193,14 +168,18 @@ function isStringArray(value: unknown): value is string[] {
  * @returns the message from the body, when one is present
  */
 function messageOf(body: unknown): string | undefined {
-  if (isSharedErrorBody(body)) {
-    return isStringArray(body.message) ? body.message.join('; ') : body.message;
+  const parsed = errorBodySchema.safeParse(body);
+  if (parsed.success) {
+    const { message } = parsed.data;
+    return Array.isArray(message) ? message.join('; ') : message;
   }
   // Legacy/mixed-version responses may carry only `message` (no statusCode);
   // keep their text visible instead of degrading to a generic status message.
   if (typeof body !== 'object' || body === null || !('message' in body)) return undefined;
   const message: unknown = body.message;
   if (typeof message === 'string') return message;
-  if (isStringArray(message)) return message.join('; ');
+  if (Array.isArray(message) && message.every((part): part is string => typeof part === 'string')) {
+    return message.join('; ');
+  }
   return undefined;
 }
