@@ -40,6 +40,8 @@ export default defineConfig([
     '.agent-swarm/**',
     // third-party skill content is vendored verbatim by the skills CLI
     '.agents/**',
+    // generated from the API's Zod contracts by apps/api/bin/openapi.mjs
+    'generated/**',
     'profiles/**',
   ]),
   {
@@ -62,7 +64,7 @@ export default defineConfig([
     plugins: { '@stylistic': stylistic, depend, js, n: node, unicorn },
     settings: {
       node: {
-        tryExtensions: ['.cjs', '.cts', '.js', '.json', '.mjs', '.mts', '.ts', '.tsx'],
+        tryExtensions: ['.cjs', '.cts', '.d.ts', '.js', '.json', '.mjs', '.mts', '.ts', '.tsx'],
         version: '>=24.0.0',
       },
     },

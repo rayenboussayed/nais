@@ -8,3 +8,8 @@ export const loginRequestSchema = z.object({
 
 /** Validated body of `POST /api/auth/login`. */
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
+
+/** Response body of `POST /api/auth/login`. */
+export const loginResponseSchema = z.object({
+  username: z.string(),
+});

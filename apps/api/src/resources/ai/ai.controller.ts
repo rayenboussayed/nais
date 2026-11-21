@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { ApiResponse } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
 import type {
@@ -22,12 +23,15 @@ import {
   aiSummarizeRequestSchema,
   aiSummarizeResultSchema,
   aiTaskDescriptorSchema,
+  aiTaskListResponseSchema,
   aiTokenClassificationRequestSchema,
   aiTokenClassificationResultSchema,
   aiTranslateRequestSchema,
   aiZeroShotClassificationRequestSchema,
   aiZeroShotClassificationResultSchema,
 } from '../../schemas/ai.js';
+import { translateResponseSchema } from '../../schemas/translations.js';
+import { ApiErrorResponses } from '../../swagger.js';
 import { AiService } from './ai.service.js';
 
 const MODEL_THROTTLE = { default: { limit: 10, ttl: 60_000 } } as const;
@@ -37,6 +41,7 @@ const MODEL_THROTTLE = { default: { limit: 10, ttl: 60_000 } } as const;
  * shared zod contract (native Standard Schema) and returns the shared result
  * shape with `cached`. `GET /api/ai/tasks` lists the registry.
  */
+@ApiErrorResponses()
 @Controller('ai')
 export class AiController {
   constructor(private readonly ai: AiService) {}
@@ -46,6 +51,7 @@ export class AiController {
    * @param body - the validated request body (task input schema)
    * @returns the parsed task result
    */
+  @ApiResponse({ standardSchema: aiFeatureExtractionResultSchema, status: HttpStatus.OK })
   @HttpCode(HttpStatus.OK)
   @Post('feature-extraction')
   @Throttle(MODEL_THROTTLE)
@@ -61,6 +67,7 @@ export class AiController {
    * @param body - the validated request body (task input schema)
    * @returns the parsed task result
    */
+  @ApiResponse({ standardSchema: aiQuestionAnsweringResultSchema, status: HttpStatus.OK })
   @HttpCode(HttpStatus.OK)
   @Post('question-answering')
   @Throttle(MODEL_THROTTLE)
@@ -76,6 +83,7 @@ export class AiController {
    * @param body - the validated request body (task input schema)
    * @returns the parsed task result
    */
+  @ApiResponse({ standardSchema: aiSentimentResultSchema, status: HttpStatus.OK })
   @HttpCode(HttpStatus.OK)
   @Post('sentiment')
   @Throttle(MODEL_THROTTLE)
@@ -91,6 +99,7 @@ export class AiController {
    * @param body - the validated request body (task input schema)
    * @returns the parsed task result
    */
+  @ApiResponse({ standardSchema: aiSummarizeResultSchema, status: HttpStatus.OK })
   @HttpCode(HttpStatus.OK)
   @Post('summarize')
   @Throttle(MODEL_THROTTLE)
@@ -105,6 +114,7 @@ export class AiController {
    * GET `/api/ai/tasks` — the registry of supported tasks, their providers and models.
    * @returns the parsed task descriptors
    */
+  @ApiResponse({ standardSchema: aiTaskListResponseSchema, status: HttpStatus.OK })
   @Get('tasks')
   tasks(): { items: AiTaskDescriptor[] } {
     return { items: this.ai.listTasks().map((entry) => aiTaskDescriptorSchema.parse(entry)) };
@@ -115,6 +125,7 @@ export class AiController {
    * @param body - the validated request body (task input schema)
    * @returns the parsed task result
    */
+  @ApiResponse({ standardSchema: aiTokenClassificationResultSchema, status: HttpStatus.OK })
   @HttpCode(HttpStatus.OK)
   @Post('token-classification')
   @Throttle(MODEL_THROTTLE)
@@ -132,6 +143,7 @@ export class AiController {
    * @param body.targetLanguage - the iso639-1 target language
    * @returns the catalogue-aware translation response
    */
+  @ApiResponse({ standardSchema: translateResponseSchema, status: HttpStatus.OK })
   @HttpCode(HttpStatus.OK)
   @Post('translate')
   @Throttle(MODEL_THROTTLE)
@@ -147,6 +159,7 @@ export class AiController {
    * @param body - the validated request body (task input schema)
    * @returns the parsed task result
    */
+  @ApiResponse({ standardSchema: aiZeroShotClassificationResultSchema, status: HttpStatus.OK })
   @HttpCode(HttpStatus.OK)
   @Post('zero-shot-classification')
   @Throttle(MODEL_THROTTLE)

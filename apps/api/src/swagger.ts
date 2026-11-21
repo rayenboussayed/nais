@@ -1,7 +1,22 @@
 import type { INestApplication } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
-import { DocumentBuilder, type OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
+import { applyDecorators } from '@nestjs/common';
+import { ApiResponse, DocumentBuilder, type OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
+
+import { apiErrorSchema } from './schemas/errors.js';
+
+/**
+ * Documents the shared 4xx and 5xx error envelope on a controller.
+ * Class-level Standard Schema metadata survives document generation.
+ * @returns a class decorator applying both error responses
+ */
+export function ApiErrorResponses(): ClassDecorator {
+  return applyDecorators(
+    ApiResponse({ standardSchema: apiErrorSchema, status: '4XX' }),
+    ApiResponse({ standardSchema: apiErrorSchema, status: '5XX' }),
+  );
+}
 
 /**
  * Builds the OpenAPI metadata shared by the served document and the golden

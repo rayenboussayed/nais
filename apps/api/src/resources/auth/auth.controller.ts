@@ -13,18 +13,21 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ApiResponse } from '@nestjs/swagger';
 
 import type { Env } from '../../environment.js';
 import type { LoginRequest } from '../../schemas/auth.js';
 
 import { SESSION_COOKIE_NAME, signSession } from '../../modules/auth/session.js';
 import { DUMMY_SCRYPT_HASH, verifyScryptPassword } from '../../modules/auth/validator.js';
-import { loginRequestSchema } from '../../schemas/auth.js';
+import { loginRequestSchema, loginResponseSchema } from '../../schemas/auth.js';
+import { ApiErrorResponses } from '../../swagger.js';
 import { RateLimiter } from '../../utils/rate-limit.js';
 
 const COOKIE_MAX_AGE_SECONDS = 12 * 60 * 60;
 
 /** Session login/logout; both endpoints live behind the public allowlist. */
+@ApiErrorResponses()
 @Controller('auth')
 export class AuthController {
   private readonly limiter = new RateLimiter(5, 60_000);
@@ -44,6 +47,7 @@ export class AuthController {
    * @param reply - the Fastify reply used to set the cookie
    * @returns the authenticated username
    */
+  @ApiResponse({ standardSchema: loginResponseSchema, status: HttpStatus.OK })
   @HttpCode(HttpStatus.OK)
   @Post('login')
   async login(
@@ -92,6 +96,7 @@ export class AuthController {
    * POST `/api/auth/logout` — clears the session cookie (Secure in production, matching login).
    * @param reply - the Fastify reply used to clear the cookie
    */
+  @ApiResponse({ status: HttpStatus.NO_CONTENT })
   @HttpCode(HttpStatus.NO_CONTENT)
   @Post('logout')
   logout(@Res({ passthrough: true }) reply: FastifyReply): void {

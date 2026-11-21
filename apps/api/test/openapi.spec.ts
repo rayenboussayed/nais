@@ -15,6 +15,52 @@ const originalAuthHash = process.env.BASIC_AUTH_PASSWORD_HASH;
 const originalAuthUsername = process.env.BASIC_AUTH_USERNAME;
 const originalSessionSecret = process.env.SESSION_SECRET;
 
+type GeneratedDocument = ReturnType<typeof createOpenApiDocument>;
+
+/**
+ * Asserts that one operation documents a JSON response body.
+ * @param document - the generated OpenAPI document
+ * @param path - the path key of the operation
+ * @param method - the HTTP method key of the operation
+ * @param status - the response status key
+ */
+function expectSuccess(
+  document: GeneratedDocument,
+  path: string,
+  method: string,
+  status: string,
+): void {
+  expect(
+    responseSchema(document, path, method, status),
+    `${method} ${path} ${status}`,
+  ).toBeDefined();
+}
+
+/**
+ * Reads the JSON response schema of one operation status.
+ * @param document - the generated OpenAPI document
+ * @param path - the path key of the operation
+ * @param method - the HTTP method key of the operation
+ * @param status - the response status key
+ * @returns the response body schema, or undefined when none is documented
+ */
+function responseSchema(
+  document: GeneratedDocument,
+  path: string,
+  method: string,
+  status: string,
+): unknown {
+  const pathItem: unknown = Reflect.get(document.paths, path);
+  const operation: unknown = Reflect.get(pathItem ?? {}, method);
+  const responses: unknown = Reflect.get(operation ?? {}, 'responses');
+  const response: unknown = Reflect.get(responses ?? {}, status);
+  if (!response || typeof response !== 'object' || !('content' in response)) return undefined;
+  const content: unknown = response.content;
+  const json: unknown = Reflect.get(content ?? {}, 'application/json');
+  if (!json || typeof json !== 'object' || !('schema' in json)) return undefined;
+  return json.schema;
+}
+
 afterEach(() => {
   if (originalDatabaseUrl === undefined) delete process.env.DATABASE_URL;
   else process.env.DATABASE_URL = originalDatabaseUrl;
@@ -26,6 +72,28 @@ afterEach(() => {
   else process.env.BASIC_AUTH_USERNAME = originalAuthUsername;
   if (originalSessionSecret === undefined) delete process.env.SESSION_SECRET;
   else process.env.SESSION_SECRET = originalSessionSecret;
+});
+
+describe('WebSocket OpenAPI document', () => {
+  it('lists every WS envelope with ack status codes', () => {
+    const document: unknown = JSON.parse(readFileSync('generated/ws.openapi.json', 'utf8'));
+
+    expect(document).toMatchObject({
+      components: {
+        schemas: {
+          WsAiAck: { properties: { statusCode: expect.anything() } },
+          WsAiErrorEvent: { type: 'object' },
+          WsAiMessage: { type: 'object' },
+          WsAiResultEvent: { type: 'object' },
+          WsTranslateAck: { properties: { statusCode: expect.anything() } },
+          WsTranslateMessage: { type: 'object' },
+          WsTranslationErrorEvent: { type: 'object' },
+          WsTranslationEvent: { type: 'object' },
+        },
+      },
+      openapi: '3.0.3',
+    });
+  });
 });
 
 describe('OpenAPI golden document', () => {
@@ -47,6 +115,53 @@ describe('OpenAPI golden document', () => {
       const golden: unknown = JSON.parse(goldenText);
       expect(document).toEqual(golden);
       expect(`${JSON.stringify(document, null, 2)}\n`).toBe(goldenText);
+
+      expectSuccess(document, '/api/ai-messages', 'get', '200');
+      expectSuccess(document, '/api/ai-messages/{id}', 'get', '200');
+      expectSuccess(document, '/api/ai-messages/{id}/prompts', 'get', '200');
+      expectSuccess(document, '/api/ai/feature-extraction', 'post', '200');
+      expectSuccess(document, '/api/ai/question-answering', 'post', '200');
+      expectSuccess(document, '/api/ai/sentiment', 'post', '200');
+      expectSuccess(document, '/api/ai/summarize', 'post', '200');
+      expectSuccess(document, '/api/ai/tasks', 'get', '200');
+      expectSuccess(document, '/api/ai/token-classification', 'post', '200');
+      expectSuccess(document, '/api/ai/translate', 'post', '200');
+      expectSuccess(document, '/api/ai/zero-shot-classification', 'post', '200');
+      expectSuccess(document, '/api/auth/login', 'post', '200');
+      expectSuccess(document, '/api/languages', 'get', '200');
+      expectSuccess(document, '/api/languages', 'post', '201');
+      expectSuccess(document, '/api/languages/{id}', 'get', '200');
+      expectSuccess(document, '/api/languages/{id}', 'patch', '200');
+      expectSuccess(document, '/api/translate', 'post', '201');
+      expectSuccess(document, '/api/translations', 'get', '200');
+      expectSuccess(document, '/api/translations', 'post', '201');
+      expectSuccess(document, '/api/translations/{id}', 'get', '200');
+      expectSuccess(document, '/api/translations/{id}', 'patch', '200');
+
+      expect(responseSchema(document, '/api/translate', 'post', '201')).toMatchObject({
+        properties: { cached: expect.anything(), text: expect.anything() },
+        type: 'object',
+      });
+      expect(responseSchema(document, '/api/auth/login', 'post', '200')).toMatchObject({
+        properties: { username: expect.anything() },
+        type: 'object',
+      });
+      expect(responseSchema(document, '/api/ai-messages/{id}/prompts', 'get', '200')).toMatchObject(
+        { type: 'array' },
+      );
+      expect(responseSchema(document, '/api/auth/logout', 'post', '204')).toBeUndefined();
+
+      for (const [path, item] of Object.entries(document.paths)) {
+        for (const [method, operation] of Object.entries(item)) {
+          if (!operation || typeof operation !== 'object' || !('responses' in operation)) continue;
+          for (const status of ['4XX', '5XX']) {
+            expect(
+              responseSchema(document, path, method, status),
+              `${status} ${method} ${path}`,
+            ).toMatchObject({ type: 'object' });
+          }
+        }
+      }
     } finally {
       await app.close();
     }

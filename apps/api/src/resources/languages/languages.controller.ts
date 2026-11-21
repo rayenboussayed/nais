@@ -10,6 +10,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { ApiParam, ApiResponse } from '@nestjs/swagger';
 
 import type { Pagination } from '../../schemas/common.js';
 import type {
@@ -20,10 +21,17 @@ import type {
 import type { KeysetList } from '../../schemas/list.js';
 
 import { paginationSchema } from '../../schemas/common.js';
-import { createLanguageSchema, updateLanguageBodySchema } from '../../schemas/languages.js';
+import {
+  createLanguageSchema,
+  languageSchema,
+  updateLanguageBodySchema,
+} from '../../schemas/languages.js';
+import { keysetListSchema } from '../../schemas/list.js';
+import { ApiErrorResponses } from '../../swagger.js';
 import { LanguagesService } from './languages.service.js';
 
 /** REST surface for the language catalogue. All routes sit behind basic-auth. */
+@ApiErrorResponses()
 @Controller('languages')
 export class LanguagesController {
   constructor(private readonly languagesService: LanguagesService) {}
@@ -33,6 +41,7 @@ export class LanguagesController {
    * @param input - the validated create body
    * @returns the created entity
    */
+  @ApiResponse({ standardSchema: languageSchema, status: 201 })
   @Post()
   create(@Body({ schema: createLanguageSchema }) input: CreateLanguageInput): Promise<Language> {
     return this.languagesService.create(input);
@@ -43,6 +52,7 @@ export class LanguagesController {
    * @param query - keyset pagination and search filters
    * @returns the keyset-paginated page
    */
+  @ApiResponse({ standardSchema: keysetListSchema(languageSchema), status: 200 })
   @Get()
   findAll(@Query({ schema: paginationSchema }) query: Pagination): Promise<KeysetList<Language>> {
     return this.languagesService.findPage(query);
@@ -53,6 +63,8 @@ export class LanguagesController {
    * @param id - the uuid of the requested row
    * @returns the requested row
    */
+  @ApiParam({ name: 'id', schema: { format: 'uuid', type: 'string' } })
+  @ApiResponse({ standardSchema: languageSchema, status: 200 })
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Language> {
     return this.languagesService.findOne(id);
@@ -62,6 +74,8 @@ export class LanguagesController {
    * DELETE `/api/languages/:id` — soft delete (sets deleted_at).
    * @param id - the uuid of the row to soft-delete
    */
+  @ApiParam({ name: 'id', schema: { format: 'uuid', type: 'string' } })
+  @ApiResponse({ status: 204 })
   @Delete(':id')
   @HttpCode(204)
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
@@ -74,6 +88,8 @@ export class LanguagesController {
    * @param input - the validated partial update body
    * @returns the updated row
    */
+  @ApiParam({ name: 'id', schema: { format: 'uuid', type: 'string' } })
+  @ApiResponse({ standardSchema: languageSchema, status: 200 })
   @Patch(':id')
   update(
     @Param('id', ParseUUIDPipe) id: string,

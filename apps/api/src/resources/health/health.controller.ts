@@ -4,8 +4,10 @@ import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
 
 import { DatabaseHealthIndicator } from '../../db/database-health.indicator.js';
+import { ApiErrorResponses } from '../../swagger.js';
 
 /** Liveness and readiness endpoint at `GET /api/health`. */
+@ApiErrorResponses()
 @Controller('health')
 export class HealthController {
   constructor(

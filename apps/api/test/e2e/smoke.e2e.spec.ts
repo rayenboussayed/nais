@@ -2,6 +2,7 @@ import type { ChildProcess } from 'node:child_process';
 
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { readFileSync } from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import process from 'node:process';
@@ -156,7 +157,14 @@ describe('e2e smoke (real child process, throwaway PostgreSQL)', () => {
       },
     });
     expect(authed.status).toBe(200);
-    const body = (await authed.json()) as { info?: { title?: string }; openapi: string };
-    expect(body.info?.title).toBe('trainslator');
+    const body: unknown = await authed.json();
+    expect(body).toMatchObject({ info: { title: 'trainslator' }, openapi: '3.0.0' });
+
+    const goldenText = readFileSync(
+      path.join(__dirname, '..', 'fixtures', 'openapi.golden.json'),
+      'utf8',
+    );
+    const golden: unknown = JSON.parse(goldenText);
+    expect(body).toEqual(golden);
   });
 });
