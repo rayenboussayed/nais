@@ -3,6 +3,7 @@
 // Requires `npm run build -w @trainslator/api` to have produced apps/api/dist.
 import { scryptSync } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import ts from 'typescript';
 import { z } from 'zod';
 
 // @nestjs/config validates env at module-decorator time, so set dummies before
@@ -96,209 +97,51 @@ console.log('wrote generated/ws.openapi.json');
 // import-free subset is emitted; all other server concerns stay server-side.
 
 /**
- * Finds the start of the line that declares `name` at top level.
- * @param {string} source - full text of one schema module
- * @param {string} name - declaration identifier
- * @returns {number} index of the declaration's line start
- * @throws {Error} when no such declaration exists
+ * Reads the declared identifier back from an emitted chunk so the
+ * post-condition validates output text rather than the requested names.
+ * @param {string} chunk - emitted declaration text
+ * @returns {string} the declared identifier
+ * @throws {Error} when the chunk has no recognizable declaration
  */
-function declarationLineStart(source, name) {
-  let pos = 0;
-  while (pos <= source.length) {
-    const newline = source.indexOf('\n', pos);
-    const line = newline < 0 ? source.slice(pos) : source.slice(pos, newline);
-    const body = line.trimStart();
-    const head = body.startsWith('export ') ? body.slice('export '.length).trimStart() : body;
-    if (head.startsWith(`const ${name} =`) || head.startsWith(`type ${name} =`)) return pos;
-    if (newline < 0) break;
-    pos = newline + 1;
+function declaredName(chunk) {
+  let text = chunk.trimStart();
+  while (text.startsWith('/**')) {
+    const end = text.indexOf('*/');
+    if (end < 0) throw new Error(`contracts: unterminated JSDoc in chunk: ${chunk.slice(0, 40)}`);
+    text = text.slice(end + 2).trimStart();
+  }
+  const bare = text.startsWith('export ') ? text.slice('export '.length).trimStart() : text;
+  let keyword = '';
+  if (bare.startsWith('const ')) keyword = 'const';
+  else if (bare.startsWith('type ')) keyword = 'type';
+  const rest = keyword === '' ? '' : bare.slice(keyword.length + 1);
+  const name = /^[a-z_$][\w$]*/i.exec(rest)?.[0];
+  if (name === undefined)
+    throw new Error(`contracts: chunk has no declaration: ${chunk.slice(0, 40)}`);
+  return name;
+}
+
+/**
+ * Extracts one Zod declaration and its adjacent JSDoc from a parsed source file.
+ * The text is a verbatim substring of the original source: it begins at the
+ * leading JSDoc (or at the declaration itself) and ends at its semicolon.
+ * @param {import('typescript').SourceFile} sourceFile - parsed schema source file
+ * @param {string} name - declaration identifier to extract
+ * @returns {{name: string, text: string}} the declared name and its verbatim chunk
+ * @throws {Error} when the declaration is missing
+ */
+function extractDeclaration(sourceFile, name) {
+  for (const statement of sourceFile.statements) {
+    if (ts.isTypeAliasDeclaration(statement) && statement.name.getText(sourceFile) === name) {
+      return { name, text: statement.getFullText(sourceFile).trim() };
+    }
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (declaration.name.getText(sourceFile) !== name) continue;
+      return { name, text: statement.getFullText(sourceFile).trim() };
+    }
   }
   throw new Error(`contracts: missing declaration ${name}`);
-}
-
-/**
- * Reads the declared identifier from an emitted chunk.
- * @param {string} text - one extracted declaration
- * @returns {string} the identifier it declares
- * @throws {Error} when the chunk contains no declaration
- */
-function declaredName(text) {
-  for (const line of text.split('\n')) {
-    const body = line.trimStart();
-    const head = body.startsWith('export ') ? body.slice('export '.length).trimStart() : body;
-    for (const keyword of ['const ', 'type ']) {
-      if (head.startsWith(keyword)) {
-        const rest = head.slice(keyword.length);
-        const end = rest.search(/[\s=]/);
-        return end < 0 ? rest : rest.slice(0, end);
-      }
-    }
-  }
-  throw new Error('contracts: emitted chunk has no declaration');
-}
-
-/**
- * Extracts one Zod declaration together with its immediately preceding JSDoc
- * block. The name is located at line start first, so an earlier JSDoc can never
- * expand across intervening declarations; a balanced-delimiter scan keeps
- * multi-line `.refine` callbacks whole.
- * @param {string} source - full text of one schema module
- * @param {string} name - declaration identifier to extract
- * @returns {string} the declaration text, ending at its semicolon
- * @throws {Error} when the declaration is missing or its delimiters never balance
- */
-function extractDeclaration(source, name) {
-  const declarationStart = declarationLineStart(source, name);
-  const start = jsdocStart(source, declarationStart);
-  let i = source.indexOf('=', declarationStart);
-  if (i < 0) throw new Error(`contracts: no assignment for ${name}`);
-
-  let depth = 0;
-  let end = -1;
-  while (i < source.length) {
-    const afterTrivia = skipTrivia(source, i);
-    if (afterTrivia !== i) {
-      i = afterTrivia;
-      continue;
-    }
-    const char = source.at(i);
-    if (char === '(' || char === '[' || char === '{') depth += 1;
-    else if (char === ')' || char === ']' || char === '}') depth -= 1;
-    else if (char === ';' && depth === 0) {
-      end = i + 1;
-      break;
-    }
-    i += 1;
-  }
-  if (end < 0) throw new Error(`contracts: unbalanced declaration ${name}`);
-
-  return source.slice(start, end);
-}
-
-/**
- * Returns the start of the JSDoc block immediately above a declaration, or the
- * declaration itself when the preceding line is not a comment terminator.
- * @param {string} source - full source text
- * @param {number} declarationStart - start of the declaration's line
- * @returns {number} index where the extracted chunk begins
- */
-function jsdocStart(source, declarationStart) {
-  const newline = declarationStart - 1;
-  if (newline < 0 || source.at(newline) !== '\n') return declarationStart;
-  const previousStart = source.lastIndexOf('\n', newline - 1) + 1;
-  const previous = source.slice(previousStart, newline);
-  if (!previous.trimEnd().endsWith('*/')) return declarationStart;
-
-  let cursor = previousStart;
-  for (;;) {
-    const lineEnd = source.indexOf('\n', cursor);
-    const line = lineEnd < 0 ? source.slice(cursor) : source.slice(cursor, lineEnd);
-    const trimmed = line.trimStart();
-    if (trimmed.startsWith('/**')) return cursor;
-    if (!trimmed.startsWith('*')) return declarationStart;
-    if (cursor === 0) return declarationStart;
-    // cursor is a line start, so cursor - 1 is the newline before this line.
-    // Search from cursor - 2 to actually move to the previous line.
-    cursor = source.lastIndexOf('\n', cursor - 2) + 1;
-  }
-}
-
-/**
- * Returns the last non-whitespace character before `at`.
- * @param {string} source - source text
- * @param {number} at - index to walk back from
- * @returns {string|undefined} the preceding significant character, if any
- */
-function previousSignificantChar(source, at) {
-  let i = at - 1;
-  while (i >= 0 && /\s/.test(source.at(i) ?? '')) i -= 1;
-  return i < 0 ? undefined : source.at(i);
-}
-
-/**
- * Skips a comment that starts at `at`.
- * @param {string} source - source text
- * @param {number} at - index of the slash that opens the comment
- * @param {string} next - the character immediately after that slash
- * @returns {number} index just past the comment, or `at` when it is not one
- */
-function skipComment(source, at, next) {
-  if (next === '/') {
-    let i = at + 2;
-    while (i < source.length && source.at(i) !== '\n') i += 1;
-    return i;
-  }
-  if (next === '*') {
-    let i = at + 2;
-    while (i < source.length && (source.at(i) !== '*' || source.at(i + 1) !== '/')) i += 1;
-    return Math.min(i + 2, source.length);
-  }
-  return at;
-}
-
-/**
- * Skips a regex literal so brackets inside it cannot change delimiter depth.
- * @param {string} source - source text
- * @param {number} at - index of the slash that opens the literal
- * @returns {number} index just past the closing slash
- */
-function skipRegex(source, at) {
-  let inClass = false;
-  let i = at + 1;
-  while (i < source.length) {
-    const char = source.at(i);
-    if (char === '\\') {
-      i += 2;
-      continue;
-    }
-    if (char === '[') inClass = true;
-    else if (char === ']') inClass = false;
-    else if (char === '/' && !inClass) return i + 1;
-    else if (char === '\n') return at + 1;
-    i += 1;
-  }
-  return i;
-}
-
-/**
- * Skips a quoted string that starts at `at`.
- * @param {string} source - source text
- * @param {number} at - index of the opening quote
- * @param {string} quote - the quote character
- * @returns {number} index just past the string
- */
-function skipString(source, at, quote) {
-  let i = at + 1;
-  while (i < source.length) {
-    if (source.at(i) === '\\') {
-      i += 2;
-      continue;
-    }
-    if (source.at(i) === quote) return i + 1;
-    i += 1;
-  }
-  return i;
-}
-
-/**
- * Skips a string, comment or regex literal that starts at `at`.
- * @param {string} source - source text
- * @param {number} at - index of the token's first character
- * @returns {number} index just past the token, or `at` when there is none
- */
-function skipTrivia(source, at) {
-  const char = source.at(at);
-  if (char === '/') {
-    const next = source.at(at + 1);
-    if (next === '/' || next === '*') return skipComment(source, at, next);
-    // A slash is a regex opener only where an expression may start; otherwise it
-    // is division and its brackets are ordinary operator characters.
-    const prev = previousSignificantChar(source, at);
-    if (prev === undefined || '!&(+,:;=?[{|~'.includes(prev)) return skipRegex(source, at);
-    return at;
-  }
-  if (char === "'" || char === '"' || char === '`') return skipString(source, at, char);
-  return at;
 }
 
 /**
@@ -367,11 +210,19 @@ function readSchemaSource(path) {
 }
 
 const requestedNames = CONTRACT_SOURCES.flatMap(([, names]) => names);
-const contracts = CONTRACT_SOURCES.flatMap(([path, names]) => {
+const extracted = CONTRACT_SOURCES.flatMap(([path, names]) => {
   const source = readSchemaSource(path);
-  return names.map((name) => stripImports(extractDeclaration(source, name)));
+  const sourceFile = ts.createSourceFile(
+    path,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  return names.map((name) => extractDeclaration(sourceFile, name));
 });
-const emittedNames = contracts.map((chunk) => declaredName(chunk));
+const contracts = extracted.map(({ text }) => stripImports(text));
+const emittedNames = contracts.map(declaredName);
 if (
   emittedNames.length !== requestedNames.length ||
   requestedNames.some((name, index) => emittedNames.at(index) !== name) ||

@@ -1,13 +1,13 @@
 import { defineConfig } from 'drizzle-kit';
 
-// generate does not need a live database, but migrate/push/pull/studio do.
+// generate and check read files; migrate/push/pull/studio need a database.
 // Fail loudly rather than hit a surprising default host when one is attempted.
 const connectingCommand = process.argv.some((arg) =>
-  ['check', 'migrate', 'pull', 'push', 'studio'].includes(arg),
+  ['migrate', 'pull', 'push', 'studio'].includes(arg),
 );
 if (connectingCommand && !process.env.DATABASE_URL) {
   throw new Error(
-    'DATABASE_URL must be set for drizzle-kit commands that connect (migrate/push/pull/studio/check)',
+    'DATABASE_URL must be set for drizzle-kit commands that connect (migrate/push/pull/studio)',
   );
 }
 

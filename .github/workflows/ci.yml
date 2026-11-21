@@ -35,9 +35,6 @@ jobs:
           git diff --exit-code -- generated/ apps/api/test/fixtures/openapi.golden.json
       - run: npm run test:cov
       - name: drizzle migration consistency check
-        # drizzle.config.ts requires a URL even though check reads files only.
-        env:
-          DATABASE_URL: postgresql://trainslator:trainslator@127.0.0.1:5432/trainslator
         run: npm run db:check
       - name: drizzle migration drift check
         run: npm run db:generate --workspace=@trainslator/api

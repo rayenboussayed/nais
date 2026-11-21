@@ -28,6 +28,13 @@ const DEEP_DEPTH = 12;
 const WIDE_DEPTH = 6;
 const WIDE_BRANCH = 4;
 
+// Local aliases avoid Vite's module-runner getter overhead inside timed loops.
+const canonicalize = canonicalJsonStringify;
+const hashKey = taskKeyFor;
+
+// Timed callbacks write here so the engine cannot eliminate their results.
+let consumed: unknown;
+
 /**
  * Builds a nested payload with unicode values for canonicalization benchmarks.
  * @param depth - remaining nesting levels
@@ -72,23 +79,32 @@ describe('RateLimiter bucket churn', () => {
 describe('canonicalJsonStringify', () => {
   test('sorts a deeply nested, unicode-bearing object', async ({ bench }) => {
     const payload = nestedPayload(DEEP_DEPTH, 2, 'root');
-    const canonical = canonicalJsonStringify(payload);
+    const canonical = canonicalize(payload);
     expect(canonical.startsWith('{"child_0"')).toBe(true);
-    await bench('deep nested', () => canonicalJsonStringify(payload)).run();
+    await bench('deep nested', () => {
+      consumed = canonicalize(payload);
+    }).run();
+    expect(typeof consumed).toBe('string');
   });
 
   test('serializes an empty object', async ({ bench }) => {
-    expect(canonicalJsonStringify({})).toBe('{}');
-    await bench('empty', () => canonicalJsonStringify({})).run();
+    expect(canonicalize({})).toBe('{}');
+    await bench('empty', () => {
+      consumed = canonicalize({});
+    }).run();
+    expect(consumed).toBe('{}');
   });
 });
 
 describe('taskKeyFor', () => {
   test('hashes a large nested input with many distinct keys', async ({ bench }) => {
     const input = nestedPayload(WIDE_DEPTH, WIDE_BRANCH, 'root');
-    const key = taskKeyFor('sentiment', 'model-x', input);
+    const key = hashKey('sentiment', 'model-x', input);
     expect(key).toMatch(/^[\w-]+$/);
-    await bench('large nested input', () => taskKeyFor('sentiment', 'model-x', input)).run();
+    await bench('large nested input', () => {
+      consumed = hashKey('sentiment', 'model-x', input);
+    }).run();
+    expect(typeof consumed).toBe('string');
   });
 });
 
@@ -114,6 +130,9 @@ describe('PipelineLoader', () => {
     const loader = new PipelineLoader(new ConfigService<Env, true>());
     const first = await loader.load('sentiment');
     expect(typeof first).toBe('function');
-    await bench('dedup (cached)', () => loader.load('sentiment')).run();
+    await bench('dedup (cached)', async () => {
+      consumed = await loader.load('sentiment');
+    }).run();
+    expect(typeof consumed).toBe('function');
   });
 });
