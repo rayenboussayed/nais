@@ -1,0 +1,41 @@
+name: pr gate
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: pr-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  docker:
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      ref: ${{ github.event.pull_request.head.sha }}
+
+  pr-gate:
+    name: pr-gate
+    needs: [checks, docker]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    env:
+      CHECKS_RESULT: ${{ needs.checks.result }}
+      DOCKER_RESULT: ${{ needs.docker.result }}
+    steps:
+      # The aggregate check is the required status check; GitHub decides merge eligibility.
+      - name: require all needed jobs to succeed
+        run: |
+          set -euo pipefail
+          for result in "$CHECKS_RESULT" "$DOCKER_RESULT"; do
+            if [ "$result" != success ]; then
+              echo "required job did not succeed: $result"
+              exit 1
+            fi
+          done
