@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { operations } from '../../../../generated/api';
+
 import { ApiError, apiFetch, toQueryString } from './api';
 
 describe('toQueryString', () => {
@@ -223,5 +225,55 @@ describe('apiFetch', () => {
       vi.fn(async () => new Response(null, { status: 204 })),
     );
     await expect(apiFetch('/api/languages/x', { method: 'DELETE' })).resolves.toBeUndefined();
+  });
+});
+
+/** Compile-time proof that the committed generated HTTP types drive the client. */
+type LanguagesList =
+  operations['LanguagesController_findAll']['responses'][200]['content']['application/json'];
+
+describe('typed apiFetch client', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns data shaped by the generated response type', async () => {
+    const expected: LanguagesList = { items: [], next: null };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(expected), {
+            headers: { 'content-type': 'application/json' },
+            status: 200,
+          }),
+      ),
+    );
+    const body = await apiFetch<LanguagesList>('/api/languages');
+    expect(body).toEqual(expected);
+  });
+
+  it('passes an encoded query string through the typed client unchanged', async () => {
+    let seenUrl = '';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (request: Request) => {
+        seenUrl = request.url;
+        return new Response(JSON.stringify({ items: [], next: null }), {
+          headers: { 'content-type': 'application/json' },
+          status: 200,
+        });
+      }),
+    );
+    await apiFetch<LanguagesList>('/api/languages?q=a+b%26c');
+    expect(seenUrl).toContain('q=a+b%26c');
+  });
+
+  it('returns undefined for a 204 from a typed GET path', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 204 })),
+    );
+    await expect(apiFetch('/api/ai/tasks')).resolves.toBeUndefined();
   });
 });

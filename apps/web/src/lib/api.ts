@@ -1,10 +1,21 @@
-import { apiErrorSchema } from '@trainslator/shared';
+import createClient from 'openapi-fetch';
+
+import type { paths } from '../../../../generated/api';
 
 /**
  * Thin typed fetch wrapper for the REST API. Same-origin in production;
  * proxied by Vite in development (see vite.config.ts). Credentials are
  * same-origin cookies; 401s surface as a redirect to /login.
  */
+
+/** Per-call options shared by every typed GET operation in the generated spec. */
+type ClientInit = {
+  readonly headers?: Headers;
+  readonly signal?: AbortSignal | null;
+};
+
+/** A typed GET call that resolves once openapi-fetch has issued the request. */
+type RouteCaller = (init: ClientInit) => Promise<unknown>;
 
 export class ApiError extends Error {
   /** Machine-readable message from the API error body when present. */
@@ -20,21 +31,107 @@ export class ApiError extends Error {
 }
 
 /**
+ * Absolute origin used to build a valid Request in non-browser runtimes (tests).
+ * Browsers keep their real origin, so same-origin credentials still apply.
+ */
+const clientBaseUrl =
+  typeof window === 'undefined' ? 'https://api.invalid' : window.location.origin;
+
+/** A structurally valid shared error envelope, without trusting the wire type. */
+interface SharedErrorBody {
+  error?: string;
+  message: string | string[];
+  statusCode: number;
+}
+
+/**
  * Performs a request, throwing {@link ApiError} on non-2xx responses.
+ * Literal GET paths from the generated spec go through the typed client;
+ * every other path falls back to an equivalent plain fetch.
  * @param path - the request path (relative to the API origin)
  * @param init - fetch overrides (method, headers, body...)
  * @returns the parsed response body
  */
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
+  const question = path.indexOf('?');
+  const pathname = question === -1 ? path : path.slice(0, question);
+  const search = question === -1 ? '' : path.slice(question + 1);
+  const method = (init.method ?? 'GET').toUpperCase();
+
+  const clientInit: ClientInit = {
+    ...(init.headers === undefined ? {} : { headers: new Headers(init.headers) }),
+    ...(init.signal === undefined ? {} : { signal: init.signal }),
+  };
+
+  let captured: Response | undefined;
+  const client = createClient<paths>({
+    baseUrl: clientBaseUrl,
     credentials: 'same-origin',
-    headers: {
-      ...(init.body ? { 'content-type': 'application/json' } : {}),
-      ...init.headers,
+    fetch: async (request) => {
+      const response = await globalThis.fetch(request);
+      captured = response;
+      // openapi-fetch parses this clone; the original is handled by handleResponse.
+      return response.clone();
     },
+    querySerializer: () => search,
   });
 
+  const typedRoutes: Record<string, RouteCaller> = {
+    '/api/ai-messages': (options) => client.GET('/api/ai-messages', options),
+    '/api/ai/tasks': (options) => client.GET('/api/ai/tasks', options),
+    '/api/health': (options) => client.GET('/api/health', options),
+    '/api/languages': (options) => client.GET('/api/languages', options),
+    '/api/translations': (options) => client.GET('/api/translations', options),
+  };
+
+  const route =
+    method === 'GET'
+      ? Object.entries(typedRoutes).find(([routePath]) => routePath === pathname)?.[1]
+      : undefined;
+  if (route === undefined) {
+    return handleResponse<T>(
+      await fetch(path, {
+        ...init,
+        credentials: 'same-origin',
+        headers: {
+          ...(init.body ? { 'content-type': 'application/json' } : {}),
+          ...init.headers,
+        },
+      }),
+    );
+  }
+
+  await route(clientInit);
+  if (captured === undefined) {
+    throw new ApiError(0, 'Request failed before a response was received');
+  }
+  return handleResponse<T>(captured);
+}
+
+/**
+ * Builds a query string from pagination/search parameters, skipping empties.
+ * @param params - the query parameters (undefined and empty string values are skipped)
+ * @returns the query string including the leading `?`, or '' when empty
+ */
+export function toQueryString(
+  params: Record<string, boolean | number | string | undefined>,
+): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === '') continue;
+    search.set(key, String(value));
+  }
+  const query = search.toString();
+  return query ? `?${query}` : '';
+}
+
+/**
+ * Applies the API's response contract: synthetic 401, legacy error bodies and
+ * 204-to-undefined. Shared verbatim by the typed and fallback request paths.
+ * @param response - the response returned by the request
+ * @returns the parsed response body
+ */
+async function handleResponse<T>(response: Response): Promise<T> {
   if (response.status === 401) {
     throw new ApiError(401, 'Authentication required');
   }
@@ -57,45 +154,53 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 }
 
 /**
- * Builds a query string from pagination/search parameters, skipping empties.
- * @param params - the query parameters (undefined and empty string values are skipped)
- * @returns the query string including the leading `?`, or '' when empty
+ * Checks the full shared error envelope shape (statusCode plus message).
+ * @param body - the parsed response body
+ * @returns true when the body has a valid error envelope shape
  */
-export function toQueryString(
-  params: Record<string, boolean | number | string | undefined>,
-): string {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === '') continue;
-    search.set(key, String(value));
+function isSharedErrorBody(body: unknown): body is SharedErrorBody {
+  if (typeof body !== 'object' || body === null) return false;
+  if (!('message' in body) || !('statusCode' in body)) return false;
+  const statusCode: unknown = body.statusCode;
+  if (
+    typeof statusCode !== 'number' ||
+    !Number.isInteger(statusCode) ||
+    statusCode < 100 ||
+    statusCode > 599
+  ) {
+    return false;
   }
-  const query = search.toString();
-  return query ? `?${query}` : '';
+  return typeof body.message === 'string' || isStringArray(body.message);
+}
+
+/**
+ * Narrows an unknown value to a string array without an unsafe cast.
+ * @param value - the value to test
+ * @returns true when every element is a string
+ */
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((part): part is string => typeof part === 'string');
 }
 
 /**
  * Extracts the API error message from an error response body, if any.
- * The shared contract is the primary path; a legacy or mixed-version body that
- * fails validation because it omits `statusCode` still surfaces its `message`
+ * The shared contract shape is the primary path; a legacy or mixed-version body
+ * that fails validation because it omits `statusCode` still surfaces its `message`
  * using the previous string/array extraction. Anything else falls back safely
- * to the caller's status text. The synthetic 401 short-circuits in apiFetch
+ * to the caller's status text. The synthetic 401 short-circuits in handleResponse
  * and never reaches this helper.
  * @param body - the parsed response body
  * @returns the message from the body, when one is present
  */
 function messageOf(body: unknown): string | undefined {
-  const parsed = apiErrorSchema.safeParse(body);
-  if (parsed.success) {
-    const { message } = parsed.data;
-    return Array.isArray(message) ? message.join('; ') : message;
+  if (isSharedErrorBody(body)) {
+    return isStringArray(body.message) ? body.message.join('; ') : body.message;
   }
   // Legacy/mixed-version responses may carry only `message` (no statusCode);
   // keep their text visible instead of degrading to a generic status message.
   if (typeof body !== 'object' || body === null || !('message' in body)) return undefined;
   const message: unknown = body.message;
   if (typeof message === 'string') return message;
-  if (Array.isArray(message) && message.every((part): part is string => typeof part === 'string')) {
-    return message.join('; ');
-  }
+  if (isStringArray(message)) return message.join('; ');
   return undefined;
 }
