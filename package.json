@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "build": "npm run build -w packages/shared && npm run build --workspaces --if-present",
+    "generate:api": "node apps/api/bin/openapi.mjs && npx openapi-typescript apps/api/test/fixtures/openapi.golden.json -o generated/api.d.ts && npx openapi-typescript generated/ws.openapi.json -o generated/ws.d.ts",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write \"**/*.{ts,mts,mjs,tsx,css,md,json,yml,yaml}\"",
@@ -65,6 +66,7 @@
     "globals": "^17.6.0",
     "husky": "^9.1.7",
     "knip": "^6.14.2",
+    "openapi-typescript": "^6.7.6",
     "prettier": "^3.8.3",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.59.2",
