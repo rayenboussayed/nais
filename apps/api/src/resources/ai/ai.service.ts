@@ -16,7 +16,8 @@ import type { AiTask } from '../../schemas/ai.js';
 
 import { DRIZZLE } from '../../db/drizzle.module.js';
 import { aiCache, aiMessages } from '../../db/schema.js';
-import { AI_TASKS, aiRequestSchemas, aiResultSchemas, aiTaskSchema } from '../../schemas/ai.js';
+import { AI_TASKS, aiRequestSchemas, aiTaskSchema } from '../../schemas/ai.js';
+import { normalizeResult } from '../../utils/ai-result.js';
 import { Inflight } from '../../utils/inflight.js';
 import { inputHashFor, taskKeyFor } from '../../utils/key.js';
 import { Semaphore } from '../../utils/semaphore.js';
@@ -177,30 +178,6 @@ export class AiService implements OnModuleInit {
     );
   }
 
-  private arrayItems(raw: unknown, task: AiTask): Array<Record<string, unknown>> {
-    if (!Array.isArray(raw)) {
-      throw new BadGatewayException(`The ${task} model returned an unexpected shape`);
-    }
-    return raw as Array<Record<string, unknown>>;
-  }
-
-  private firstItem(raw: unknown, task: AiTask): Record<string, unknown> {
-    const items = this.arrayItems(raw, task);
-    const first = items[0];
-    if (!first) throw new BadGatewayException(`The ${task} model returned no output`);
-    return first;
-  }
-
-  private firstVector(listed: unknown): null | number[] {
-    if (!Array.isArray(listed) || listed.length === 0) return null;
-    const first = listed[0] as unknown;
-    if (Array.isArray(first) && first.length > 0 && typeof first[0] === 'number') {
-      return first as number[];
-    }
-    if (typeof first === 'number') return listed as number[];
-    return null;
-  }
-
   /**
    * Calls the pipeline with task-specific arguments.
    * @param pipeline - the loaded transformers.js pipeline callable
@@ -226,76 +203,6 @@ export class AiService implements OnModuleInit {
         return pipeline(input.text as string, { aggregation_strategy: 'simple' });
       case 'zero-shot-classification':
         return pipeline(input.text as string, input.candidateLabels as string[]);
-    }
-  }
-
-  /**
-   * Normalizes raw pipeline output into the task's shared result schema.
-   * @param task - the task the output belongs to
-   * @param raw - the raw pipeline output
-   * @returns the schema-validated result object
-   */
-  private normalizeResult(
-    task: Exclude<AiTask, 'translate'>,
-    raw: unknown,
-  ): Record<string, unknown> {
-    switch (task) {
-      case 'feature-extraction': {
-        const embedding = this.tensorToArray(raw);
-        return aiResultSchemas['feature-extraction'].parse({
-          cached: false,
-          dimensions: embedding.length,
-          embedding,
-        });
-      }
-      case 'question-answering': {
-        const item = this.singleItem(raw, task);
-        return aiResultSchemas['question-answering'].parse({
-          answer: String(item.answer ?? ''),
-          cached: false,
-          end: Number(item.end ?? 0),
-          score: Number(item.score ?? 0),
-          start: Number(item.start ?? 0),
-        });
-      }
-      case 'sentiment': {
-        const first = this.firstItem(raw, task);
-        return aiResultSchemas.sentiment.parse({
-          cached: false,
-          label: String(first.label ?? ''),
-          score: Number(first.score ?? 0),
-        });
-      }
-      case 'summarize': {
-        const first = this.firstItem(raw, task);
-        return aiResultSchemas.summarize.parse({
-          cached: false,
-          text: String(first.summary_text ?? '').trim(),
-        });
-      }
-      case 'token-classification': {
-        const items = this.arrayItems(raw, task);
-        return aiResultSchemas['token-classification'].parse({
-          cached: false,
-          entities: items.map((item) => ({
-            end: Number(item.end ?? 0),
-            entity_group: String(item.entity_group ?? item.entity ?? ''),
-            score: Number(item.score ?? 0),
-            start: Number(item.start ?? 0),
-            word: String(item.word ?? ''),
-          })),
-        });
-      }
-      case 'zero-shot-classification': {
-        // The pipeline returns a single object for a single input string.
-        const item = this.singleItem(raw, task);
-        return aiResultSchemas['zero-shot-classification'].parse({
-          cached: false,
-          labels: Array.isArray(item.labels) ? item.labels.map((label) => String(label)) : [],
-          scores: Array.isArray(item.scores) ? item.scores.map((score) => Number(score ?? 0)) : [],
-          sequence: String(item.sequence ?? ''),
-        });
-      }
     }
   }
 
@@ -344,7 +251,7 @@ export class AiService implements OnModuleInit {
       const result = await this.modelGate.run(async () => {
         const pipeline = await this.loader.load(task);
         const raw = await this.invokePipeline(pipeline, task, input);
-        return this.normalizeResult(task, raw);
+        return normalizeResult(task, raw);
       });
 
       // Two concurrent identical jobs may both reach the insert; the unique
@@ -397,53 +304,6 @@ export class AiService implements OnModuleInit {
       throw new BadGatewayException('The AI task failed');
     }
   }
-
-  private singleItem(raw: unknown, task: AiTask): Record<string, unknown> {
-    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-      throw new BadGatewayException(`The ${task} model returned an unexpected shape`);
-    }
-    return raw as Record<string, unknown>;
-  }
-
-  /**
-   * Extracts a flat embedding vector from a transformers.js Tensor-like object.
-   * @param raw - the tensor-like object returned by feature-extraction
-   * @returns the flat embedding vector as plain numbers
-   */
-  private tensorToArray(raw: unknown): number[] {
-    if (typeof raw !== 'object' || raw === null) {
-      throw new BadGatewayException('The feature-extraction model returned an unexpected shape');
-    }
-    const tensor = raw as {
-      data?: Array<number> | ArrayLike<number> | Float32Array | { length: number };
-      tolist?: () => unknown;
-    };
-    if (typeof tensor.tolist === 'function') {
-      const listed = tensor.tolist();
-      const flat = this.firstVector(listed);
-      if (flat) return flat;
-    }
-    const data = tensor.data;
-    if (data && ArrayLikeCheck(data)) {
-      // Number() also accepts BigInt entries from int8/uint8 quantized tensors.
-      return Array.from(data as ArrayLike<bigint | number>, (value) => Number(value));
-    }
-    throw new BadGatewayException('The feature-extraction model returned an unexpected shape');
-  }
-}
-
-/**
- * ArrayLike narrowing with an explicit check of the length property.
- * @param value - the unknown value narrowed to ArrayLike
- * @returns true when the value has a numeric `length` property
- */
-function ArrayLikeCheck(value: unknown): boolean {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'length' in value &&
-    typeof (value as { length: unknown }).length === 'number'
-  );
 }
 
 /**
