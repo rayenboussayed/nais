@@ -139,6 +139,14 @@ Repo-wide history lives in [CHANGELOG.md](CHANGELOG.md); per-workspace guidance 
 - `npm-audit` findings must be fixed, not suppressed; there is no `overrides` entry for security reasons.
 - Dependency updates are grouped by ecosystem in `.github/dependabot.yml` (nest, testing) on a weekly cadence.
 
+## CI and pull request gate
+
+Three workflows in `.github/workflows` run the integration gates and report the pull request status check. The `ci` workflow runs typecheck, lint, format, build, generated artifact drift, coverage, migration checks, knip, audit, e2e, perf and mem. It runs on pushes to main and is callable as a reusable workflow so other workflows can reuse those gates. The `docker build` workflow builds both images, `trainslator/api:latest` from `apps/api/Dockerfile` and `trainslator/api:dev` from `apps/api/Dockerfile.dev`. It runs after a successful push to main and on pull requests. The `pr gate` workflow reports an aggregate status check named `pr-gate`.
+
+Configure branch protection by hand in the GitHub repository settings. A workflow file cannot change those settings, and the `pr-gate` check reports a result without granting merge permission. On main, require a pull request before merging, require the `pr-gate` status check, require branches to be up to date before merging, block force pushes and branch deletions, and do not let anyone bypass these rules. Leave auto-merge and the merge queue off.
+
+GitHub only lets you require a check after that check has reported on a commit in the branch. The first pull request after this change must run before you configure protection, otherwise `pr-gate` will not appear in the list of checks you can require.
+
 ## Commands
 
 ```bash
