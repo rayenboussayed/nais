@@ -277,3 +277,118 @@ describe('typed apiFetch client', () => {
     await expect(apiFetch('/api/ai/tasks')).resolves.toBeUndefined();
   });
 });
+
+/**
+ * Captures an {@link ApiError} rejection without an unsafe cast.
+ * @param promise - the request promise whose rejection is inspected
+ * @returns the ApiError when it rejected with one, otherwise null
+ */
+function captureError(promise: Promise<unknown>): Promise<ApiError | null> {
+  return promise.then(
+    () => null,
+    (cause: unknown) => (cause instanceof ApiError ? cause : null),
+  );
+}
+
+describe('response mapping parity', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('maps the same full error envelope identically on typed and fallback paths', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              error: 'Bad Request',
+              message: ['first problem', 'second problem'],
+              statusCode: 400,
+            }),
+            {
+              headers: { 'content-type': 'application/json' },
+              status: 400,
+              statusText: 'Bad Request',
+            },
+          ),
+      ),
+    );
+
+    const typed = await captureError(apiFetch('/api/languages'));
+    const fallback = await captureError(apiFetch('/api/x', { body: '{}', method: 'POST' }));
+
+    expect(typed).toBeInstanceOf(ApiError);
+    expect(fallback).toBeInstanceOf(ApiError);
+    expect(typed?.status).toBe(fallback?.status);
+    expect(typed?.message).toBe(fallback?.message);
+    expect(typed?.apiMessage).toBe(fallback?.apiMessage);
+    expect(typed?.status).toBe(400);
+    expect(typed?.message).toBe('first problem; second problem');
+    expect(typed?.apiMessage).toBe('first problem; second problem');
+  });
+
+  it('maps the same legacy message-only body identically on both paths', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ message: 'legacy shape' }), {
+            headers: { 'content-type': 'application/json' },
+            status: 400,
+            statusText: 'Bad Request',
+          }),
+      ),
+    );
+
+    const typed = await captureError(apiFetch('/api/health'));
+    const fallback = await captureError(apiFetch('/api/x', { body: '{}', method: 'POST' }));
+
+    expect(typed).toBeInstanceOf(ApiError);
+    expect(fallback).toBeInstanceOf(ApiError);
+    expect(typed?.message).toBe(fallback?.message);
+    expect(typed?.apiMessage).toBe(fallback?.apiMessage);
+    expect(typed?.apiMessage).toBe('legacy shape');
+  });
+
+  it('maps the same non-JSON error body to the status text on both paths', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('not json', {
+            headers: { 'content-type': 'text/plain' },
+            status: 503,
+            statusText: 'Service Unavailable',
+          }),
+      ),
+    );
+
+    const typed = await captureError(apiFetch('/api/health'));
+    const fallback = await captureError(apiFetch('/api/x', { body: '{}', method: 'POST' }));
+
+    expect(typed).toBeInstanceOf(ApiError);
+    expect(fallback).toBeInstanceOf(ApiError);
+    expect(typed?.status).toBe(fallback?.status);
+    expect(typed?.message).toBe(fallback?.message);
+    expect(typed?.message).toBe('Service Unavailable');
+  });
+
+  it('keeps a cursor containing a UTC offset intact through the typed client', async () => {
+    let seenUrl = '';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (request: Request) => {
+        seenUrl = request.url;
+        return new Response(JSON.stringify({ items: [], next: null }), {
+          headers: { 'content-type': 'application/json' },
+          status: 200,
+        });
+      }),
+    );
+
+    const query = toQueryString({ cursor: '2026-11-21T10:00:00+00:00' });
+    await apiFetch<LanguagesList>(`/api/languages${query}`);
+    expect(seenUrl).toContain('cursor=2026-11-21T10%3A00%3A00%2B00%3A00');
+  });
+});

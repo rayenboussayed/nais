@@ -92,17 +92,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
 
   const { data, error, response } = await route(clientInit);
-  if (response.status === 401) {
-    throw new ApiError(401, 'Authentication required');
-  }
-  if (!response.ok) {
-    const apiMessage = messageOf(error);
-    throw new ApiError(response.status, apiMessage ?? response.statusText, apiMessage);
-  }
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return data as T;
+  return mapResponse<T>(response, response.ok ? data : error);
 }
 
 /**
@@ -123,31 +113,51 @@ export function toQueryString(
 }
 
 /**
- * Applies the API's response contract: synthetic 401, legacy error bodies and
- * 204-to-undefined. Shared verbatim by the typed and fallback request paths.
- * @param response - the response returned by the request
+ * Reads a plain fetch response once, then applies the shared response contract.
+ * 401 and 204 need no body; success bodies are JSON by contract and keep their
+ * original parse failure, while error bodies may be unreadable.
+ * @param response - the response returned by the plain fetch
  * @returns the parsed response body
  */
 async function handleResponse<T>(response: Response): Promise<T> {
+  if (response.status === 401 || response.status === 204) {
+    return mapResponse<T>(response, undefined);
+  }
+  if (response.ok) {
+    return mapResponse<T>(response, await response.json());
+  }
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    body = null; // body unreadable: fall back to the status text
+  }
+  return mapResponse<T>(response, body);
+}
+
+/**
+ * Applies the API's response contract to a body the caller has already read:
+ * synthetic 401, legacy error bodies, status text and 204-to-undefined. Both
+ * request paths call this once with an already-parsed body, so a response is
+ * never read twice: the typed path passes openapi-fetch's `data` or `error`,
+ * the fallback path passes the single read performed by {@link handleResponse}.
+ * @param response - the response returned by the request
+ * @param body - the already-parsed wire body: openapi-fetch passes raw text for
+ *   error bodies it cannot parse as JSON, while the fallback path passes null
+ * @returns the parsed response body
+ */
+function mapResponse<T>(response: Response, body: unknown): T {
   if (response.status === 401) {
     throw new ApiError(401, 'Authentication required');
   }
-
   if (!response.ok) {
-    let body: unknown;
-    try {
-      body = await response.json();
-    } catch {
-      body = null; // body unreadable: fall back to the status text
-    }
     const apiMessage = messageOf(body);
     throw new ApiError(response.status, apiMessage ?? response.statusText, apiMessage);
   }
-
   if (response.status === 204) {
     return undefined as T;
   }
-  return (await response.json()) as T;
+  return body as T;
 }
 
 /** Shape of the API's shared error envelope, validated at the boundary. */
@@ -162,7 +172,7 @@ const errorBodySchema = z.object({
  * The shared contract shape is the primary path; a legacy or mixed-version body
  * that fails validation because it omits `statusCode` still surfaces its `message`
  * using the previous string/array extraction. Anything else falls back safely
- * to the caller's status text. The synthetic 401 short-circuits in handleResponse
+ * to the caller's status text. The synthetic 401 short-circuits in mapResponse
  * and never reaches this helper.
  * @param body - the parsed response body
  * @returns the message from the body, when one is present
