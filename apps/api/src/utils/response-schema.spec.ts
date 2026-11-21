@@ -1,6 +1,10 @@
-import { HttpStatus } from '@nestjs/common';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+
+import { Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { FASTIFY_ROUTE_SCHEMA_METADATA } from '@nestjs/platform-fastify/constants';
 import { DECORATORS } from '@nestjs/swagger';
+import { Test } from '@nestjs/testing';
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -98,5 +102,42 @@ describe('ApiResponseSchema', () => {
       value: z.string().meta({ $id: '#local', $ref: '#/definitions/value', default: null }),
     });
     expect(() => ApiResponseSchema(schema, HttpStatus.OK)).not.toThrow();
+  });
+});
+
+@Controller()
+class SerializerProbeController {
+  /**
+   * Returns the login wire shape used by the byte-identity check.
+   * @returns one username payload
+   */
+  @ApiResponseSchema(loginResponseSchema, HttpStatus.OK)
+  @HttpCode(HttpStatus.OK)
+  @Post('probe')
+  login(): { username: string } {
+    return { username: 'admin' };
+  }
+}
+
+describe('ApiResponseSchema through the Nest Fastify adapter', () => {
+  it('serializes a real controller route to the declared wire bytes', async () => {
+    const moduleRef = await Test.createTestingModule({
+      controllers: [SerializerProbeController],
+    }).compile();
+    const app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
+      logger: false,
+    });
+
+    try {
+      await app.init();
+      const response = await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: '/probe',
+      });
+      expect(response.statusCode).toBe(HttpStatus.OK);
+      expect(response.body).toBe('{"username":"admin"}');
+    } finally {
+      await app.close();
+    }
   });
 });
