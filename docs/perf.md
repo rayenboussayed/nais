@@ -67,3 +67,41 @@ only with that documented command (`npx vitest bench --reporter=json
 all bench files (`common`, `hot-paths` and `language-cache`); a stale baseline
 is a drift to fix by regeneration, not by editing numbers or adding hard
 performance thresholds.
+
+## Serializer and parser ledger (2026-11-21)
+
+The gate compares real `app.inject()` responses through
+`apps/api/bench/serializer.bench.ts`. Each route pair returns byte-identical
+bodies, and the equality assertions live in setup, outside the timed loops, so
+verification does not distort throughput. Production runs Node 24, so the Node
+24 numbers decide the gate; local Node 26 is recorded for context only.
+
+| Experiment                                        | Baseline                  | Candidate                              | Result                                       | Decision     |
+| ------------------------------------------------- | ------------------------- | -------------------------------------- | -------------------------------------------- | ------------ |
+| Login response, Node 24                           | 0.1051ms (no schema)      | 0.0636ms (zod-derived draft-07 schema) | 1.65x faster                                 | Kept         |
+| Bulk 20-row list with undeclared columns, Node 24 | 0.2457ms (no schema)      | 0.1840ms (schema drops extra fields)   | 1.34x faster                                 | Kept         |
+| Zod parse, Node 24                                | 0.0017ms (runtime parser) | 0.0010ms (compiled)                    | about 1.7x faster                            | Kept         |
+| Login response, Node 26 local                     | 0.0994ms (no schema)      | 0.0790ms (schema)                      | 1.26x faster                                 | Context only |
+| Bulk 20-row list, Node 26 local                   | 0.1944ms (no schema)      | 0.1986ms (schema)                      | within measurement noise but slightly slower | Context only |
+
+All existing benchmarks showed no regression, with a worst ratio of 1.00x
+against the locally captured baseline.
+
+The response-schema routes win on both Node 24 measurements, clearing the 5
+percent margin required to ship them. Response schemas now derive from the
+same zod contracts that feed Swagger, for every route that previously declared
+a response contract, and the regenerated OpenAPI golden document is byte
+identical. Request bodies already
+came from those same contracts through `@Body({ schema })` and the Standard
+Schema converter, so a second hand-written JSON Schema copy was proposed and
+reverted. Fastify 5 already bundles fast-json-stringify 7.3.6, so a direct
+dependency was also proposed and reverted; a direct import would be unused,
+since the bundled copy is already available.
+
+The correct compile import is `import "zod/compile"`. Zod 4.6.7 has no
+`zod/compiler` export. Compilation is lazy on first parse, so the gain is in
+validation, not in stringification.
+
+These measurements were taken in an environment without PostgreSQL binaries,
+where integration and e2e specs fail or skip and coverage and `npm test` fail
+at baseline; those limits are pre-existing and were not fixed.
