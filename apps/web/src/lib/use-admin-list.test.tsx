@@ -73,6 +73,9 @@ function Probe() {
       <button disabled={!list.hasNext} onClick={list.nextPage} type="button">
         Older
       </button>
+      <button onClick={list.nextPage} type="button">
+        Peek Next
+      </button>
       <button onClick={() => void remove()} type="button">
         Delete
       </button>
@@ -251,5 +254,29 @@ describe('useAdminList', () => {
     await waitFor(() => {
       expect(screen.getByTestId('delete').textContent).toBe('failed');
     });
+  });
+
+  it('ignores next-page requests before data loads and on the last page', async () => {
+    let resolvePage: ((value: KeysetList<Row>) => void) | undefined;
+    vi.mocked(apiFetch).mockImplementation(
+      () =>
+        new Promise<KeysetList<Row>>((resolve) => {
+          resolvePage = resolve;
+        }),
+    );
+
+    render(<Probe />, { wrapper: wrapper() });
+    fireEvent.click(screen.getByRole('button', { name: 'Peek Next' }));
+
+    await act(async () => {
+      resolvePage?.(page([first]));
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('rows').textContent).toBe('first');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Peek Next' }));
+    expect(vi.mocked(apiFetch)).toHaveBeenCalledTimes(1);
+    expect(String(vi.mocked(apiFetch).mock.calls[0]?.[0])).not.toContain('lastId=');
   });
 });

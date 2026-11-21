@@ -276,6 +276,83 @@ describe('typed apiFetch client', () => {
     );
     await expect(apiFetch('/api/ai/tasks')).resolves.toBeUndefined();
   });
+
+  it('forwards headers and an abort signal through the typed client', async () => {
+    let seen: Request | undefined;
+    const controller = new AbortController();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (request: Request) => {
+        seen = request;
+        return new Response(JSON.stringify({ items: [], next: null }), {
+          headers: { 'content-type': 'application/json' },
+          status: 200,
+        });
+      }),
+    );
+
+    await apiFetch<LanguagesList>('/api/languages', {
+      headers: { 'x-trace-id': 'trace-1' },
+      signal: controller.signal,
+    });
+
+    expect(seen?.headers.get('x-trace-id')).toBe('trace-1');
+    controller.abort();
+    expect(seen?.signal.aborted).toBe(true);
+  });
+
+  it('uses the plain fetch fallback for a GET to an untyped path', async () => {
+    let seenUrl = '';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: unknown) => {
+        seenUrl = input instanceof Request ? input.url : String(input);
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { 'content-type': 'application/json' },
+          status: 200,
+        });
+      }),
+    );
+
+    await expect(apiFetch<{ ok: boolean }>('/api/x?q=1')).resolves.toEqual({ ok: true });
+    expect(seenUrl).toContain('/api/x?q=1');
+  });
+
+  it('ignores a legacy message array with a non-string part', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ message: ['ok', 42] }), {
+            headers: { 'content-type': 'application/json' },
+            status: 400,
+            statusText: 'Bad Request',
+          }),
+      ),
+    );
+
+    const error = await captureError(apiFetch('/api/x', { method: 'POST' }));
+    expect(error?.message).toBe('Bad Request');
+    expect(error?.apiMessage).toBeUndefined();
+  });
+
+  it('falls back to the status text when a fallback error body is unreadable', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('not json', {
+            headers: { 'content-type': 'text/plain' },
+            status: 503,
+            statusText: 'Service Unavailable',
+          }),
+      ),
+    );
+
+    const error = await captureError(apiFetch('/api/x', { method: 'POST' }));
+    expect(error?.message).toBe('Service Unavailable');
+    expect(error?.apiMessage).toBeUndefined();
+  });
 });
 
 /**

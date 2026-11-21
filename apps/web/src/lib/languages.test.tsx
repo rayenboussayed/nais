@@ -176,4 +176,24 @@ describe('useLanguages', () => {
       expect(screen.queryByText('error')).toBeTruthy();
     });
   });
+
+  it('stops after the hop cap when every page keeps advertising a next cursor', async () => {
+    const firstRow = languages[0];
+    if (!firstRow) throw new Error('language fixture is empty');
+    vi.mocked(apiFetch).mockResolvedValue({
+      items: [firstRow],
+      next: { lastCreatedAt: '2026-11-18T00:00:00.000Z', lastId: 'loop-cursor' },
+    });
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { gcTime: 0, retry: false } },
+    });
+
+    render(<Probe />, { wrapper: wrapper(client) });
+
+    await waitFor(() => {
+      expect(vi.mocked(apiFetch)).toHaveBeenCalledTimes(10);
+    });
+    expect(screen.getAllByText('en')).toHaveLength(10);
+  });
 });
