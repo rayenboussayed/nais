@@ -38,7 +38,7 @@ with `VITE_API_PROXY_TARGET`.
 - `src/lib/` — API client (`api.ts`, throws `ApiError`), shared socket
   client (`translate-socket.ts`, lazy), session probe, task registry hook,
   shared admin list hook (`use-admin-list.ts`, `useAdminList<T>` drives all
-  three admin pages), the `KeysetCursor` type from `@trainslator/shared`,
+  three admin pages), the `KeysetCursor` type derived from generated API types,
   browser OpenTelemetry (`telemetry.ts`, only loaded when configured — see
   below).
 - `src/styles/styles.css` — the plain-CSS design system with tokens

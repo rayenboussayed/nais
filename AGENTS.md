@@ -8,9 +8,8 @@ NestJS 12 + Fastify 5 (REST + socket.io WebSocket gateway), Drizzle ORM 1.0 RC
 `bonsai-2:2b`) for LLM work, `@huggingface/transformers` + `onnxruntime-node`
 for dedicated per-task ONNX pipelines (sentiment, summarize, QA, NER,
 zero-shot, embeddings), pg-boss for the `ai-task` queue (all tasks), React 19 +
-Vite (Rolldown) with TanStack Router/Query for the web app. zod v4 contracts in
-`packages/shared` are the single source of truth; Swagger consumes them via
-native Standard Schema.
+Vite (Rolldown) with TanStack Router/Query for the web app. zod v4 contracts live in `apps/api/src/schemas`; Swagger consumes them via
+native Standard Schema and generates the types used by the web app.
 
 ## Hard-won lessons (verified in this repo)
 
@@ -68,12 +67,10 @@ native Standard Schema.
     are lazy singletons cached by effective model id; the first request pays
     the model download (verified: all six dedicated pipelines download and run in this repo). Tests stub `PipelineLoader` — the registry, cache round-trip and
     audit trail are covered without network.
-14. **ESM split: the API is ESM, the shared package is CJS.** apps/api is
-    `type: module` (NestJS 12 emits ESM from NodeNext source); packages/shared
-    stays `type: commonjs` because CJS transpilation is the safest default for
-    a dual-consumer package — ESM importers interop fine (Node's cjs-module-
-    lexer detects `exports.foo =` assignments; verified live). Any new shared
-    export automatically works under both consumers.
+14. **Generated types are committed artifacts.** `npm run generate:api` writes
+    `apps/api/test/fixtures/openapi.golden.json`, `generated/api.d.ts` and
+    `generated/ws.d.ts` from the API's own Zod contracts. CI regenerates them
+    and fails on drift. Never hand-edit generated files.
 
 15. **onnxruntime-node ships native binaries in the package (548 MB).** Its
     postinstall only prunes; this repo's npm install-scripts policy is left
@@ -105,7 +102,7 @@ native Standard Schema.
 
 ## Per-workspace guidance
 
-`apps/api/AGENTS.md`, `apps/web/AGENTS.md` and `packages/shared/AGENTS.md`
+`apps/api/AGENTS.md` and `apps/web/AGENTS.md`
 refine this document for their workspace; they take precedence for their own
 files. This file keeps repo-wide policy only.
 
@@ -119,8 +116,8 @@ files. This file keeps repo-wide policy only.
   All gates are mandatory for every change.
 - Keyset pagination on `(created_at, id)`; ILIKE with LIKE-escaped input; no
   raw SQL string building from wire input.
-- One source of truth per type: zod contracts (`packages/shared`), Drizzle
-  `$inferSelect` for rows, `z.infer` for DTOs.
+- One source of truth per type: API zod contracts in `apps/api/src/schemas`,
+  generated OpenAPI types for the web, Drizzle `$inferSelect` for rows.
 - Soft delete via `deleted_at`; reads filter it; admin lists expose `onlyDeleted`.
 - Secrets only via `.env` (never committed): see `.env.example`.
 

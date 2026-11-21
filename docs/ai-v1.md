@@ -53,7 +53,7 @@ audit, inflight dedup, queue, WS.
 ## Implementation status (2026-11-19)
 
 Everything above is implemented and green in the repo: shared contracts
-(`packages/shared/src/ai.ts`), the DB migration (`ai_cache`, `ai_messages.task`,
+(`apps/api/src/schemas/ai.ts`), the DB migration (`ai_cache`, `ai_messages.task`,
 `ai_messages.payload`), the task registry + `PipelineLoader` (lazy memoized
 pipelines), `AiService` (cache-aside + inflight dedup + unified audit), REST
 routes for all seven tasks + `GET /api/ai/tasks`, the WS `ai` message with the

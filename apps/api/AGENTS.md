@@ -13,7 +13,7 @@ boots against throwaway clusters; do not parallelize them.
 
 ## Hard-won lessons (this workspace)
 
-1. **ESM everywhere except `packages/shared`.** `"type": "module"`, NodeNext;
+1. **ESM everywhere.** `"type": "module"`, NodeNext;
    relative imports carry `.js`; two `__dirname` sites use
    `fileURLToPath(import.meta.url)`. Do not remove the extensions.
 2. **DI tokens need value imports.** `ConfigService` and any other class used
@@ -41,9 +41,8 @@ stop` must be synchronous so the directory removal cannot race shutdown.
    deletion. The in-tx loser re-reads the winner row instead of double-writing.
 9. **Audit payload stores `inputHash`, never raw text.** Privacy by design;
    keep it that way.
-10. **ESM + CJS interop with `packages/shared`:** named imports from its
-    `dist/` work because Node's cjs-module-lexer detects `exports.foo =`
-    assignments (verified live). Don't fork the contracts.
+10. **Contracts are API-local.** zod schemas live in `src/schemas`; Swagger
+    describes them natively and `npm run generate:api` publishes the types.
 11. **ONNX pipelines load with the device chain `webgpu` → `cpu`.** Dawn
     (`webgpu` npm package) is glibc-only — the image is
     `node:24-bookworm-slim`, never Alpine. Node has no WASM execution provider
@@ -83,8 +82,8 @@ stop` must be synchronous so the directory removal cannot race shutdown.
   exact codes.
 - `ai-task` queue: `batchSize: 1`, `retryLimit: 0` — poison jobs fail, never
   retry into the model.
-- `packages/shared` contracts are the only wire shape source of truth;
-  never hand-duplicate them in the API.
+- `apps/api/src/schemas` contracts are the wire shape source of truth;
+  never hand-duplicate them in the API or the web.
 - Telemetry is opt-in via `OTEL_TRACE_EXPORTER_URL`: without it no OTEL SDK
   is constructed, nothing enters the module graph and `/metrics` never
   binds. With it, the SDK starts in `main.ts` before `NestFactory.create`
