@@ -45,12 +45,21 @@ function replyStub() {
   return { headers, reply };
 }
 
+/**
+ * Builds a real scrypt hash fixture for "admin-password".
+ * @returns a verifiable stored-hash string
+ */
+async function validPasswordHash(): Promise<string> {
+  const { randomBytes, scryptSync } = await import('node:crypto');
+  const salt = randomBytes(16);
+  const derived = scryptSync('admin-password', salt, 64, { N: 1024, p: 1, r: 8 });
+  return `scrypt$1024$8$1$${salt.toString('hex')}$${derived.toString('hex')}`;
+}
+
 describe('AuthController.login', () => {
   it('issues the cookie for the configured username in development (no Secure flag)', async () => {
     // The hash must verify: sign a real scrypt hash of "admin-password".
-    const { randomBytes, scryptSync } = await import('node:crypto');
-    const salt = randomBytes(16);
-    const hash = `scrypt$1024$8$1$${salt.toString('hex')}$${scryptSync('admin-password', salt, 64, { N: 1024, p: 1, r: 8 }).toString('hex')}`;
+    const hash = await validPasswordHash();
 
     const { headers, reply } = replyStub();
     const controller = new AuthController(configStub({ BASIC_AUTH_PASSWORD_HASH: hash }));
@@ -86,6 +95,33 @@ describe('AuthController.login', () => {
     ).rejects.toThrow('Invalid credentials');
   });
 
+  it('sets Secure on the login cookie in production', async () => {
+    const hash = await validPasswordHash();
+    const { headers, reply } = replyStub();
+    const controller = new AuthController(
+      configStub({ BASIC_AUTH_PASSWORD_HASH: hash, NODE_ENV: 'production' }),
+    );
+
+    const result = await controller.login(
+      { password: 'admin-password', username: 'admin' },
+      '203.0.113.20',
+      reply,
+    );
+
+    expect(result).toEqual({ username: 'admin' });
+    expect(headers.get('set-cookie')).toContain('; Secure');
+  });
+
+  it('rejects a correct password for an unknown username with the constant 401', async () => {
+    const hash = await validPasswordHash();
+    const { reply } = replyStub();
+    const controller = new AuthController(configStub({ BASIC_AUTH_PASSWORD_HASH: hash }));
+
+    await expect(
+      controller.login({ password: 'admin-password', username: 'other' }, '203.0.113.21', reply),
+    ).rejects.toThrow('Invalid credentials');
+  });
+
   it('clears the cookie with Secure in production so it actually matches the login cookie', () => {
     const { headers, reply } = replyStub();
     const controller = new AuthController(configStub({ NODE_ENV: 'production' }));
@@ -108,5 +144,17 @@ describe('AuthController.login', () => {
     await expect(
       controller.login({ password: 'wrong', username: 'admin' }, '203.0.113.12', reply),
     ).rejects.toThrow('Too many login attempts');
+  });
+});
+
+describe('AuthController.logout', () => {
+  it('clears the cookie without Secure outside production', () => {
+    const { headers, reply } = replyStub();
+    const controller = new AuthController(configStub());
+
+    controller.logout(reply);
+
+    expect(headers.get('set-cookie')).toContain('Max-Age=0');
+    expect(headers.get('set-cookie')).not.toContain('Secure');
   });
 });

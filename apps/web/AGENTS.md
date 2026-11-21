@@ -8,10 +8,14 @@ what is specific to `apps/web`.
 1. **`routeTree.gen.ts` is generated.** TanStack Router's plugin rewrites it on
    dev/build. Never hand-edit, never search-replace it; change `src/routes/`
    and let the plugin regenerate.
-2. **Rolldown-vite + JSX = no v8 coverage.** The `.tsx` coverage exclusion is
-   deliberate (upstream vitest#10475). jsdom behavior tests are the assertion
-   mechanism; keep them meaningful, do not paper over regressions with
-   snapshot bloat.
+2. **Coverage uses Istanbul, not v8.** v8 silently drops uncovered `.tsx` files
+   when Rolldown parses them as JavaScript (upstream vitest#10475), so the gate
+   would be dishonest. Istanbul instruments every authored `.ts`/`.tsx`, with
+   100% global and per-file thresholds; jsdom behavior tests assert the
+   component behavior and keep the gate meaningful. Only tests, `*.d.ts`,
+   `routeTree.gen.ts` and `generated/**` are excluded — those are guarded by CI
+   regeneration + `git diff` drift gates. Never add an ignore comment or a new
+   exclusion to make a gate pass.
 3. **jsdom tests need `// @vitest-environment jsdom`** at the top of the file
    (see `translate-socket.test.ts`).
 4. **The socket client is lazy and shared.** `lib/translate-socket.ts` reuses
@@ -49,7 +53,8 @@ what is specific to `apps/web`.
 - Telemetry stays build-time opt-in: no OTEL code may run unless
   `VITE_OTEL_ENDPOINT` is set at build, and `main.tsx` keeps the dynamic
   import behind that check (never a static import).
-- `.tsx` stays out of the coverage gate; behavior lives in jsdom tests.
+- Every authored `.ts`/`.tsx` is in the Istanbul 100% per-file coverage gate;
+  only generated files are excluded and guarded by drift gates instead.
 - `fetch` calls go through `lib/api.ts` (`ApiError`); never raw `fetch` from
   components.
 - No new CSS framework; extend `src/styles/styles.css` with tokens.

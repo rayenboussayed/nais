@@ -45,6 +45,26 @@ describe('Semaphore', () => {
     expect(order).toEqual(['a', 'b']);
   });
 
+  it('exposes the number of queued waiters and clears them on release', async () => {
+    const semaphore = new Semaphore(1);
+    expect(semaphore.waiting).toBe(0);
+    await semaphore.acquire();
+
+    const first = semaphore.acquire();
+    const second = semaphore.acquire();
+    expect(semaphore.waiting).toBe(2);
+
+    // Releasing wakes one waiter; the other remains queued.
+    semaphore.release();
+    await first;
+    expect(semaphore.waiting).toBe(1);
+
+    semaphore.release();
+    await second;
+    expect(semaphore.waiting).toBe(0);
+    expect(semaphore.inFlight).toBe(1);
+  });
+
   it('releases the permit even when the wrapped function rejects', async () => {
     const semaphore = new Semaphore(1);
     await expect(

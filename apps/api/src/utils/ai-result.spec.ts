@@ -185,6 +185,36 @@ describe('normalizeResult', () => {
     ).toThrow();
   });
 
+  it('prefers entity_group over entity and defaults missing numeric fields', () => {
+    expect(
+      normalizeResult('token-classification', [{ entity: 'B-PER', entity_group: 'B-ORG' }]),
+    ).toEqual({
+      cached: false,
+      entities: [{ end: 0, entity_group: 'B-ORG', score: 0, start: 0, word: '' }],
+    });
+  });
+
+  it('defaults all missing QA, sentiment and summarize fields', () => {
+    expect(normalizeResult('question-answering', {})).toEqual({
+      answer: '',
+      cached: false,
+      end: 0,
+      score: 0,
+      start: 0,
+    });
+    expect(normalizeResult('sentiment', [{}])).toEqual({ cached: false, label: '', score: 0 });
+    expect(normalizeResult('summarize', [{}])).toEqual({ cached: false, text: '' });
+  });
+
+  it('falls back to empty zero-shot arrays when the fields are not arrays', () => {
+    expect(
+      normalizeResult('zero-shot-classification', {
+        labels: 'not-an-array',
+        scores: 'not-an-array',
+      }),
+    ).toEqual({ cached: false, labels: [], scores: [], sequence: '' });
+  });
+
   it('throws the task-shaped BadGateway error for adversarial shapes', () => {
     expect(() => normalizeResult('sentiment', 'not an array')).toThrow(
       'The sentiment model returned an unexpected shape',

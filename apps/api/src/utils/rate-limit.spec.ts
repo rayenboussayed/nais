@@ -19,6 +19,20 @@ describe('RateLimiter', () => {
     expect(limiter.hit('a', 1_001)).toBe(true);
   });
 
+  it('defaults the timestamp to Date.now() when none is supplied', () => {
+    const limiter = new RateLimiter(2, 1_000);
+    expect(limiter.hit('a')).toBe(true);
+    expect(limiter.hit('a')).toBe(true);
+    expect(limiter.hit('a')).toBe(false);
+  });
+
+  it('treats the exact window boundary as a new window', () => {
+    const limiter = new RateLimiter(1, 1_000);
+    expect(limiter.hit('a', 0)).toBe(true);
+    expect(limiter.hit('a', 999)).toBe(false);
+    expect(limiter.hit('a', 1_000)).toBe(true);
+  });
+
   it('tracks keys independently', () => {
     const limiter = new RateLimiter(1, 1_000);
     expect(limiter.hit('a', 0)).toBe(true);
@@ -56,5 +70,15 @@ describe('RateLimiter', () => {
     expect(limiter.hit('newcomer', 200)).toBe(true);
     // The eviction made room without dropping fresh callers wholesale:
     expect(limiter.hit('fresh-1', 200)).toBe(false);
+  });
+});
+
+describe('RateLimiter.evictOldest defensive path', () => {
+  it('does nothing when asked to evict from an empty bucket map', () => {
+    const limiter = new RateLimiter(1, 1_000);
+    const evict = Reflect.get(limiter, 'evictOldest') as () => void;
+
+    expect(() => evict.call(limiter)).not.toThrow();
+    expect(limiter.hit('a', 0)).toBe(true);
   });
 });

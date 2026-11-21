@@ -16,13 +16,16 @@ import { escapeLike } from '../../src/utils/sql.js';
 const ITERATIONS = 100;
 const HEAP_BUDGET_MB = 10;
 
+/** Results of the loop bodies; written here so the engine cannot elide them. */
+let consumed: unknown;
+
 describe('memory: repeated translate operations', () => {
   it('stays under the heap budget after many iterations', async () => {
     // Warm up the allocator and the JIT.
     for (let i = 0; i < 20; i += 1) {
-      translationKeyFor(`warmup ${i}`);
-      changedFields({ n: i, text: `warmup ${i}` }, { n: i, text: `warmup ${i}` });
-      escapeLike(`%${i}_ گرم`);
+      consumed = translationKeyFor(`warmup ${i}`);
+      consumed = changedFields({ n: i, text: `warmup ${i}` }, { n: i, text: `warmup ${i}` });
+      consumed = escapeLike(`%${i}_ گرم`);
     }
     global.gc?.();
     const before = process.memoryUsage().heapUsed;
@@ -31,14 +34,16 @@ describe('memory: repeated translate operations', () => {
     const pending: Array<Promise<number>> = [];
     for (let i = 0; i < ITERATIONS; i += 1) {
       const key = translationKeyFor(`benchmark text ${i} — lorem ipsum dolor sit amet ${i}`);
-      void escapeLike(`search term ${i}%_${i}`);
-      changedFields({ key, n: i, text: 'abc' }, { key, n: i, text: 'abc' });
+      consumed = key;
+      consumed = escapeLike(`search term ${i}%_${i}`);
+      consumed = changedFields({ key, n: i, text: 'abc' }, { key, n: i, text: 'abc' });
       pending.push(inflight.run(`key-${i}`, async () => i));
     }
     // Let every tracked promise settle and the .finally() bookkeeping run
     // before sampling the heap.
     await Promise.all(pending);
     expect(inflight.size).toBe(0);
+    expect(consumed).toBeDefined();
 
     global.gc?.();
     const after = process.memoryUsage().heapUsed;

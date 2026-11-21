@@ -31,7 +31,7 @@ export function useCursorStack(): CursorStack {
   return {
     back: () => setStack((pages) => pages.slice(0, -1)),
     canBack: stack.length > 0,
-    current: stack.length > 0 ? (stack[stack.length - 1] ?? null) : null,
+    current: stack[stack.length - 1] ?? null,
     next: (cursor) => setStack((pages) => [...pages, cursor]),
     reset: () => setStack([]),
   };

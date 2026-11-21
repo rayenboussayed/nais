@@ -269,6 +269,36 @@ describe('typed apiFetch client', () => {
     expect(seenUrl).toContain('q=a+b%26c');
   });
 
+  it('routes GET /api/ai-messages through the typed client', async () => {
+    const expected = { items: [{ id: 1, role: 'user' }] };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(expected), {
+            headers: { 'content-type': 'application/json' },
+            status: 200,
+          }),
+      ),
+    );
+    await expect(apiFetch('/api/ai-messages')).resolves.toEqual(expected);
+  });
+
+  it('routes GET /api/translations through the typed client', async () => {
+    const expected = { items: [], next: null };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(expected), {
+            headers: { 'content-type': 'application/json' },
+            status: 200,
+          }),
+      ),
+    );
+    await expect(apiFetch('/api/translations')).resolves.toEqual(expected);
+  });
+
   it('returns undefined for a 204 from a typed GET path', async () => {
     vi.stubGlobal(
       'fetch',

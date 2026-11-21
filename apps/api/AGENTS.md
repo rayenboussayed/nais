@@ -91,5 +91,9 @@ stop` must be synchronous so the directory removal cannot race shutdown.
   `onApplicationShutdown` (flush before `useProcessExit` exits). Never start
   it after Nest boots and never shut it down from a raw `process.on`
   handler.
-- Coverage: 95% gate on lines/functions/statements/branches. `.tsx` is not in
-  this workspace.
+- Coverage: Istanbul provider, 100% global and per-file on
+  lines/functions/branches/statements. Every authored `.ts` in this workspace
+  is in the denominator; only tests and `*.d.ts` are excluded. Generated
+  artifacts (`generated/**`, drizzle snapshots) are checked by CI regeneration
+  - `git diff` drift gates, not by instrumentation. Never add an ignore comment
+    or a new exclusion to make a gate pass.

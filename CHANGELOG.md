@@ -12,6 +12,7 @@ tagged releases yet. Dates are UTC, taken from the commit history.
 - OpenAPI now documents response bodies, UUID path params and shared error envelopes; a committed golden fixture and CI freshness guard keep generated artifacts current.
 - Deep refactoring pass: AI result normalization and failed-audit updates moved into pure utilities, the web response paths share one mapper, the translations admin route was split, and language selectors refresh after admin mutations.
 - Browser form validators are generated from the API Zod sources, so web validation has one source of truth. The profiler runs benchmark files only, and CI checks migration snapshots for consistency.
+- Coverage now uses Istanbul over every authored TS/TSX file in both workspaces with 100% global and per-file thresholds; the previous v8-based 95% gate and `.tsx` exclusion are gone. Only tests, declarations, `routeTree.gen.ts` and `generated/**` are excluded; those artifacts are guarded by CI regeneration + `git diff` drift gates and the committed OpenAPI golden fixture.
 
 ## Unreleased - 2026-11-18 .. 2026-11-19
 

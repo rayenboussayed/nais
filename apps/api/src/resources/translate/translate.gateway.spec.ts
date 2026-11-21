@@ -286,3 +286,23 @@ describe('TranslateGateway translate handler ack contract', () => {
     expect(log).toHaveBeenCalledWith('translate handler failed: Error');
   });
 });
+
+describe('TranslateGateway.emitTo', () => {
+  it('emits an outbound event to exactly one socket room', () => {
+    const { gateway } = makeHandlerGateway();
+    const emit = vi.fn();
+    const to = vi.fn(() => ({ emit }));
+    // The server is injected by @WebSocketServer at boot; assign the double directly.
+    (gateway as unknown as { server: { to: typeof to } }).server = { to };
+
+    const payload = {
+      cached: true,
+      requestId: '123e4567-e89b-42d3-a456-426655440000',
+      text: 'bonjour',
+    };
+    gateway.emitTo('socket-1', 'translation', payload);
+
+    expect(to).toHaveBeenCalledWith('socket-1');
+    expect(emit).toHaveBeenCalledWith('translation', payload);
+  });
+});

@@ -103,12 +103,12 @@ export function Studio() {
   }
 
   /**
-   * Copies the result to the clipboard.
+   * Copies a finished result to the clipboard.
+   * @param result - the already-rendered result payload
    */
-  async function copyResult() {
-    if (run.kind !== 'done') return;
+  async function copyResult(result: Record<string, unknown>) {
     // eslint-disable-next-line n/no-unsupported-features/node-builtins -- browser global, not Node's experimental navigator
-    await navigator.clipboard.writeText(JSON.stringify(run.result, null, 2));
+    await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
   }
 
   return (
@@ -224,7 +224,7 @@ export function Studio() {
               </span>
               <button
                 className="button button-ghost button-small"
-                onClick={copyResult}
+                onClick={() => copyResult(run.result)}
                 type="button"
               >
                 Copy JSON

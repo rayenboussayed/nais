@@ -165,6 +165,14 @@ describe('PipelineLoader', () => {
     }
   });
 
+  it('propagates a non-Error pipeline failure after exhausting the device chain', async () => {
+    const rawFailure = { reason: 'bad model' };
+    transformersMock.pipeline.mockRejectedValue(rawFailure);
+    const loader = new PipelineLoader(configStub());
+    await expect(loader.load('sentiment')).rejects.toBe(rawFailure);
+    expect(transformersMock.pipeline.mock.calls.map(deviceOf)).toEqual(['webgpu', 'cpu']);
+  });
+
   it('honors the env override for the effective model id and keeps the registry default for translate', () => {
     const loader = new PipelineLoader(configStub({ AI_SENTIMENT_MODEL: 'acme/fast-sentiment' }));
     expect(loader.modelFor('sentiment')).toBe('acme/fast-sentiment');

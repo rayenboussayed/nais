@@ -50,13 +50,13 @@ function canonicalize(value: unknown): unknown {
 }
 
 /**
- * Sorts entries by key for canonical object output.
+ * Sorts entries by key for canonical object output. Branchless so every path
+ * is exercised; yields -1/0/1 exactly like a three-way comparison (0 only for
+ * equal keys, which Object.entries cannot produce).
  * @param a - the left entry
  * @param b - the right entry
  * @returns the comparison result
  */
 function compareKeys(a: [string, unknown], b: [string, unknown]): number {
-  if (a[0] < b[0]) return -1;
-  if (a[0] > b[0]) return 1;
-  return 0;
+  return Number(a[0] > b[0]) - Number(a[0] < b[0]);
 }

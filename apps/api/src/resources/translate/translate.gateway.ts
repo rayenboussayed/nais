@@ -48,23 +48,30 @@ import { TranslationsService } from '../translations/translations.service.js';
 export const gatewayOptions = buildGatewayOptions(importTimeEnv('CORS_ORIGINS'));
 
 /** Cache lookup result produced by a pipeline peek strategy. */
-type CacheOutcome =
-  | { kind: 'catalogue-hit'; text: string }
-  | { kind: 'dedicated-hit'; result: Record<string, unknown> }
-  | { kind: 'miss' }
-  | { kind: 'missing-language' };
+type CacheOutcome = CatalogueOutcome | DedicatedOutcome;
+
+/** Cache lookup result of the legacy catalogue (translate) peek. */
+type CatalogueOutcome =
+  { kind: 'catalogue-hit'; text: string } | { kind: 'miss' } | { kind: 'missing-language' };
+
+/** Outcomes shared by both pipelines after a miss or a backend fault. */
+type CommonOutcome = { kind: 'accepted' } | { kind: 'failed' } | { kind: 'rate-limited' };
+
+/** Cache lookup result of a dedicated AI task peek. */
+type DedicatedOutcome =
+  { kind: 'dedicated-hit'; result: Record<string, unknown> } | { kind: 'miss' };
 
 type OutboundEvent = 'ai-error' | 'ai-result' | 'translation' | 'translation-error';
 
 /** Discriminated outcome of the pipeline shared by both message handlers. */
 type PipelineOutcome =
-  | { kind: 'accepted' }
-  | { kind: 'catalogue-hit'; text: string }
-  | { kind: 'dedicated-hit'; result: Record<string, unknown> }
-  | { kind: 'failed' }
-  | { kind: 'invalid-input' }
-  | { kind: 'missing-language' }
-  | { kind: 'rate-limited' };
+  CommonOutcome | Exclude<CacheOutcome, { kind: 'miss' }> | { kind: 'invalid-input' };
+
+/**
+ * Outcome the `translate` handler can actually receive: its peek is catalogue-only
+ * (never `dedicated-hit`) and its validator never returns null (never `invalid-input`).
+ */
+type TranslateOutcome = CommonOutcome | Exclude<CatalogueOutcome, { kind: 'miss' }>;
 
 /**
  * socket.io gateway for the async AI flow. Clients emit `translate` (legacy,
@@ -245,7 +252,7 @@ export class TranslateGateway implements OnGatewayInit {
    * @param text - the source text whose canonical key is looked up
    * @returns a catalogue hit, a miss, or a missing-language outcome
    */
-  private async peekCatalogue(targetLanguage: string, text: string): Promise<CacheOutcome> {
+  private async peekCatalogue(targetLanguage: string, text: string): Promise<CatalogueOutcome> {
     const language = await this.languages.findByIso(targetLanguage);
     if (!language) {
       return { kind: 'missing-language' };
@@ -266,7 +273,7 @@ export class TranslateGateway implements OnGatewayInit {
   private async peekDedicated(
     task: Exclude<AiTask, 'translate'>,
     input: Record<string, unknown>,
-  ): Promise<CacheOutcome> {
+  ): Promise<DedicatedOutcome> {
     const peek = await this.ai.peekCache(task, input);
     return peek ? { kind: 'dedicated-hit', result: peek } : { kind: 'miss' };
   }
@@ -283,6 +290,22 @@ export class TranslateGateway implements OnGatewayInit {
    * @param request.validate - per-task input validator returning null on failure
    * @returns a discriminated outcome the caller maps to its own ack shape
    */
+  private runPipeline(request: {
+    client: Socket;
+    handlerName: string;
+    peek: (input: Record<string, unknown>) => Promise<CatalogueOutcome>;
+    requestId: string;
+    task: AiTask;
+    validate: () => Record<string, unknown>;
+  }): Promise<TranslateOutcome>;
+  private runPipeline(request: {
+    client: Socket;
+    handlerName: string;
+    peek: (input: Record<string, unknown>) => Promise<CacheOutcome>;
+    requestId: string;
+    task: AiTask;
+    validate: () => null | Record<string, unknown>;
+  }): Promise<PipelineOutcome>;
   private async runPipeline(request: {
     client: Socket;
     handlerName: string;
@@ -363,18 +386,12 @@ function extractRequestId(data: unknown): null | string {
  * @param requestId - the validated request correlation id
  * @returns the exact wire ack for this outcome
  */
-function translateAckFor(outcome: PipelineOutcome, requestId: string): WsTranslateAck {
+function translateAckFor(outcome: TranslateOutcome, requestId: string): WsTranslateAck {
   switch (outcome.kind) {
     case 'accepted':
       return { data: null, requestId, statusCode: 202 };
     case 'catalogue-hit':
       return { data: outcome.text, requestId, statusCode: 200 };
-    // Unreachable for translate: its validate never fails and its peek is
-    // catalogue-only. Both would be a 400 on the legacy contract. Listed so a
-    // future outcome kind is a compile error rather than a silent 400.
-    case 'dedicated-hit':
-    case 'invalid-input':
-      return { data: null, requestId, statusCode: 400 };
     case 'failed':
       return { data: null, requestId, statusCode: 500 };
     case 'missing-language':

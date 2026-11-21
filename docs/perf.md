@@ -57,8 +57,13 @@ On an empty table the planner prefers a seq scan + sort; `ai_messages_created_id
 
 ## Microbenchmarks
 
-`npm run test:perf` runs the `vitest bench` suite (apps/api/bench/common.bench.ts):
-translation-key hashing, LIKE escaping, keyset cursor building, changed-fields,
-inflight dedup and the rate limiter. The recorded baseline lives in
-`docs/perf-baseline.json` (refresh with
-`npx vitest bench --reporter=json --outputFile=docs/perf-baseline.json`).
+`npm run test:perf` runs the `vitest bench` suites (`apps/api/bench/common.bench.ts`,
+`hot-paths.bench.ts` and `language-cache.bench.ts`): translation-key hashing,
+LIKE escaping, keyset cursor building, changed-fields, inflight dedup, the rate
+limiter, canonicalization, pipeline caching and the language memoizer. The recorded baseline lives in
+`docs/perf-baseline.json`. The baseline is a generated artifact: refresh it
+only with that documented command (`npx vitest bench --reporter=json
+--outputFile=docs/perf-baseline.json`) and never hand-edit the JSON. It records
+all bench files (`common`, `hot-paths` and `language-cache`); a stale baseline
+is a drift to fix by regeneration, not by editing numbers or adding hard
+performance thresholds.

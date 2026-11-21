@@ -123,6 +123,14 @@ describe('validateEnv', () => {
     );
   });
 
+  it('rejects a postgres URL the pg parser cannot parse', () => {
+    // A non-numeric port makes pg-connection-string throw; the refine must
+    // treat that as invalid rather than let the exception escape validation.
+    expect(() =>
+      validateEnv({ ...baseEnv, DATABASE_URL: 'postgresql://u:p@localhost:notaport/db' }),
+    ).toThrow(/DATABASE_URL/);
+  });
+
   it('accepts a unix-socket DSN (pg accepts it, WHATWG would not)', () => {
     const env = validateEnv({
       ...baseEnv,

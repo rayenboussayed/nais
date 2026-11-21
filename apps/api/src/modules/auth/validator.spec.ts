@@ -36,6 +36,7 @@ describe('verifyScryptPassword', () => {
       'argon2$1$2$3$aa$bb',
       'scrypt$a$b$c$dd$ee',
       'scrypt$16384$8$1$abce$ab',
+      'scrypt$16384$8$1$abc$aa',
       'scrypt$16384$8$1$aa$bb$extra',
     ]) {
       await expect(verifyScryptPassword(bad, 'x')).resolves.toBe(false);

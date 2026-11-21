@@ -114,7 +114,7 @@ Single credential, declared as `BASIC_AUTH_USERNAME` / `BASIC_AUTH_PASSWORD_HASH
 
 ```bash
 npm test             # unit + integration (throwaway PostgreSQL clusters)
-npm run test:cov     # with v8 coverage (95% lines/functions/statements gate)
+npm run test:cov     # Istanbul full-source coverage (100% lines/functions/branches/statements, per file)
 npm run test:e2e     # process-level smoke (boots dist/main.js against a throwaway cluster)
 npm run test:perf    # microbenchmarks (translationKeyFor, pagination, rate limiter…)
 npm run test:mem     # heap-delta memory test (--expose-gc)
@@ -122,7 +122,7 @@ npm run test:mem     # heap-delta memory test (--expose-gc)
 
 Integration specs create a throwaway PostgreSQL cluster in /tmp (unix sockets, migrations applied, torn down after). Nothing touches a developer or production database. The dedicated ONNX pipelines are never downloaded in tests: the AI suite stubs the pipeline loader and asserts shapes/normalization against the real contracts (integration runs on the throwaway cluster). A real pipeline smoke can be run manually with `npm run transformers:warmup -w @trainslator/api`.
 
-Coverage of `.tsx` route components is excluded from the gate (v8 cannot map rolldown-compiled JSX reliably — upstream vitest#10475); component behavior is asserted by the jsdom suites (`apps/web/src/**/*.test.tsx`).
+Coverage is measured with **Istanbul** over every authored source file in both workspaces (`apps/api/src/**/*.ts`, `apps/web/src/**/*.{ts,tsx}`), with 100% global **and** per-file thresholds on lines, functions, branches and statements. Istanbul is required because v8's coverage silently drops uncovered `.tsx` files when Rolldown parses them as JavaScript (upstream vitest#10475) — so `.tsx` route components are now in the denominator, with their behavior asserted by the jsdom suites (`apps/web/src/**/*.test.tsx`). The only exclusions are explicit: test files (`*.spec.ts`, `*.test.ts`, `*.test.tsx`), declaration files (`*.d.ts`), `routeTree.gen.ts` and everything under `generated/`. Those generated artifacts are covered by **drift gates** instead: CI rebuilds and regenerates them (`npm run generate:api`, the TanStack Router plugin, drizzle-kit) and fails on any `git diff`; the committed `openapi.golden.json` is compared byte-for-byte by the OpenAPI spec. Never hand-edit generated files to make a gate pass.
 
 ## Layout
 

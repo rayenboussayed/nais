@@ -62,6 +62,19 @@ describe('AiController', () => {
     expect(service.run).toHaveBeenCalledWith('translate', { targetLanguage: 'fr', text: 'hello' });
   });
 
+  it('translate maps a missing model text to an empty string', async () => {
+    const service = serviceStub();
+    service.run = vi.fn(async () => ({
+      cached: false,
+      model: 'bonsai-2:2b',
+      result: { cached: false },
+      task: 'translate' as const,
+    }));
+    const response = await controller(service).translate({ targetLanguage: 'fr', text: 'hello' });
+    expect(response).toEqual({ cached: false, text: '' });
+    expect(service.run).toHaveBeenCalledWith('translate', { targetLanguage: 'fr', text: 'hello' });
+  });
+
   it('sentiment delegates to the service', async () => {
     const service = serviceStub();
     service.run = vi.fn(async () =>

@@ -10,6 +10,9 @@ const HEAP_BUDGET_MB = 10;
 const TREE_DEPTH = 12;
 const BRANCH = 2;
 
+/** Results of the loop bodies; written here so the engine cannot elide them. */
+let consumed: unknown;
+
 /**
  * Builds a deep, wide payload with unicode values to mimic a large AI task input.
  * @param depth - remaining nesting levels
@@ -40,9 +43,9 @@ describe('memory: nested payload hot paths', () => {
 
     // Warm up the allocator and the JIT.
     for (let i = 0; i < 20; i += 1) {
-      taskKeyFor('sentiment', 'model-x', before);
-      canonicalJsonStringify(before);
-      changedFields(before, patch);
+      consumed = taskKeyFor('sentiment', 'model-x', before);
+      consumed = canonicalJsonStringify(before);
+      consumed = changedFields(before, patch);
     }
     global.gc?.();
     const heapBefore = process.memoryUsage().heapUsed;
@@ -51,14 +54,16 @@ describe('memory: nested payload hot paths', () => {
     const pending: Array<Promise<string>> = [];
     for (let i = 0; i < ITERATIONS; i += 1) {
       const key = taskKeyFor('sentiment', 'model-x', before);
-      canonicalJsonStringify(before);
-      changedFields(before, patch);
+      consumed = key;
+      consumed = canonicalJsonStringify(before);
+      consumed = changedFields(before, patch);
       pending.push(inflight.run(`key-${i}`, async () => key));
     }
     // Let every tracked promise settle and the .finally() bookkeeping run
     // before sampling the heap.
     await Promise.all(pending);
     expect(inflight.size).toBe(0);
+    expect(consumed).toBeDefined();
 
     global.gc?.();
     const heapAfter = process.memoryUsage().heapUsed;

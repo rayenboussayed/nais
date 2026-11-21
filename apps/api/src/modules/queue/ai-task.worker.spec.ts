@@ -6,6 +6,7 @@ import type { AiService } from '../../resources/ai/ai.service.js';
 import type { TranslateGateway } from '../../resources/translate/translate.gateway.js';
 import type { AiTaskJob } from '../../schemas/queue.js';
 
+import { aiTaskJobSchema } from '../../schemas/queue.js';
 import { AiTaskWorker } from './ai-task.worker.js';
 
 /**
@@ -228,5 +229,44 @@ describe('AiTaskWorker.onAiTask', () => {
       { emitTo: vi.fn() } as unknown as TranslateGateway,
     );
     await expect(worker.onAiTask([])).resolves.toBeUndefined();
+  });
+});
+
+describe('AiTaskWorker invalid payload', () => {
+  it('rejects a malformed job instead of calling the AI service', async () => {
+    const run = vi.fn();
+    const emitTo = vi.fn();
+    const worker = new AiTaskWorker(
+      { run } as unknown as AiService,
+      { emitTo } as unknown as TranslateGateway,
+    );
+    const errorSpy = vi.spyOn(worker, 'error').mockImplementation(() => worker);
+
+    await expect(worker.onAiTask([makeJob({ task: 'unknown-task' } as never)])).rejects.toThrow(
+      'ai task job payload rejected',
+    );
+
+    expect(run).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('payload rejected'));
+  });
+});
+
+describe('AiTaskWorker invalid payload fallback', () => {
+  it('uses the generic message when a validation failure carries no issues', async () => {
+    const worker = new AiTaskWorker(
+      { run: vi.fn() } as unknown as AiService,
+      { emitTo: vi.fn() } as unknown as TranslateGateway,
+    );
+    const errorSpy = vi.spyOn(worker, 'error').mockImplementation(() => worker);
+    vi.spyOn(aiTaskJobSchema, 'safeParse').mockReturnValue({
+      error: { issues: [] },
+      success: false,
+    } as never);
+
+    await expect(worker.onAiTask([makeJob({ task: 'translate' } as never)])).rejects.toThrow(
+      'ai task job payload rejected',
+    );
+
+    expect(errorSpy).toHaveBeenCalledWith('ai task job payload rejected: invalid payload');
   });
 });
