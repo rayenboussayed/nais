@@ -54,6 +54,8 @@ jobs:
           case "$BASE" in
             ''|0000000000000000000000000000000000000000) BASE=HEAD~1 ;;
           esac
+          # Keep these pathspecs in sync with the coverage include and exclude
+          # lists in vitest.config.mts.
           CHANGED="$(git diff --name-only "$BASE"...HEAD -- \
             ':(glob)apps/api/src/**/*.ts' \
             ':(glob)apps/web/src/**/*.ts' \
