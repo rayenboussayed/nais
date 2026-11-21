@@ -23,6 +23,7 @@ import { DUMMY_SCRYPT_HASH, verifyScryptPassword } from '../../modules/auth/vali
 import { loginRequestSchema, loginResponseSchema } from '../../schemas/auth.js';
 import { ApiErrorResponses } from '../../swagger.js';
 import { RateLimiter } from '../../utils/rate-limit.js';
+import { ApiResponseSchema } from '../../utils/response-schema.js';
 
 const COOKIE_MAX_AGE_SECONDS = 12 * 60 * 60;
 
@@ -47,7 +48,7 @@ export class AuthController {
    * @param reply - the Fastify reply used to set the cookie
    * @returns the authenticated username
    */
-  @ApiResponse({ standardSchema: loginResponseSchema, status: HttpStatus.OK })
+  @ApiResponseSchema(loginResponseSchema, HttpStatus.OK)
   @HttpCode(HttpStatus.OK)
   @Post('login')
   async login(
