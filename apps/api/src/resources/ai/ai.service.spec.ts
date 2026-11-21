@@ -562,6 +562,20 @@ describe('AiService.run', () => {
     ).toBe(true);
   });
 
+  it('keeps the locally computed result when a lost race has no winner row', async () => {
+    const db = dbStub({ txInsertReturning: [] });
+    const loader = pipelineLoader([{ label: 'POSITIVE', score: 0.9 }]);
+    const service = new AiService(db, {} as unknown as TranslateService, loader, configStub());
+
+    const result = await service.run('sentiment', { text: 'hi' });
+    expect(result.result).toMatchObject({ cached: false, label: 'POSITIVE', score: 0.9 });
+    expect(
+      db.auditSets.some(
+        (set) => set.status === 'completed' && String(set.response).includes('POSITIVE'),
+      ),
+    ).toBe(true);
+  });
+
   it('delegates translate to the catalogue-cached translate service', async () => {
     const translateResponse = { cached: true, text: 'bonjour' };
     const translateService = {
@@ -598,5 +612,22 @@ describe('AiService.run', () => {
       question: 'Who was Jim Henson?',
     });
     expect(result.result).toMatchObject({ answer: 'a nice puppet', end: 0, start: 0 });
+  });
+});
+
+describe('AiService.listTasks', () => {
+  it('lists every descriptor with its effective model', () => {
+    const loader = pipelineLoader(undefined, 'test/model');
+    const service = new AiService(
+      dbStub(),
+      {} as unknown as TranslateService,
+      loader,
+      configStub(),
+    );
+
+    const tasks = service.listTasks();
+    expect(tasks).toHaveLength(7);
+    expect(tasks.find((task) => task.task === 'translate')?.model).toBe('bonsai-2:2b');
+    expect(tasks.find((task) => task.task === 'sentiment')?.model).toBe('test/model');
   });
 });

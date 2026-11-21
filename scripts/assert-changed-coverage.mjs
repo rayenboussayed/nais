@@ -2,11 +2,9 @@
  * CI guard for the changed-file coverage gate.
  *
  * `npm run test:cov:changed` runs `vitest run --changed`, which selects only
- * files touched by the current diff. Combined with `passWithNoTests: true`, a
- * run that selects no test still exits zero and can leave a zero-total (or no)
- * JSON summary. This guard fails unless the `json-summary` report from that
- * run has at least one non-zero counter, so a green gate always means real
- * coverage was collected.
+ * files touched by the current diff. This guard fails unless the json-summary
+ * report contains real files and every changed file reached 100% on all four
+ * counters. It complements, rather than replaces, Vitest's own thresholds.
  *
  * Usage: node scripts/assert-changed-coverage.mjs
  */
@@ -17,8 +15,8 @@ const PREFIX = 'changed-file coverage:';
 const REPORT_PATH = 'coverage/coverage-summary.json';
 
 /**
- * Validates that a coverage summary recorded at least one instrumented file.
- * @returns {number} 0 when the totals are non-zero, 1 otherwise
+ * Validates that the changed-file coverage summary is complete and at 100%.
+ * @returns {number} 0 when the report is complete and fully covered, 1 otherwise
  */
 function checkCoverage() {
   if (!existsSync(REPORT_PATH)) {
@@ -34,28 +32,48 @@ function checkCoverage() {
     return 1;
   }
 
-  const total = summary?.total;
-  const counters = [total?.branches, total?.functions, total?.lines, total?.statements];
-  const instrumented = counters.reduce(
-    (sum, counter) => sum + (typeof counter?.total === 'number' ? counter.total : 0),
-    0,
-  );
-  const covered = counters.reduce(
-    (sum, counter) => sum + (typeof counter?.covered === 'number' ? counter.covered : 0),
-    0,
-  );
-
-  if (instrumented <= 0) {
-    console.error(`${PREFIX} ${REPORT_PATH} has zero totals (no files were covered)`);
-    return 1;
-  }
-  if (covered <= 0) {
-    console.error(`${PREFIX} ${REPORT_PATH} has zero covered entries (no code was exercised)`);
+  const entries = Object.entries(summary).filter(([key]) => key !== 'total');
+  if (entries.length === 0) {
+    console.error(`${PREFIX} ${REPORT_PATH} has no instrumented files`);
     return 1;
   }
 
-  console.log(`${PREFIX} ${covered}/${instrumented} counters covered in ${REPORT_PATH}`);
+  const total = summary.total;
+  if (total === undefined) {
+    console.error(`${PREFIX} ${REPORT_PATH} is missing total`);
+    return 1;
+  }
+
+  const checks = [...entries, ['total', total]];
+  for (const [label, counters] of checks) {
+    const { branches, functions, lines, statements } = counters;
+    if (
+      !isComplete(label, 'branches', branches) ||
+      !isComplete(label, 'functions', functions) ||
+      !isComplete(label, 'lines', lines) ||
+      !isComplete(label, 'statements', statements)
+    ) {
+      return 1;
+    }
+  }
+
+  console.log(`${PREFIX} ${entries.length} files at 100% in ${REPORT_PATH}`);
   return 0;
+}
+
+/**
+ * Validates one coverage counter.
+ * @param {string} label - report label for the error message
+ * @param {string} metric - metric name for the error message
+ * @param {{pct?: number} | undefined} counter - counter from the summary
+ * @returns {boolean} true when the counter is exactly 100%
+ */
+function isComplete(label, metric, counter) {
+  if (typeof counter?.pct !== 'number' || counter.pct !== 100) {
+    console.error(`${PREFIX} ${label} ${metric} is ${String(counter?.pct)}%, expected 100%`);
+    return false;
+  }
+  return true;
 }
 
 process.exitCode = checkCoverage();
