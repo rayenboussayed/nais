@@ -1,179 +1,64 @@
 ---
 name: nestjs
-description: Provides comprehensive NestJS framework patterns with Drizzle ORM integration for building scalable server-side applications. Generates REST/GraphQL APIs, implements authentication guards, creates database schemas, and sets up microservices. Use when building NestJS applications, setting up APIs, implementing authentication, working with databases, or integrating Drizzle ORM.
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+description: NestJS, the TypeScript framework for Node.js backends. How to start a project non-interactively with the Nest CLI, the project layout and module system, where the current docs are, and the mistakes agents make in Nest apps that still pass their tests. Use when creating or extending a NestJS application.
+license: MIT
+compatibility: Written for NestJS 12 (@nestjs/core 12.x) on Node.js 20+.
 ---
 
-# NestJS Framework with Drizzle ORM
+# NestJS
 
-## Overview
+Nest's APIs move faster than model training data, so what you remember may be a major version behind. Check before relying on memory:
 
-Provides NestJS patterns with Drizzle ORM for building production-ready server-side applications. Covers CRUD modules, JWT authentication, database operations, migrations, testing, microservices, and GraphQL integration.
+- Which version you're on: `npm ls @nestjs/core` in a project, `npm view @nestjs/core version` for the latest. Use the latest for a new project.
 
-## When to Use
+- https://docs.nestjs.com/llms.txt indexes every chapter. Each chapter is plain markdown at its URL plus `.md`, e.g. https://docs.nestjs.com/controllers.md. Fetch the one chapter you need, not `llms-full.txt`. Find the page in the index rather than from memory: remembered paths (`/techniques/...`) are from older versions; most redirect to the current chapter, but some topics moved or split.
+- Nest has first-party packages for most backend needs (auth, permissions, databases, config, rate limiting, OpenAPI, health checks, queues, scheduling). Check them before writing your own or adding another library. The other skills in this package cover the common ones.
 
-- Building REST APIs or GraphQL servers with NestJS
-- Setting up authentication and authorization with JWT
-- Implementing database operations with Drizzle ORM
-- Creating microservices with TCP/Redis transport
-- Writing unit and integration tests
-- Running database migrations with drizzle-kit
+## Start a project
 
-## Instructions
+In an empty folder:
 
-1. **Install dependencies**: `npm i drizzle-orm pg && npm i -D drizzle-kit tsx`
-2. **Define schema**: Create `src/db/schema.ts` with Drizzle table definitions
-3. **Create DatabaseService**: Inject Drizzle client as a NestJS provider
-4. **Build CRUD module**: Controller → Service → Repository pattern
-5. **Add validation**: Use class-validator DTOs with ValidationPipe
-6. **Implement guards**: Create JWT/Roles guards for route protection
-7. **Write tests**: Use `@nestjs/testing` with mocked repositories
-8. **Run migrations**: `npx drizzle-kit generate` → **Verify SQL** → `npx drizzle-kit migrate`
-
-## Examples
-
-### Complete CRUD Module with Drizzle
-
-```typescript
-// src/db/schema.ts
-export const users = pgTable('users', {
-  id: serial('id').primaryKey(),
-  name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  createdAt: timestamp('created_at').defaultNow(),
-});
-
-// src/users/dto/create-user.dto.ts
-export class CreateUserDto {
-  @IsString() @IsNotEmpty() name: string;
-  @IsEmail() email: string;
-}
-
-// src/users/user.repository.ts
-@Injectable()
-export class UserRepository {
-  constructor(private db: DatabaseService) {}
-
-  async findAll() {
-    return this.db.database.select().from(users);
-  }
-
-  async create(data: typeof users.$inferInsert) {
-    return this.db.database.insert(users).values(data).returning();
-  }
-}
-
-// src/users/users.service.ts
-@Injectable()
-export class UsersService {
-  constructor(private repo: UserRepository) {}
-
-  async create(dto: CreateUserDto) {
-    return this.repo.create(dto);
-  }
-}
-
-// src/users/users.controller.ts
-@Controller('users')
-export class UsersController {
-  constructor(private service: UsersService) {}
-
-  @Post()
-  create(@Body() dto: CreateUserDto) {
-    return this.service.create(dto);
-  }
-}
-
-// src/users/users.module.ts
-@Module({
-  controllers: [UsersController],
-  providers: [UsersService, UserRepository, DatabaseService],
-  exports: [UsersService],
-})
-export class UsersModule {}
+```bash
+npx @nestjs/cli new . --skip-git --package-manager npm
 ```
 
-### JWT Authentication Guard
+Without a TTY (an agent's shell) it asks nothing: it creates an ESM project with Vitest and installs dependencies. `--minimal` creates a one-file app (`src/main.ts`). `npm start` runs `nest start`, which compiles first.
 
-```typescript
-@Injectable()
-export class JwtAuthGuard implements CanActivate {
-  constructor(private jwtService: JwtService) {}
+It also sets up `@nestjs/observe` (`--no-observe` skips it), which sends nothing until the project is linked. Once the project exists, tell the user to run `npx @nestjs/observe link` in it: they approve a code in the browser (signing up for free if needed), and it writes the key pair into `.env`. If they ask you to run it, run it with `--no-browser` in the background and pass on the address and the code it prints. Never write the keys yourself.
 
-  canActivate(context: ExecutionContext) {
-    const token = context.switchToHttp().getRequest()
-      .headers.authorization?.split(' ')[1];
-    if (!token) return false;
-    try {
-      const decoded = this.jwtService.verify(token);
-      context.switchToHttp().getRequest().user = decoded;
-      return true;
-    } catch {
-      return false;
-    }
-  }
-}
-```
+Write modules, controllers and services as files yourself (`nestjs-feature` shows the shape); register each in its module. `nest generate` is optional: `npx nest g module|controller|service <name> --no-spec` creates a stub and registers it, which helps when you're unsure where it goes. `nest g resource` makes a CRUD scaffold of stubs, DTOs and an entity class; use it only when you want exactly that, and pass `--type rest --crud` so it doesn't prompt.
 
-### Database Transactions
+The scaffold comes with an `AGENTS.md`; read it in an existing project, along with `package.json` and `nest-cli.json`.
 
-```typescript
-async transferFunds(fromId: number, toId: number, amount: number) {
-  return this.db.database.transaction(async (tx) => {
-    await tx.update(accounts)
-      .set({ balance: sql`${accounts.balance} - ${amount}` })
-      .where(eq(accounts.id, fromId));
-    await tx.update(accounts)
-      .set({ balance: sql`${accounts.balance} + ${amount}` })
-      .where(eq(accounts.id, toId));
-  });
-}
-```
+## Layout and module system
 
-### Unit Testing with Mocks
+- `src/main.ts` bootstraps (`NestFactory.create(AppModule)`, global pipes, `app.listen(process.env.PORT ?? 3000)`); `src/app.module.ts` imports the feature modules.
+- One folder per feature: `src/notes/notes.module.ts`, `notes.controller.ts` (HTTP only), `notes.service.ts` (rules), a repository (queries), DTOs (`CreateNoteDto`) or schemas next to them. Share a provider by adding it to its module's `exports` and importing that module. Where code goes, how to split modules and what to avoid: `nestjs-feature`'s `references/structure.md`.
+- Projects from `nest new` are ESM (`"type": "module"`), and Nest's packages are ESM only: relative imports end in `.js` (`import { NotesService } from './notes.service.js'`), there's no `__dirname` (use `import.meta.dirname`), tests use `vi.fn()`, not `jest.fn()`. Follow what an existing project uses.
+- Run through the Nest CLI or `tsc`, not `tsx`: `tsx` emits no decorator metadata, so providers injected by type arrive as `undefined`.
+- **Never `import type` a class you inject.** Dependency injection reads the constructor's parameter types at run time; a type-only import erases them, and the app stops at startup with `Nest can't resolve dependencies of the NotesService (?)`. Linters and auto-fixers (`consistent-type-imports`) make this change on their own. The opposite holds for plain types in decorated signatures (`Request` from express, `RawBodyRequest`): with `isolatedModules`, TypeScript requires `import type` there (error TS1272).
 
-```typescript
-describe('UsersService', () => {
-  let service: UsersService;
-  let repo: jest.Mocked<UserRepository>;
+## Mistakes that pass tests
 
-  beforeEach(async () => {
-    const module = await Test.createTestingModule({
-      providers: [
-        UsersService,
-        { provide: UserRepository, useValue: { findAll: jest.fn(), create: jest.fn() } },
-      ],
-    }).compile();
-    service = module.get(UsersService);
-    repo = module.get(UserRepository);
-  });
+Coding agents make these in Nest apps whose tests all pass:
 
-  it('should create user', async () => {
-    const dto = { name: 'John', email: 'john@example.com' };
-    repo.create.mockResolvedValue({ id: 1, ...dto, createdAt: new Date() });
-    expect(await service.create(dto)).toMatchObject(dto);
-  });
-});
-```
+- **Sign-in leaks which emails exist.** Hand-assembled sign-in (`@nestjs/jwt` + bcrypt) returns early for an unknown email (`if (!user || !(await bcrypt.compare(...))) throw`), so unknown emails answer faster. Use `@nestjs/authentication`'s `PasswordHasher.verify(password, user?.passwordHash)`, which checks a dummy hash when there's no user. See the `nestjs-auth` skill.
+- **`@Post()` answers 201.** A POST that creates nothing (sign-in, actions, searches) needs `@HttpCode(200)` or the code it means.
+- **`@IsOptional()` lets `null` through.** class-validator skips every rule for `null`, so `{"title": null}` reaches the database and fails with a 500. For "may be left out, not null", use `@ValidateIf((_, value) => value !== undefined)` instead. Zod's `.optional()` doesn't have this problem.
+- **A short HS256 secret.** `@nestjs/authentication`'s `accessToken.key` needs at least 32 bytes and stops the app at startup otherwise. Never hash or pad a secret to fit: tokens are then signed with a different key and whatever verifies them with the real secret rejects them. The `nestjs-auth` skill covers a secret the task fixes.
+- **The OpenAPI document leaves out its own route.** `SwaggerModule.setup()` serves the document outside Nest's router, so it isn't listed. Add it if the contract says every route is documented (`nestjs-production`).
+- **Stopping servers.** Start a server in the background, note its PID (`npm start > server.log 2>&1 & echo $!`), and stop it with `kill <pid>`, or by its port: `kill $(lsof -ti tcp:3000 -sTCP:LISTEN)`. Never `pkill -f nest` or `pkill -f "npm start"`: they match other projects' processes on the machine.
 
-## Constraints and Warnings
+A contract the task fixes (status codes, error bodies, secrets, field names) wins over a package's defaults. Adapt the package, or say what you couldn't do.
 
-- **DTOs required**: Always use DTOs with class-validator, never accept raw objects
-- **Transactions**: Keep transactions short; avoid nested transactions
-- **Guards order**: JWT guard must run before Roles guard
-- **Environment variables**: Never hardcode DATABASE_URL or JWT_SECRET
-- **Migrations**: Run `drizzle-kit generate` after schema changes before deploying
-- **Circular dependencies**: Use `forwardRef()` carefully; prefer module restructuring
+When a task says how to test, follow it. When it says nothing, cover the behaviour you change with focused tests rather than broad e2e suites.
 
-## Best Practices
+## Other skills in this package
 
-- Validate all inputs with global `ValidationPipe`
-- Use transactions for multi-table operations
-- Document APIs with OpenAPI/Swagger decorators
+- `nestjs-feature`: modules, controllers, services, validation (Zod with `@Body({ schema })`, or class-validator), status codes, error bodies, Server-Sent Events.
+- `nestjs-auth`: `@nestjs/authentication` and `@nestjs/authorization`.
+- `nestjs-data`: `@nestjs/drizzle` and `@nestjs/typeorm`.
+- `nestjs-testing`: unit and e2e tests.
+- `nestjs-production`: config, logging, observability (NestJS Observe), health checks, rate limiting, OpenAPI, shutdown, deployment.
 
-## References
-
-Advanced patterns and detailed examples available in:
-- `references/reference.md` - Core patterns, guards, interceptors, microservices, GraphQL
-- `references/drizzle-reference.md` - Drizzle ORM installation, configuration, queries
-- `references/workflow-optimization.md` - Development workflows, parallel execution strategies
+More detail: [references/docs-map.md](references/docs-map.md) lists the docs chapter for each topic.

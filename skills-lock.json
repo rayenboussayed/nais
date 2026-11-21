@@ -377,11 +377,18 @@
       "computedHash": "c74ad7dbfdc563e9a95308b7ff812882fa79872a097a2950c4f8346c815bdab6"
     },
     "nestjs": {
-      "source": "giuseppe-trisciuoglio/developer-kit",
-      "commit": "fe73fb33a09ee6562eeec7415a3f9a3bcf795177",
+      "source": "nestjs/agent-skills",
+      "commit": "7f05f492c42b30bb03b721caa07b2642cdf29deb",
       "sourceType": "github",
-      "skillPath": "plugins/developer-kit-typescript/skills/nestjs/SKILL.md",
-      "computedHash": "9928d8fe78d6aa2496aa9a5bdf1075aad4e11e8e573264e2ee629de6564cde79"
+      "skillPath": "skills/nestjs/SKILL.md",
+      "computedHash": "7e8020077ee6b03a9e95b51084a480c1b6ba63b0a6b6f609d2c9773761c76cee"
+    },
+    "nestjs-auth": {
+      "source": "nestjs/agent-skills",
+      "commit": "7f05f492c42b30bb03b721caa07b2642cdf29deb",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-auth/SKILL.md",
+      "computedHash": "868f0cd3611dd8d6073e3b3e59fab1ad2c11cecab50c7eb864ea4c0ab383ce1f"
     },
     "nestjs-best-practices": {
       "source": "Kadajett/agent-nestjs-skills",
@@ -390,6 +397,13 @@
       "skillPath": "skills/nestjs-best-practices/SKILL.md",
       "computedHash": "15dfabf74412bab8e6232cbe111b56048aac496d2f151a08995f305475d82fad"
     },
+    "nestjs-data": {
+      "source": "nestjs/agent-skills",
+      "commit": "7f05f492c42b30bb03b721caa07b2642cdf29deb",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-data/SKILL.md",
+      "computedHash": "56d73232e867fa67a60d668fb923569d9f9d6faaee4b060e1bcc6b1a90ce66df"
+    },
     "nestjs-expert": {
       "source": "jeffallan/claude-skills",
       "commit": "67c1961b180dc92cf08983344627109e983e8f51",
@@ -397,12 +411,33 @@
       "skillPath": "skills/nestjs-expert/SKILL.md",
       "computedHash": "ebb993af60c74474867fd25f68909232b37ef1fe5770e22063dab5a3620cc098"
     },
+    "nestjs-feature": {
+      "source": "nestjs/agent-skills",
+      "commit": "7f05f492c42b30bb03b721caa07b2642cdf29deb",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-feature/SKILL.md",
+      "computedHash": "8831f1049023a69412b23ed5680525f56855ceb911085d9790042e2dbd8e7e78"
+    },
     "nestjs-patterns": {
       "source": "affaan-m/ecc",
       "commit": "4adeee6732a12d1540f49a4d50a38ce8c97f9a53",
       "sourceType": "github",
       "skillPath": "skills/nestjs-patterns/SKILL.md",
       "computedHash": "6af78622c8a23f94764b457ab836b7d7997c0310a04182798efd5c0691e26c9a"
+    },
+    "nestjs-production": {
+      "source": "nestjs/agent-skills",
+      "commit": "7f05f492c42b30bb03b721caa07b2642cdf29deb",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-production/SKILL.md",
+      "computedHash": "8c764e23242b00967a19083760323dc87dd8bd25b771ba6bf58a1dca11cd9a66"
+    },
+    "nestjs-testing": {
+      "source": "nestjs/agent-skills",
+      "commit": "7f05f492c42b30bb03b721caa07b2642cdf29deb",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-testing/SKILL.md",
+      "computedHash": "8fe4c16f00372cb49e98296db2eb029b473065a83492062e781004f9eccc17d5"
     },
     "nextjs-authentication": {
       "source": "giuseppe-trisciuoglio/developer-kit",
