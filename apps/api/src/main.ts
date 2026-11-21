@@ -1,3 +1,8 @@
+// zod/compile speeds up parsing, not schema construction, via a global post
+// processor. It must evaluate before modules that build zod schemas, such as
+// AppModule and the other imports below.
+import 'zod/compile';
+
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
 import { Logger } from '@nestjs/common';
