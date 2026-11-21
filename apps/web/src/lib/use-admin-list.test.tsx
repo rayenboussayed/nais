@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import type { KeysetList } from '@trainslator/shared';
-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { KeysetList } from './types';
 
 import { apiFetch } from './api';
 import { useAdminList } from './use-admin-list';

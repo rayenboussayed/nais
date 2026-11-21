@@ -1,8 +1,8 @@
-import type { AiMessage, AiMessagePrompt } from '@trainslator/shared';
-
 import { useQuery } from '@tanstack/react-query';
 import { createRoute } from '@tanstack/react-router';
 import { useState } from 'react';
+
+import type { AiMessage, AiMessagePrompt } from '../../lib/types';
 
 import { AdminSearch, Pagination } from '../../components/AdminBits';
 import { formatTimestamp } from '../../lib/admin';

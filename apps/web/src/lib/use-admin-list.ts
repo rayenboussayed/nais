@@ -1,7 +1,7 @@
-import type { KeysetList } from '@trainslator/shared';
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+
+import type { KeysetList } from './types';
 
 import { useCursorStack } from './admin';
 import { apiFetch, toQueryString } from './api';

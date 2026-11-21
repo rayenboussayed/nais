@@ -1,11 +1,11 @@
+import { io, type Socket } from 'socket.io-client';
+
 import type {
   WsTranslateAck,
   WsTranslateMessage,
   WsTranslationErrorEvent,
   WsTranslationEvent,
-} from '@trainslator/shared';
-
-import { io, type Socket } from 'socket.io-client';
+} from './types';
 
 /** Lazily-created shared socket; same-origin, cookie auth via the WS handshake. */
 let socket: null | Socket = null;

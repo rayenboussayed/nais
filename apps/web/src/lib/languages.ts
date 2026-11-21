@@ -1,6 +1,6 @@
-import type { KeysetCursor, KeysetList, Language } from '@trainslator/shared';
-
 import { useQuery } from '@tanstack/react-query';
+
+import type { KeysetCursor, KeysetList, Language } from './types';
 
 import { apiFetch } from './api';
 

@@ -1,15 +1,12 @@
 import { createRoute } from '@tanstack/react-router';
-import {
-  createTranslationSchema,
-  type Language,
-  type Translation,
-  updateTranslationBodySchema,
-} from '@trainslator/shared';
 import { type FormEvent, useMemo, useState } from 'react';
+
+import type { Language, Translation } from '../../lib/types';
 
 import { AdminSearch, Modal, Pagination } from '../../components/AdminBits';
 import { formatTimestamp } from '../../lib/admin';
 import { ApiError, apiFetch } from '../../lib/api';
+import { createTranslationSchema, updateTranslationBodySchema } from '../../lib/forms';
 import { useLanguages } from '../../lib/languages';
 import { useAdminList } from '../../lib/use-admin-list';
 import { Route as adminRoute } from '../admin';

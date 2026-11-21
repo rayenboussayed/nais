@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import type { KeysetCursor } from '@trainslator/shared';
-
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+
+import type { KeysetCursor } from './types';
 
 import { formatTimestamp, useCursorStack } from './admin';
 

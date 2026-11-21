@@ -1,9 +1,9 @@
-import type { AiTaskDescriptor } from '@trainslator/shared';
-
 import { useQuery } from '@tanstack/react-query';
-import { aiTaskDescriptorSchema } from '@trainslator/shared';
+
+import type { AiTaskDescriptor } from './types';
 
 import { apiFetch } from './api';
+import { aiTaskDescriptorSchema } from './forms';
 
 /** Local fallback so the Studio renders even if the tasks endpoint is unreachable. */
 const FALLBACK_TASKS: AiTaskDescriptor[] = [

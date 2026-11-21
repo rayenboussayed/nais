@@ -1,6 +1,8 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { type FormEvent, useState } from 'react';
 
+import type { LoginResponse } from '../lib/types';
+
 import { ApiError, apiFetch } from '../lib/api';
 import { invalidateSessionProbe } from '../lib/session';
 import { Route as rootRoute } from './__root';
@@ -33,7 +35,7 @@ function LoginPage() {
     setError(null);
 
     try {
-      await apiFetch<{ username: string }>('/api/auth/login', {
+      await apiFetch<LoginResponse>('/api/auth/login', {
         body: JSON.stringify({ password, username }),
         method: 'POST',
       });

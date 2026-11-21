@@ -1,9 +1,9 @@
-import type { KeysetList, Language } from '@trainslator/shared';
-
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { KeysetList, Language } from './types';
 
 import { apiFetch } from './api';
 import { useLanguages } from './languages';

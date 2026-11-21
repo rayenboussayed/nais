@@ -1,7 +1,7 @@
-import type { WsTranslateAck } from '@trainslator/shared';
-
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { WsTranslateAck } from './types';
 
 const state = {
   ackError: null as Error | null,
