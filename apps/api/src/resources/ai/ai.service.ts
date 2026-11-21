@@ -1,5 +1,3 @@
-import type { AiTask } from '@trainslator/shared';
-
 import {
   BadGatewayException,
   GatewayTimeoutException,
@@ -10,15 +8,15 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { aiRequestSchemas, aiResultSchemas, aiTaskSchema } from '@trainslator/shared';
-import { AI_TASKS } from '@trainslator/shared';
 import { and, eq, lt } from 'drizzle-orm';
 
 import type { Database } from '../../db/drizzle.module.js';
 import type { Env } from '../../environment.js';
+import type { AiTask } from '../../schemas/ai.js';
 
 import { DRIZZLE } from '../../db/drizzle.module.js';
 import { aiCache, aiMessages } from '../../db/schema.js';
+import { AI_TASKS, aiRequestSchemas, aiResultSchemas, aiTaskSchema } from '../../schemas/ai.js';
 import { Inflight } from '../../utils/inflight.js';
 import { inputHashFor, taskKeyFor } from '../../utils/key.js';
 import { Semaphore } from '../../utils/semaphore.js';

@@ -1,10 +1,9 @@
-import type { AiTask } from '@trainslator/shared';
-
 import { Logger } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '../../environment.js';
+import type { AiTask } from '../../schemas/ai.js';
 
 import { resolveDeviceChain } from './device.js';
 import { defaultModelFor, modelEnvKey } from './tasks.js';

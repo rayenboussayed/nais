@@ -1,10 +1,10 @@
-import type { AiTaskJob } from '@trainslator/shared';
 import type { JobWithMetadata } from 'pg-boss';
 
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AiService } from '../../resources/ai/ai.service.js';
 import type { TranslateGateway } from '../../resources/translate/translate.gateway.js';
+import type { AiTaskJob } from '../../schemas/queue.js';
 
 import { AiTaskWorker } from './ai-task.worker.js';
 

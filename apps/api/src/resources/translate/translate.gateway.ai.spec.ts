@@ -1,8 +1,9 @@
-import type { WsAiAck } from '@trainslator/shared';
 import type { Socket } from 'socket.io';
 
 import { Logger } from '@nestjs/common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import type { WsAiAck } from '../../schemas/ws.js';
 
 import { TranslateGateway } from './translate.gateway.js';
 

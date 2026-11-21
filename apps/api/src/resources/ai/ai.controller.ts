@@ -1,3 +1,6 @@
+import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+
 import type {
   AiFeatureExtractionResult,
   AiQuestionAnsweringResult,
@@ -6,11 +9,9 @@ import type {
   AiTaskDescriptor,
   AiTokenClassificationResult,
   AiZeroShotClassificationResult,
-  TranslateResponse,
-} from '@trainslator/shared';
+} from '../../schemas/ai.js';
+import type { TranslateResponse } from '../../schemas/translations.js';
 
-import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
 import {
   aiFeatureExtractionRequestSchema,
   aiFeatureExtractionResultSchema,
@@ -26,8 +27,7 @@ import {
   aiTranslateRequestSchema,
   aiZeroShotClassificationRequestSchema,
   aiZeroShotClassificationResultSchema,
-} from '@trainslator/shared';
-
+} from '../../schemas/ai.js';
 import { AiService } from './ai.service.js';
 
 const MODEL_THROTTLE = { default: { limit: 10, ttl: 60_000 } } as const;

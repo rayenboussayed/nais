@@ -1,15 +1,4 @@
 import type { OnGatewayInit } from '@nestjs/websockets';
-import type {
-  AiTask,
-  AiTaskJob,
-  AiTranslateRequest,
-  WsAiAck,
-  WsAiErrorEvent,
-  WsAiResultEvent,
-  WsTranslateAck,
-  WsTranslationErrorEvent,
-  WsTranslationEvent,
-} from '@trainslator/shared';
 import type { Server, Socket } from 'socket.io';
 
 import { Logger } from '@nestjs/common';
@@ -22,15 +11,17 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import {
-  aiRequestSchemas,
-  aiTaskJobSchema,
-  wsAiMessageSchema,
-  wsTranslateMessageSchema,
-} from '@trainslator/shared';
 import { PgBossService } from '@wavezync/nestjs-pgboss';
 
 import type { Env } from '../../environment.js';
+import type { AiTask, AiTranslateRequest } from '../../schemas/ai.js';
+import type { AiTaskJob } from '../../schemas/queue.js';
+import type {
+  WsTranslateAck,
+  WsTranslationErrorEvent,
+  WsTranslationEvent,
+} from '../../schemas/translations.js';
+import type { WsAiAck, WsAiErrorEvent, WsAiResultEvent } from '../../schemas/ws.js';
 
 import { AI_TASK_QUEUE } from '../../constants/ai-task.js';
 import { authenticateHeaders, firstHeader } from '../../modules/auth/authenticate.js';
@@ -39,6 +30,10 @@ import {
   isOriginAllowed,
   parseAllowedOrigins,
 } from '../../modules/auth/origin.js';
+import { aiRequestSchemas } from '../../schemas/ai.js';
+import { aiTaskJobSchema } from '../../schemas/queue.js';
+import { wsTranslateMessageSchema } from '../../schemas/translations.js';
+import { wsAiMessageSchema } from '../../schemas/ws.js';
 import { translationKeyFor } from '../../utils/key.js';
 import { RateLimiter } from '../../utils/rate-limit.js';
 import { AiService } from '../ai/ai.service.js';

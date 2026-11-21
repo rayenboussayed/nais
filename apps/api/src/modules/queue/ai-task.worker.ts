@@ -1,13 +1,14 @@
-import type { AiTaskJob } from '@trainslator/shared';
 import type { JobWithMetadata } from 'pg-boss';
 
 import { Injectable, Logger } from '@nestjs/common';
-import { aiTaskJobSchema } from '@trainslator/shared';
 import { Job } from '@wavezync/nestjs-pgboss';
+
+import type { AiTaskJob } from '../../schemas/queue.js';
 
 import { AI_TASK_QUEUE } from '../../constants/ai-task.js';
 import { AiService } from '../../resources/ai/ai.service.js';
 import { TranslateGateway } from '../../resources/translate/translate.gateway.js';
+import { aiTaskJobSchema } from '../../schemas/queue.js';
 
 /**
  * pg-boss worker consuming `ai-task` jobs with batchSize 1: one model call at

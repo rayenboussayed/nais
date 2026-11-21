@@ -1,6 +1,6 @@
-import type { AiTask, AiTaskDescriptor } from '@trainslator/shared';
+import type { AiTask, AiTaskDescriptor } from '../../schemas/ai.js';
 
-import { AI_TASKS, aiTaskSchema } from '@trainslator/shared';
+import { AI_TASKS, aiTaskSchema } from '../../schemas/ai.js';
 
 /**
  * Static registry of the tasks the service runs. The `translate` task is a
