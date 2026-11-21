@@ -336,6 +336,24 @@ const CONTRACT_SOURCES = [
   ['apps/api/src/schemas/ai.ts', ['AI_TASKS', 'aiTaskSchema', 'aiTaskDescriptorSchema']],
 ];
 
+// Literal-path readers keyed by schema source path.
+const SCHEMA_READERS = new Map([
+  ['apps/api/src/schemas/ai.ts', () => readFileSync('apps/api/src/schemas/ai.ts').toString()],
+  [
+    'apps/api/src/schemas/common.ts',
+    () => readFileSync('apps/api/src/schemas/common.ts').toString(),
+  ],
+  ['apps/api/src/schemas/enums.ts', () => readFileSync('apps/api/src/schemas/enums.ts').toString()],
+  [
+    'apps/api/src/schemas/languages.ts',
+    () => readFileSync('apps/api/src/schemas/languages.ts').toString(),
+  ],
+  [
+    'apps/api/src/schemas/translations.ts',
+    () => readFileSync('apps/api/src/schemas/translations.ts').toString(),
+  ],
+]);
+
 /**
  * Reads one schema source using a literal path so the file-security rule
  * never sees a computed filename.
@@ -343,20 +361,9 @@ const CONTRACT_SOURCES = [
  * @returns {string} the source text
  */
 function readSchemaSource(path) {
-  switch (path) {
-    case 'apps/api/src/schemas/ai.ts':
-      return readFileSync('apps/api/src/schemas/ai.ts').toString();
-    case 'apps/api/src/schemas/common.ts':
-      return readFileSync('apps/api/src/schemas/common.ts').toString();
-    case 'apps/api/src/schemas/enums.ts':
-      return readFileSync('apps/api/src/schemas/enums.ts').toString();
-    case 'apps/api/src/schemas/languages.ts':
-      return readFileSync('apps/api/src/schemas/languages.ts').toString();
-    case 'apps/api/src/schemas/translations.ts':
-      return readFileSync('apps/api/src/schemas/translations.ts').toString();
-    default:
-      throw new Error(`contracts: unknown source ${path}`);
-  }
+  const read = SCHEMA_READERS.get(path);
+  if (read === undefined) throw new Error(`contracts: unknown source ${path}`);
+  return read();
 }
 
 const requestedNames = CONTRACT_SOURCES.flatMap(([, names]) => names);

@@ -9,27 +9,33 @@ import { API_GLOBAL_PREFIX } from '../src/constants/app.js';
 import { createOpenApiDocument } from '../src/swagger.js';
 import { TEST_BASIC_AUTH_ENV } from './auth.js';
 
+// Literal-path readers used to compare emitted chunks with API sources.
+const SCHEMA_READERS = new Map([
+  ['apps/api/src/schemas/ai.ts', () => readFileSync('apps/api/src/schemas/ai.ts').toString()],
+  [
+    'apps/api/src/schemas/common.ts',
+    () => readFileSync('apps/api/src/schemas/common.ts').toString(),
+  ],
+  ['apps/api/src/schemas/enums.ts', () => readFileSync('apps/api/src/schemas/enums.ts').toString()],
+  [
+    'apps/api/src/schemas/languages.ts',
+    () => readFileSync('apps/api/src/schemas/languages.ts').toString(),
+  ],
+  [
+    'apps/api/src/schemas/translations.ts',
+    () => readFileSync('apps/api/src/schemas/translations.ts').toString(),
+  ],
+]);
+
 /**
- * Reads a schema source through a literal path, keeping the file-security
- * rule satisfied while the emitted contract chunks are compared to source.
+ * Reads a schema source through a literal path reader.
  * @param path - one of the declared schema source paths
  * @returns the source text
  */
 function readSchemaSource(path: string): string {
-  switch (path) {
-    case 'apps/api/src/schemas/ai.ts':
-      return readFileSync('apps/api/src/schemas/ai.ts').toString();
-    case 'apps/api/src/schemas/common.ts':
-      return readFileSync('apps/api/src/schemas/common.ts').toString();
-    case 'apps/api/src/schemas/enums.ts':
-      return readFileSync('apps/api/src/schemas/enums.ts').toString();
-    case 'apps/api/src/schemas/languages.ts':
-      return readFileSync('apps/api/src/schemas/languages.ts').toString();
-    case 'apps/api/src/schemas/translations.ts':
-      return readFileSync('apps/api/src/schemas/translations.ts').toString();
-    default:
-      throw new Error(`unknown schema source ${path}`);
-  }
+  const read = SCHEMA_READERS.get(path);
+  if (read === undefined) throw new Error(`unknown schema source ${path}`);
+  return read();
 }
 
 const originalDatabaseUrl = process.env.DATABASE_URL;
