@@ -78,5 +78,5 @@ README Docker section and run `docker compose up -d` on a Docker machine.
 - GPU passthrough in containers beyond a working device chain (no CUDA/rocm
   image variants yet; WebGPU/CPU only — the chain adapts to whatever adapter
   Dawn finds, including Mesa lavapipe for software execution).
-- Image/audio/multimodal tasks (transformers.js supports them; v1 is NLP).
+- Image and multimodal tasks (transformers.js supports them; v1 is NLP). Audio speech to text ships at `POST /api/audio/stt` through node-av WhisperTranscriber with the multilingual `base` Whisper model, outside the transformers.js pipeline set.
 - Opening the service to untrusted networks. Single-credential auth unchanged.

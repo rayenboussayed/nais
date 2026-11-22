@@ -4,6 +4,8 @@ General-purpose AI service: NestJS 12 + Fastify (REST + WebSocket), Drizzle ORM 
 
 The service exposes one endpoint per AI task (`POST /api/ai/<task>`) with a shared cache-aside + audited pipeline, a legacy synchronous `POST /api/translate` (unchanged), an async WebSocket `ai` message flow, admin REST resources for translations, languages and AI messages, and a Swagger-documented API at `/api/docs`. Translation is one task of many.
 
+Audio speech to text is served by `POST /api/audio/stt`, backed by node-av WhisperTranscriber. The multilingual Whisper `base` model downloads on first use into a persistent `/models` volume. Requests carry base64 audio in a JSON body with a 5 MiB decoded cap. With `STT_DEVICE=auto` the service uses GPU only when a boot-time check finds a device, then falls back to CPU; `STT_DEVICE=cpu` pins CPU.
+
 ## AI tasks
 
 | Task                       | Provider        | Default model                                            | Notes                            |
@@ -60,7 +62,7 @@ The web dev server proxies `/api` and `/socket.io` to the API. The web app has t
 
 ## Docker
 
-Production stack (PostgreSQL, Ollama with a one-shot model pull, a `transformers-init` one-shot that pre-downloads the dedicated ONNX models into a shared `hf-cache` volume, and the API image). From the repository root:
+Production stack (PostgreSQL, Ollama with a one-shot model pull, a `transformers-init` one-shot that pre-downloads the dedicated ONNX models into a shared `hf-cache` volume, a persistent `/models` volume for the lazily downloaded Whisper model, and the API image). From the repository root:
 
 ```bash
 cp .env.example .env   # edit: POSTGRES_PASSWORD, BASIC_AUTH_PASSWORD_HASH, SESSION_SECRET
@@ -74,6 +76,8 @@ The `transformers-init` one-shot is lazy and idempotent — it only downloads mo
 docker run --rm -v trainslator_hf-cache:/hf-cache \
   -e HF_CACHE_DIR=/hf-cache trainslator/api:latest node apps/api/bin/transformers-warmup.mjs
 ```
+
+The first `POST /api/audio/stt` downloads the about 142 MB `base` model into `/models`. The image does not include it and `transformers-init` does not warm it.
 
 On first deploy, apply migrations and seed once, then restart:
 
@@ -135,6 +139,7 @@ Repo-wide history lives in [CHANGELOG.md](CHANGELOG.md); per-workspace guidance 
 ## Dependencies & security
 
 - `npm audit --omit=dev` is clean (zero vulnerabilities) as of this writing; it runs in the pre-commit hook and in CI.
+- node-av 7.1.0 ships MIT-licensed JavaScript and a GPL-3.0-or-later, FDK-AAC native binary and CLI. The image includes that GPL FFmpeg build; `node-av-lgpl` and `node-av-light` do not confirm Whisper support.
 - Runtime dependency families: NestJS 12 ecosystem (common/core/platform-fastify/websockets/platform-socket.io/config/terminus/throttler/resilience/ai/swagger), drizzle-orm, pg, pg-boss (+ nestjs-pgboss), socket.io, zod. Web: React 19, TanStack Router/Query, socket.io-client, Vite 8 (Rolldown). No class-validator/class-transformer usage; validation is zod-only.
 - `npm-audit` findings must be fixed, not suppressed; there is no `overrides` entry for security reasons.
 - Dependency updates are grouped by ecosystem in `.github/dependabot.yml` (nest, testing) on a weekly cadence.

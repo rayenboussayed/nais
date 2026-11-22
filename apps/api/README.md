@@ -30,6 +30,7 @@ npm run transformers:warmup # download + smoke the dedicated ONNX pipelines
 | Health (unauthenticated)              | `GET /api/health`                               | —           |
 | Login / logout                        | `POST /api/auth/login`, `POST /api/auth/logout` | credentials |
 | Translate (legacy)                    | `POST /api/translate`                           | required    |
+| Speech to text                        | `POST /api/audio/stt`                           | required    |
 | General AI per task                   | `POST /api/ai/<task>`                           | required    |
 | AI task registry                      | `GET /api/ai/tasks`                             | required    |
 | Languages catalogue                   | `GET/POST/PATCH/DELETE /api/languages[/:id]`    | required    |
@@ -61,6 +62,14 @@ values in production. Every key has a safe default except `DATABASE_URL` and
 the ONNX compute device to `webgpu` or `cpu` (unset = automatic webgpu → cpu
 fallback; `wasm` is unsupported in Node). Full list and
 the scrypt hash format: `.env.example`.
+
+Four `STT_*` vars configure speech to text. `STT_MODEL` selects the Whisper model (`base` default, multilingual; also `small`, `medium`, `large-v3`, `large-v3-turbo`). `STT_MODEL_DIR` sets the model directory (`/models` default). `STT_DEVICE` accepts `auto`, `gpu` or `cpu`. `auto` uses GPU only when a boot-time check finds `/dev/dri` or `/dev/nvidia0`; `gpu` tries GPU regardless, and both retry on CPU from a fresh decoder if transcription fails. That check is a heuristic, so pin `STT_DEVICE=cpu` to skip GPU code entirely. `STT_MAX_CONCURRENCY` caps concurrent transcriptions from 1 to 4 (default 1).
+
+## Speech to text
+
+`POST /api/audio/stt` accepts a JSON body with a base64 `audio` field and an optional `language` field (`auto` by default; `lock` or an ISO 639-1 code is also accepted). Decoded audio is capped at 5 MiB, so the base64 string is at most 6,990,508 characters. A route-level Fastify body limit of 8 MiB applies to this path only; the global cap is 256 KiB. The response carries the joined `text`, timed `segments` and the `device` that produced them.
+
+The Whisper model downloads lazily on the first request into `STT_MODEL_DIR` (`/models`). The boot-time device check is a heuristic that only chooses a device chain. `STT_DEVICE=cpu` is the reliable escape hatch on hosts with broken OpenCL or Vulkan drivers. node-av silently skips some OpenCL and Vulkan failures; coverage varies by driver. The native binary and CLI are GPL-3.0-or-later and FDK-AAC; the JavaScript is MIT.
 
 ## Observability
 
@@ -114,7 +123,7 @@ never downloaded in tests; the AI suite stubs the loader.
 
 - `src/` — the same layout as the other NestJS codebases in the workspace
   (`iradable/backend`, `file-fly/packages/backend`): `resources/<domain>/`
-  (request-facing modules: `ai`, `ai-messages`, `languages`, `translate`,
+  (request-facing modules: `ai`, `ai-messages`, `audio`, `languages`, `translate`,
   `translations`, `health`, `auth`), `modules/<name>/` (cross-cutting
   providers: `auth` — authenticate/session/validator/origin; `queue` —
   the `ai-task` pg-boss worker), `guards/` (HTTP guard + fastify hook

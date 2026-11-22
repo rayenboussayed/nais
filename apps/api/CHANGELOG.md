@@ -7,6 +7,7 @@ releases yet. Dates are UTC, from the commit history (2026-11-18 .. 2026-11-19).
 
 ### Added
 
+- Speech to text `POST /api/audio/stt` (`resources/audio/`, `schemas/audio.ts`): node-av 7.1.0 WhisperTranscriber with base64 JSON input (5 MiB decoded cap), multilingual `base` model lazily downloaded into `STT_MODEL_DIR` (`/models`), a boot-time GPU presence heuristic with `STT_DEVICE=auto|gpu|cpu` and CPU retry, bounded by `STT_MAX_CONCURRENCY`. The native binary and CLI are GPL-3.0-or-later and FDK-AAC.
 - Boot plumbing: env validation (fail-fast in production), terminus health
   probe, exception filter with constant error bodies, OpenAPI docs behind the
   same auth hook (`c7c2d5c`, `cb72d38`).

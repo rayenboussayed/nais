@@ -5,6 +5,10 @@ tagged releases yet. Dates are UTC, taken from the commit history.
 
 ## Unreleased - 2026-11-21
 
+### Added
+
+- Speech to text endpoint `POST /api/audio/stt` backed by node-av 7.1.0 WhisperTranscriber: base64 audio in a JSON body with a 5 MiB decoded cap, multilingual `base` Whisper model downloaded lazily into a persistent `/models` volume, a boot-time GPU device heuristic with CPU fallback and a reliable `STT_DEVICE=cpu` pin, and four `STT_*` env vars. The native binary and CLI are GPL-3.0-or-later and FDK-AAC; the JavaScript is MIT. The audio non-goal in `docs/ai-v1.md` was replaced by the new endpoint.
+
 ### Changed
 
 - Removed `packages/shared`. Runtime zod contracts now live in `apps/api/src/schemas`, and the web uses HTTP and WebSocket types generated from those contracts by `openapi-typescript` and consumed with `openapi-fetch`.
