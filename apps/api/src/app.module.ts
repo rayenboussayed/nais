@@ -17,6 +17,7 @@ import { AiTaskQueueModule } from './modules/queue/ai-task-queue.module.js';
 import { TelemetryModule } from './modules/telemetry/telemetry.module.js';
 import { AiMessagesModule } from './resources/ai-messages/ai-messages.module.js';
 import { AiModule } from './resources/ai/ai.module.js';
+import { AudioModule } from './resources/audio/audio.module.js';
 import { AuthModule } from './resources/auth/auth.module.js';
 import { HealthModule } from './resources/health/health.module.js';
 import { LanguagesModule } from './resources/languages/languages.module.js';
@@ -41,6 +42,7 @@ import { TranslationsModule } from './resources/translations/translations.module
     TranslateModule,
     AiTaskQueueModule,
     AiModule,
+    AudioModule,
     AuthModule,
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
