@@ -18,7 +18,7 @@ const parse = sttRequestSchema.parse.bind(sttRequestSchema);
  */
 describe('speech-to-text boundary hot paths', () => {
   // eslint-disable-next-line sonarjs/assertions-in-tests -- benchmarks measure throughput; an assertion inside the loop would distort the timing
-  test('decodes a typical WAV payload', async ({ bench }) => {
+  test('base64-decodes a typical WAV payload', async ({ bench }) => {
     await bench('stt base64 decode', () => {
       Buffer.from(AUDIO_BASE64, 'base64');
     }).run();

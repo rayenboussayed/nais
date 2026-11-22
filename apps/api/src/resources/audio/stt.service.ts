@@ -26,9 +26,10 @@ type NodeAvApi = typeof import('node-av/api');
  * The native module is imported inside {@link transcribeOnce} so OpenAPI
  * generation and unit tests never load its binaries. Device selection is
  * decided once at boot: an explicit `STT_DEVICE=cpu` pin stays on CPU,
- * `gpu` and `auto` try GPU first when the host exposes a device, and every
- * device failure falls through to CPU. Concurrency is bounded by one permit
- * for the whole device chain, because node-av runs native work on the four
+ * `gpu` tries GPU regardless of visibility, and `auto` tries GPU only when a
+ * device is visible. Every device failure falls through to CPU. Concurrency is
+ * bounded by one permit for the whole device chain, because node-av runs native
+ * work on the four
  * libuv worker threads.
  */
 export class SttService {

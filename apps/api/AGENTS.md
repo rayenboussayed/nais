@@ -53,6 +53,14 @@ stop` must be synchronous so the directory removal cannot race shutdown.
     returning naturally. `GPUDevice` methods are monkey-patched by the package
     to unmap buffers on destroy — don't redeclare them.
 
+12. **Whisper transcription uses node-av, not the ONNX loader.** The STT
+    service keeps its native import inside the method, replays the retained
+    Buffer for a CPU retry, and closes every handle in `finally`.
+    `STT_DEVICE=auto` only attempts GPU when a device node exists; pin `cpu`
+    on broken drivers. Route-level body limits belong in
+    `configs/body-limit.ts` through Fastify's `onRoute` hook, leaving the
+    256 KiB global cap intact.
+
 ## Layout rules
 
 - Layout (mirrors `iradable/backend` and `file-fly/packages/backend`):

@@ -65,7 +65,7 @@ native Standard Schema and generates the types used by the web app.
 
 13. **A general-purpose AI gateway splits cleanly along task boundaries.**
     Provider per task: Ollama for LLM work (translate), dedicated ONNX
-    pipelines via `@huggingface/transformers` for everything else. Pipelines
+    pipelines via `@huggingface/transformers` for the dedicated text tasks. Pipelines
     are lazy singletons cached by effective model id; the first request pays
     the model download (verified: all six dedicated pipelines download and run in this repo). Tests stub `PipelineLoader` — the registry, cache round-trip and
     audit trail are covered without network.
@@ -104,6 +104,18 @@ native Standard Schema and generates the types used by the web app.
     the generator's formatting: drizzle snapshots are in .prettierignore. The
     prompt templates are `.txt` because `[Tr.: …]` is model-facing DSL, not
     markdown — never HTML-comment-suppress lint inside a prompt file.
+
+20. **Speech to text is a third provider family.** `POST /api/audio/stt` runs
+    node-av 7.1.0 WhisperTranscriber, separate from Ollama and the ONNX
+    pipelines. Import `node-av/api` lazily inside the transcriber method so
+    OpenAPI generation and unit tests never load native code. GPU failure
+    surfaces on the first async-generator `next()`, so a CPU retry must reopen
+    the Demuxer and Decoder from the retained Buffer. Bound concurrency to the
+    libuv pool, check `/dev/dri` or `/dev/nvidia0` before attempting GPU, and
+    keep `STT_DEVICE=cpu` as the escape hatch on broken drivers. Scope large
+    bodies with the Fastify `onRoute` hook in `configs/body-limit.ts` instead
+    of raising the global limit. The native build is GPL-3.0-or-later and
+    FDK-AAC; review before distributing the image.
 
 ## Per-workspace guidance
 

@@ -5,8 +5,8 @@ name: trainslator
 # is not part of the base stack. Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
 # The image ships no CUDA runtime, OpenCL ICD or Vulkan loader, and a broken
-# host driver can crash GPU init. App-side detection (STT_DEVICE=auto, GPU only
-# when a device is visible) and the CPU pin (STT_DEVICE=cpu) remain the guards.
+# host driver can crash GPU init. This overlay pins STT_DEVICE=gpu, which skips
+# device detection; CPU retry and STT_DEVICE=cpu remain the runtime guards.
 
 services:
   api:
