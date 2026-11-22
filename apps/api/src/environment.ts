@@ -72,6 +72,14 @@ const envSchema = z
       .string()
       .trim()
       .regex(/^[0-9a-f]{64}$/, 'Expected 64 lowercase hex chars (openssl rand -hex 32)'),
+    /** Whisper device; `auto` uses GPU only when a device is visible, otherwise CPU. */
+    STT_DEVICE: z.enum(['auto', 'gpu', 'cpu']).default('auto'),
+    /** Max concurrent transcription calls; the libuv pool has four threads. */
+    STT_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
+    /** Whisper model for speech to text; `base` is the multilingual default. */
+    STT_MODEL: z.enum(['base', 'small', 'medium', 'large-v3', 'large-v3-turbo']).default('base'),
+    /** Directory where node-av caches downloaded Whisper model files. */
+    STT_MODEL_DIR: z.string().trim().min(1).default('/models'),
     /** Default rate limit per minute per client IP, applied globally. */
     THROTTLE_LIMIT: z.coerce.number().int().min(1).default(100),
     /** Client IP behind a proxy: 'loopback' for same-host reverse proxy, true to trust all, false to ignore forwarded-for. */

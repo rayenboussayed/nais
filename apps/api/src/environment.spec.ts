@@ -187,4 +187,51 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ ...baseEnv, AI_DEVICE: 'cuda' })).toThrow(/AI_DEVICE/);
     expect(() => validateEnv({ ...baseEnv, AI_DEVICE: 'wasm' })).toThrow(/AI_DEVICE/);
   });
+
+  it('applies speech to text defaults', () => {
+    const env = validateEnv({ ...baseEnv });
+    expect(env.STT_MODEL).toBe('base');
+    expect(env.STT_MODEL_DIR).toBe('/models');
+    expect(env.STT_DEVICE).toBe('auto');
+    expect(env.STT_MAX_CONCURRENCY).toBe(1);
+  });
+
+  it('accepts each supported STT_MODEL and rejects unknown models', () => {
+    const models = ['base', 'small', 'medium', 'large-v3', 'large-v3-turbo'] as const;
+    for (const model of models) {
+      expect(validateEnv({ ...baseEnv, STT_MODEL: model }).STT_MODEL).toBe(model);
+    }
+    expect(() => validateEnv({ ...baseEnv, STT_MODEL: 'huge' })).toThrow(/STT_MODEL/);
+  });
+
+  it('accepts a custom STT_MODEL_DIR and rejects blank values', () => {
+    expect(validateEnv({ ...baseEnv, STT_MODEL_DIR: '  /whisper  ' }).STT_MODEL_DIR).toBe(
+      '/whisper',
+    );
+    expect(() => validateEnv({ ...baseEnv, STT_MODEL_DIR: '' })).toThrow(/STT_MODEL_DIR/);
+    expect(() => validateEnv({ ...baseEnv, STT_MODEL_DIR: '   ' })).toThrow(/STT_MODEL_DIR/);
+  });
+
+  it('accepts each STT_DEVICE pin and rejects unknown devices', () => {
+    for (const device of ['auto', 'gpu', 'cpu']) {
+      expect(validateEnv({ ...baseEnv, STT_DEVICE: device }).STT_DEVICE).toBe(device);
+    }
+    expect(() => validateEnv({ ...baseEnv, STT_DEVICE: 'webgpu' })).toThrow(/STT_DEVICE/);
+  });
+
+  it('coerces STT_MAX_CONCURRENCY and rejects values outside 1 to 4', () => {
+    expect(validateEnv({ ...baseEnv, STT_MAX_CONCURRENCY: '4' }).STT_MAX_CONCURRENCY).toBe(4);
+    expect(() => validateEnv({ ...baseEnv, STT_MAX_CONCURRENCY: '0' })).toThrow(
+      /STT_MAX_CONCURRENCY/,
+    );
+    expect(() => validateEnv({ ...baseEnv, STT_MAX_CONCURRENCY: '5' })).toThrow(
+      /STT_MAX_CONCURRENCY/,
+    );
+    expect(() => validateEnv({ ...baseEnv, STT_MAX_CONCURRENCY: '1.5' })).toThrow(
+      /STT_MAX_CONCURRENCY/,
+    );
+    expect(() => validateEnv({ ...baseEnv, STT_MAX_CONCURRENCY: 'abc' })).toThrow(
+      /STT_MAX_CONCURRENCY/,
+    );
+  });
 });
