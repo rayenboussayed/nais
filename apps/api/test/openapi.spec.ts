@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { API_GLOBAL_PREFIX } from '../src/constants/app.js';
+import { sttRequestSchema } from '../src/schemas/audio.js';
 import { loginRequestSchema } from '../src/schemas/auth.js';
 import { createLanguageSchema, updateLanguageBodySchema } from '../src/schemas/languages.js';
 import {
@@ -181,6 +182,7 @@ describe('OpenAPI golden document', () => {
       expectSuccess(document, '/api/ai/token-classification', 'post', '200');
       expectSuccess(document, '/api/ai/translate', 'post', '200');
       expectSuccess(document, '/api/ai/zero-shot-classification', 'post', '200');
+      expectSuccess(document, '/api/audio/stt', 'post', '200');
       expectSuccess(document, '/api/auth/login', 'post', '200');
       expectSuccess(document, '/api/languages', 'get', '200');
       expectSuccess(document, '/api/languages', 'post', '201');
@@ -309,6 +311,7 @@ describe('Swagger body schemas from zod contracts', () => {
       readFileSync('apps/api/test/fixtures/openapi.golden.json', 'utf8'),
     );
     const contracts = [
+      ['/api/audio/stt', 'post', sttRequestSchema],
       ['/api/auth/login', 'post', loginRequestSchema],
       ['/api/languages', 'post', createLanguageSchema],
       ['/api/languages/{id}', 'patch', updateLanguageBodySchema],

@@ -68,6 +68,9 @@ export interface paths {
   "/api/ai/zero-shot-classification": {
     post: operations["AiController_zeroShot"];
   };
+  "/api/audio/stt": {
+    post: operations["AudioController_stt"];
+  };
   "/api/auth/login": {
     post: operations["AuthController_login"];
   };
@@ -1255,6 +1258,51 @@ export interface operations {
             labels: string[];
             scores: number[];
             sequence: string;
+          };
+        };
+      };
+      "4XX": {
+        content: {
+          "application/json": {
+            error?: string;
+            message: string | string[];
+            statusCode: number;
+          };
+        };
+      };
+      "5XX": {
+        content: {
+          "application/json": {
+            error?: string;
+            message: string | string[];
+            statusCode: number;
+          };
+        };
+      };
+    };
+  };
+  AudioController_stt: {
+    requestBody: {
+      content: {
+        "application/json": {
+          /** Format: base64 */
+          audio: string;
+          language?: "auto" | "lock" | string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /** @enum {string} */
+            device: "gpu" | "cpu";
+            segments: {
+                end: number;
+                start: number;
+                text: string;
+              }[];
+            text: string;
           };
         };
       };
