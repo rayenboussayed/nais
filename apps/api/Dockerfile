@@ -45,9 +45,9 @@ COPY --from=build --chown=node:node /repo/apps/api/dist ./apps/api/dist
 COPY --from=build --chown=node:node /repo/apps/api/bin ./apps/api/bin
 COPY --from=build --chown=node:node /repo/apps/api/drizzle ./apps/api/drizzle
 
-# Shared model-cache directory owned by the runtime uid, so a named volume
+# Shared model-cache directories owned by the runtime uid, so a named volume
 # initialized from the image is writable by both the API and the warmup.
-RUN mkdir -p /hf-cache && chown node:node /hf-cache
+RUN mkdir -p /hf-cache /models && chown node:node /hf-cache /models
 
 USER node
 EXPOSE 3000

@@ -1,0 +1,25 @@
+name: trainslator
+
+# Optional GPU overlay. GPU support is host dependent and unverified on the
+# node:24-bookworm-slim (Debian bookworm) base image, so this file is opt-in and
+# is not part of the base stack. Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# The image ships no CUDA runtime, OpenCL ICD or Vulkan loader, and a broken
+# host driver can crash GPU init. App-side detection (STT_DEVICE=auto, GPU only
+# when a device is visible) and the CPU pin (STT_DEVICE=cpu) remain the guards.
+
+services:
+  api:
+    environment:
+      STT_DEVICE: gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # For an OpenCL/Vulkan host without NVIDIA, replace the deploy block above
+    # with a direct device passthrough instead:
+    #   devices:
+    #     - /dev/dri:/dev/dri

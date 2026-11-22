@@ -15,6 +15,7 @@ services:
       - .:/repo
       - /repo/node_modules
       - hf-cache:/hf-cache
+      - models-data:/models
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-trainslator}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-trainslator}
@@ -23,6 +24,8 @@ services:
       PORT: 3000
       # Dedicated ONNX pipelines are cached in a shared volume (shared with prod image layout)
       HF_CACHE_DIR: /hf-cache
+      # Downloaded STT models live in a named volume, not the bind mount
+      STT_MODEL_DIR: /models
       # Required by validateEnv even in development
       BASIC_AUTH_USERNAME: ${BASIC_AUTH_USERNAME:-admin}
       BASIC_AUTH_PASSWORD_HASH: ${BASIC_AUTH_PASSWORD_HASH:?Set BASIC_AUTH_PASSWORD_HASH in .env}
@@ -64,3 +67,4 @@ services:
 
 volumes:
   hf-cache:
+  models-data:
