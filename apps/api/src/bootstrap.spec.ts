@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { configureApp } from './bootstrap.js';
+import { setSttBodyLimit } from './configs/body-limit.js';
 import { API_GLOBAL_PREFIX } from './constants/app.js';
 
 /** Shared mock handles for the collaborators `configureApp` wires together. */
@@ -64,6 +65,7 @@ describe('configureApp', () => {
     expect(m.setGlobalPrefix).toHaveBeenCalledWith(API_GLOBAL_PREFIX);
     expect(m.appGet).toHaveBeenCalledWith(ConfigService);
     expect(m.registerHttpGuards).toHaveBeenCalledWith(m.httpInstance, m.config);
+    expect(m.httpInstance.addHook).toHaveBeenCalledWith('onRoute', setSttBodyLimit);
     expect(m.setupSwagger).toHaveBeenCalledWith(app);
     expect(m.enableShutdownHooks).toHaveBeenCalledWith(undefined, { useProcessExit: true });
   });

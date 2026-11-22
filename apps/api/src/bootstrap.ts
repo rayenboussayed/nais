@@ -6,6 +6,7 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 
 import type { Env } from './environment.js';
 
+import { setSttBodyLimit } from './configs/body-limit.js';
 import { API_GLOBAL_PREFIX } from './constants/app.js';
 import { registerHttpGuards } from './guards/request-guards.js';
 import { setupSwagger } from './swagger.js';
@@ -33,7 +34,9 @@ export async function configureApp(app: NestFastifyApplication): Promise<void> {
   app.setGlobalPrefix(API_GLOBAL_PREFIX);
 
   const config = app.get<ConfigService<Env, true>>(ConfigService);
-  registerHttpGuards(app.getHttpAdapter().getInstance(), config);
+  const fastify = app.getHttpAdapter().getInstance();
+  registerHttpGuards(fastify, config);
+  fastify.addHook('onRoute', setSttBodyLimit);
   setupSwagger(app);
 
   app.enableShutdownHooks(undefined, { useProcessExit: true });
