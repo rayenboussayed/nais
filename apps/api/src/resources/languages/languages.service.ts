@@ -7,7 +7,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, desc, eq, getTableColumns, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, isNull, sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/drizzle.module.js';
 import type { Pagination } from '../../schemas/common.js';
@@ -22,7 +22,14 @@ import { DRIZZLE } from '../../db/drizzle.module.js';
 import { languages } from '../../db/schema.js';
 import { changedFields } from '../../utils/changed-fields.js';
 import { isUniqueViolation } from '../../utils/db-error.js';
-import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from '../../utils/sql.js';
+import {
+  buildListConditions,
+  escapeLike,
+  keysetPage,
+  keysetWhere,
+  orderByColumns,
+  timestamptzCursor,
+} from '../../utils/sql.js';
 
 /** Row shape of the languages table; mirrors `languages` in drizzle/schema.ts. */
 type LanguageRow = typeof languages.$inferSelect;
@@ -122,22 +129,17 @@ export class LanguagesService {
    */
   async findPage(params: Pagination): Promise<KeysetList<Language>> {
     const { lastCreatedAt, lastId, onlyDeleted, orderBy, pageSize, q } = params;
-    const conditions: SQL[] = [
-      onlyDeleted ? isNotNull(languages.deletedAt) : isNull(languages.deletedAt),
-    ];
+    const extra: SQL[] = [];
 
     if (q) {
       const pattern = `%${escapeLike(q)}%`;
-      conditions.push(
+      extra.push(
         sql`(${languages.name} ilike ${pattern} or ${languages.nativeName} ilike ${pattern})`,
       );
     }
 
     const cursor = keysetWhere(languages.createdAt, languages.id, orderBy, lastCreatedAt, lastId);
-    if (cursor) conditions.push(cursor);
-
-    const orderColumn = orderBy === 'asc' ? asc(languages.createdAt) : desc(languages.createdAt);
-    const orderId = orderBy === 'asc' ? asc(languages.id) : desc(languages.id);
+    const conditions = buildListConditions(languages.deletedAt, onlyDeleted, cursor, extra);
 
     const rows = await this.db
       .select({
@@ -146,7 +148,7 @@ export class LanguagesService {
       })
       .from(languages)
       .where(and(...conditions))
-      .orderBy(orderColumn, orderId)
+      .orderBy(...orderByColumns(languages.createdAt, languages.id, orderBy))
       .limit(pageSize + 1);
 
     return keysetPage(rows, pageSize, rowToLanguage);
