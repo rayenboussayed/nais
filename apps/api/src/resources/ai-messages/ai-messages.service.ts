@@ -1,7 +1,7 @@
 import type { SQL } from 'drizzle-orm';
 
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, desc, eq, getTableColumns, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, getTableColumns, isNull, sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/drizzle.module.js';
 import type { AiMessage, AiMessagePrompt } from '../../schemas/ai-messages.js';
@@ -10,7 +10,14 @@ import type { KeysetList } from '../../schemas/list.js';
 
 import { DRIZZLE } from '../../db/drizzle.module.js';
 import { aiMessagePrompts, aiMessages } from '../../db/schema.js';
-import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from '../../utils/sql.js';
+import {
+  buildListConditions,
+  escapeLike,
+  keysetPage,
+  keysetWhere,
+  orderByColumns,
+  timestamptzCursor,
+} from '../../utils/sql.js';
 
 /** Row shape of the ai_messages table; mirrors `ai_messages` in drizzle/schema.ts. */
 type AiMessageRow = typeof aiMessages.$inferSelect;
@@ -44,22 +51,17 @@ export class AiMessagesService {
    */
   async findPage(params: Pagination): Promise<KeysetList<AiMessage>> {
     const { lastCreatedAt, lastId, onlyDeleted, orderBy, pageSize, q } = params;
-    const conditions: SQL[] = [
-      onlyDeleted ? isNotNull(aiMessages.deletedAt) : isNull(aiMessages.deletedAt),
-    ];
+    const extra: SQL[] = [];
 
     if (q) {
       const pattern = `%${escapeLike(q)}%`;
-      conditions.push(
+      extra.push(
         sql`(${aiMessages.provider} ilike ${pattern} or ${aiMessages.model} ilike ${pattern} or ${aiMessages.response} ilike ${pattern})`,
       );
     }
 
     const cursor = keysetWhere(aiMessages.createdAt, aiMessages.id, orderBy, lastCreatedAt, lastId);
-    if (cursor) conditions.push(cursor);
-
-    const orderColumn = orderBy === 'asc' ? asc(aiMessages.createdAt) : desc(aiMessages.createdAt);
-    const orderId = orderBy === 'asc' ? asc(aiMessages.id) : desc(aiMessages.id);
+    const conditions = buildListConditions(aiMessages.deletedAt, onlyDeleted, cursor, extra);
 
     const rows = await this.db
       .select({
@@ -68,7 +70,7 @@ export class AiMessagesService {
       })
       .from(aiMessages)
       .where(and(...conditions))
-      .orderBy(orderColumn, orderId)
+      .orderBy(...orderByColumns(aiMessages.createdAt, aiMessages.id, orderBy))
       .limit(pageSize + 1);
 
     return keysetPage(rows, pageSize, rowToAiMessage);
