@@ -3,13 +3,14 @@ import { type FormEvent, useState } from 'react';
 
 import type { Language } from '../../lib/types';
 
-import { AdminSearch, Modal, Pagination } from '../../components/AdminBits';
+import { AdminSearch, Pagination } from '../../components/AdminBits';
 import { formatTimestamp } from '../../lib/admin';
 import { ApiError, apiFetch } from '../../lib/api';
 import { createLanguageSchema, updateLanguageBodySchema } from '../../lib/forms';
 import { useInvalidateLanguages } from '../../lib/languages';
 import { useAdminList } from '../../lib/use-admin-list';
 import { Route as adminRoute } from '../admin';
+import { type Draft, type LanguageEditing, LanguagesForm } from './languages-form';
 
 export const Route = createRoute({
   component: LanguagesAdmin,
@@ -19,10 +20,8 @@ export const Route = createRoute({
 
 const PAGE_SIZE = 50;
 
-type Editing = null | { mode: 'create' } | { mode: 'edit'; row: Language };
-
-const emptyDraft = {
-  dir: 'ltr' as 'ltr' | 'rtl',
+const emptyDraft: Draft = {
+  dir: 'ltr',
   iso6391: '',
   isSource: false,
   name: '',
@@ -52,13 +51,13 @@ function LanguagesAdmin() {
   });
   const invalidateLanguages = useInvalidateLanguages();
 
-  const [editing, setEditing] = useState<Editing>(null);
+  const [editing, setEditing] = useState<LanguageEditing>(null);
   const [formError, setFormError] = useState<null | string>(null);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
 
   /**
-   *
+   * Opens a blank create form, resetting the draft and any previous error.
    */
   function openCreate() {
     setDraft(emptyDraft);
@@ -247,72 +246,15 @@ function LanguagesAdmin() {
       />
 
       {editing && (
-        <Modal
+        <LanguagesForm
           busy={busy}
+          draft={draft}
+          editing={editing}
           formError={formError}
           onClose={() => setEditing(null)}
           onSubmit={submit}
-          title={editing.mode === 'create' ? 'New language' : `Edit ${editing.row.nativeName}`}
-        >
-          <div className="form-grid">
-            <div>
-              <label htmlFor="edit-name">Name</label>
-              <input
-                id="edit-name"
-                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                type="text"
-                value={draft.name}
-              />
-            </div>
-            <div>
-              <label htmlFor="edit-native">Native name</label>
-              <input
-                dir={draft.dir}
-                id="edit-native"
-                onChange={(event) => setDraft({ ...draft, nativeName: event.target.value })}
-                type="text"
-                value={draft.nativeName}
-              />
-            </div>
-            <div>
-              <label htmlFor="edit-iso">ISO 639-1</label>
-              <input
-                id="edit-iso"
-                maxLength={2}
-                onChange={(event) =>
-                  setDraft({ ...draft, iso6391: event.target.value.toLowerCase() })
-                }
-                placeholder="en"
-                type="text"
-                value={draft.iso6391}
-              />
-            </div>
-            <div>
-              <label htmlFor="edit-dir">Direction</label>
-              <select
-                id="edit-dir"
-                onChange={(event) =>
-                  setDraft({ ...draft, dir: event.target.value as 'ltr' | 'rtl' })
-                }
-                value={draft.dir}
-              >
-                <option value="ltr">ltr</option>
-                <option value="rtl">rtl</option>
-              </select>
-            </div>
-            <div className="full">
-              <label className="checkbox-line" htmlFor="edit-isSource">
-                <input
-                  checked={draft.isSource}
-                  id="edit-isSource"
-                  onChange={(event) => setDraft({ ...draft, isSource: event.target.checked })}
-                  type="checkbox"
-                />
-                Source language (used as the translation source)
-              </label>
-            </div>
-          </div>
-        </Modal>
+          setDraft={setDraft}
+        />
       )}
     </div>
   );

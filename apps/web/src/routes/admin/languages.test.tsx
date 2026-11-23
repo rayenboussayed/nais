@@ -361,6 +361,39 @@ describe('LanguagesAdmin', () => {
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Could not delete the language.'));
   });
+
+  it('invalidates the list and then the language catalogue after a successful save', async () => {
+    const invalidateSpy = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
+    renderAdmin();
+    await waitFor(() => expect(screen.getAllByText('English').length).toBeGreaterThan(0));
+    await openCreate();
+    fillForm();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    const listKey = JSON.stringify(['admin', 'languages']);
+    const catalogueKey = JSON.stringify(['languages']);
+    const invalidatedKeys = () =>
+      invalidateSpy.mock.calls.map(([filters]) => JSON.stringify(filters?.queryKey));
+    await waitFor(() => {
+      expect(invalidatedKeys()).toContain(listKey);
+      expect(invalidatedKeys()).toContain(catalogueKey);
+    });
+    expect(invalidatedKeys().indexOf(catalogueKey)).toBeGreaterThan(
+      invalidatedKeys().indexOf(listKey),
+    );
+  });
+
+  it('titles the edit modal with the edited row native name', async () => {
+    renderAdmin();
+    await waitFor(() => expect(screen.getAllByText('English').length).toBeGreaterThan(0));
+
+    const editButtons = screen.getAllByRole('button', { name: 'Edit' });
+    const arabicEdit = editButtons[1];
+    if (!arabicEdit) throw new Error('no Edit button');
+    fireEvent.click(arabicEdit);
+
+    expect(screen.getByText('Edit العربية')).toBeTruthy();
+  });
 });
 
 describe('route metadata', () => {
