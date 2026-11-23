@@ -156,6 +156,33 @@ Pull requests now report `pr-gate` instead of the old `check` and `e2e` contexts
 
 GitHub only lets you require a check after it has reported on a commit in the branch. Let one pull request run against the new workflows, then add `pr-gate` to the required checks. Keep branches up to date, block force pushes and branch deletions, leave auto-merge and the merge queue off, and allow no bypasses. A green `pr-gate` makes the Merge button available, and a person still clicks it.
 
+## Releases
+
+Releases are driven by tags on `main`. Once CI is green on `main`, push a
+`vMAJOR.MINOR.PATCH` tag, for example `v0.1.0`. The tagged commit must be an
+ancestor of `main`; tags on unrelated commits are rejected.
+
+Pushing a `v*` tag starts the release workflow. It verifies the tag and its
+commit, reruns the full CI workflow for the tag, checks out the verified commit
+to build both images locally,
+and publishes three assets on the GitHub Release:
+`trainslator-api-<tag>-latest.tar.gz`, `trainslator-api-<tag>-dev.tar.gz` and
+`SHA256SUMS`. No registry is used; the images are attached as `docker save`
+archives.
+
+Download the three assets, then verify and load an image:
+
+```bash
+sha256sum -c SHA256SUMS
+docker load -i trainslator-api-<tag>-latest.tar.gz
+```
+
+Replace `<tag>` with the release tag, for example `v0.1.0`. Each archive loads
+under a versioned tag, `trainslator/api:v0.1.0` or
+`trainslator/api:v0.1.0-dev`, so releases do not overwrite each other locally.
+Both images are single-arch `linux/amd64` builds. The node-av native build is GPL-3.0-or-later
+and FDK-AAC, so redistributing the image needs a license review.
+
 ## Commands
 
 ```bash

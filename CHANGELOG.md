@@ -1,9 +1,18 @@
 # Changelog
 
-All notable changes to trainslator are documented here. The project has no
-tagged releases yet. Dates are UTC, taken from the commit history.
+All notable changes to trainslator are documented here. Tagged releases are
+published as GitHub Releases with attached image archives. Dates are UTC, taken
+from the commit history.
 
 ## Unreleased - 2026-11-23
+
+### Added
+
+- Release workflow (`.github/workflows/release.yml`): pushing a `v*` tag
+  verifies the tag and its commit, reruns CI, builds both images locally, and
+  attaches `trainslator-api-<tag>-latest.tar.gz`,
+  `trainslator-api-<tag>-dev.tar.gz` and `SHA256SUMS` to a GitHub Release. The
+  release procedure is documented in `README.md`.
 
 ### Changed
 
@@ -138,6 +147,7 @@ tagged releases yet. Dates are UTC, taken from the commit history.
 
 ### Notes
 
-- No tagged releases. The Docker image build and the compose flow are not
-  verified in every environment; see `README.md` and run `docker compose up
--d --build` on a Docker machine.
+- Tagged releases are published on GitHub with attached image archives; see
+  the Releases section in `README.md`. The Docker image build and the compose
+  flow are not verified in every environment; run
+  `docker compose up -d --build` on a Docker machine.
