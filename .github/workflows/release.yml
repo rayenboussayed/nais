@@ -1,0 +1,172 @@
+name: release
+
+permissions:
+  contents: read
+
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      sha: ${{ steps.validate.outputs.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: validate release preconditions
+        id: validate
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          set -euo pipefail
+          if [ "$REPO" != 'rayenboussayed/nais' ]; then
+            echo "unexpected repository: $REPO" >&2
+            exit 1
+          fi
+          if [ "$REF_TYPE" != tag ]; then
+            echo "release requires a tag ref, got: $REF_TYPE" >&2
+            exit 1
+          fi
+          semver='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+          if ! [[ "$TAG" =~ $semver ]]; then
+            echo "tag is not strict semver: $TAG" >&2
+            exit 1
+          fi
+          # A detached tag checkout need not carry origin/main; fetch it explicitly
+          # so the ancestry check runs against a current ref.
+          git fetch --force origin '+refs/heads/main:refs/remotes/origin/main'
+          commit=$(git rev-parse "${TAG}^{commit}")
+          if ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "unexpected commit id for ${TAG}: $commit" >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "commit $commit is not an ancestor of origin/main" >&2
+            exit 1
+          fi
+          printf 'sha=%s\n' "$commit" >> "$GITHUB_OUTPUT"
+
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: [verify, checks]
+    if: ${{ github.repository == 'rayenboussayed/nais' && github.ref_type == 'tag' && needs.verify.result == 'success' && needs.checks.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+      REPO: ${{ github.repository }}
+      VERIFIED_SHA: ${{ needs.verify.outputs.sha }}
+      PROD: trainslator/api:latest
+      DEV: trainslator/api:dev
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          ref: ${{ needs.verify.outputs.sha }}
+      - name: verify build context excludes secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -qxF '.env' .dockerignore
+          grep -qxF '.env.*' .dockerignore
+      - name: validate compose configuration
+        shell: bash
+        env:
+          POSTGRES_PASSWORD: ci-placeholder-password
+          BASIC_AUTH_PASSWORD_HASH: ci-placeholder-hash
+          SESSION_SECRET: 0000000000000000000000000000000000000000000000000000000000000000
+        run: |
+          set -euo pipefail
+          printf 'POSTGRES_PASSWORD=%s\n' "$POSTGRES_PASSWORD" > .env
+          printf 'BASIC_AUTH_PASSWORD_HASH=%s\n' "$BASIC_AUTH_PASSWORD_HASH" >> .env
+          printf 'SESSION_SECRET=%s\n' "$SESSION_SECRET" >> .env
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q
+      - name: build images
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker buildx build --platform linux/amd64 --load -f apps/api/Dockerfile -t "$PROD" .
+          docker buildx build --platform linux/amd64 --load -f apps/api/Dockerfile.dev -t "$DEV" .
+          docker tag "$PROD" "trainslator/api:${TAG}"
+          docker tag "$DEV" "trainslator/api:${TAG}-dev"
+      - name: verify image properties
+        shell: bash
+        run: |
+          set -euo pipefail
+          inspect=$(docker image inspect "$PROD")
+          user=$(printf '%s' "$inspect" | jq -r '.[0].Config.User')
+          test "$user" = node
+          printf '%s' "$inspect" | jq -e '.[0].Config.Healthcheck.Test | length > 0' > /dev/null
+          printf '%s' "$inspect" | jq -e '.[0].Config.ExposedPorts | has("3000/tcp") and has("8888/tcp")' > /dev/null
+      - name: save images and write checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker save "trainslator/api:${TAG}" | gzip -6 -n > "trainslator-api-${TAG}-latest.tar.gz"
+          docker save "trainslator/api:${TAG}-dev" | gzip -6 -n > "trainslator-api-${TAG}-dev.tar.gz"
+          sha256sum "trainslator-api-${TAG}-latest.tar.gz" "trainslator-api-${TAG}-dev.tar.gz" > SHA256SUMS
+          sha256sum -c SHA256SUMS
+      - name: preflight asset sizes
+        shell: bash
+        run: |
+          set -euo pipefail
+          limit=2000000000
+          for asset in "trainslator-api-${TAG}-latest.tar.gz" "trainslator-api-${TAG}-dev.tar.gz" SHA256SUMS; do
+            size=$(stat -c %s "$asset")
+            if [ "$size" -ge "$limit" ]; then
+              echo "asset $asset is $size bytes, at or above the 2 GiB release limit" >&2
+              exit 1
+            fi
+            echo "$asset: $size bytes"
+          done
+      # The write token is scoped to this one step only. Every earlier step,
+      # especially the ones that build the published archives, is token-free.
+      - name: publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Checkout used an immutable SHA, so the tag ref may be absent locally.
+          # gh --verify-tag needs it, so fetch the verified tag over HTTPS.
+          git fetch --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          # No ref pattern: ls-remote drops the peeled commit line when a pattern
+          # is supplied, so list all tags and select the exact ref locally. The
+          # public HTTPS URL carries no credentials, so the token never appears
+          # in argv. Verification and publication share this step so a tag move
+          # cannot slip between them.
+          remote_tags=$(git ls-remote --tags "https://github.com/${REPO}.git")
+          # Annotated tags list a peeled <sha> refs/tags/<tag>^{} line; lightweight
+          # tags list only the plain ref. Compare the commit in either case.
+          peeled=$(printf '%s\n' "$remote_tags" | awk -v ref="refs/tags/${TAG}^{}" '$2 == ref { print $1 }')
+          if [ -n "$peeled" ]; then
+            remote_commit=$peeled
+          else
+            remote_commit=$(printf '%s\n' "$remote_tags" | awk -v ref="refs/tags/${TAG}" '$2 == ref { print $1 }')
+          fi
+          if [ "$remote_commit" != "$VERIFIED_SHA" ]; then
+            echo "remote tag ${TAG} points to ${remote_commit}, expected ${VERIFIED_SHA}" >&2
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "release ${TAG} already exists" >&2
+            exit 1
+          fi
+          gh release create "$TAG" --repo "$REPO" --verify-tag --generate-notes \
+            "trainslator-api-${TAG}-latest.tar.gz" "trainslator-api-${TAG}-dev.tar.gz" SHA256SUMS
