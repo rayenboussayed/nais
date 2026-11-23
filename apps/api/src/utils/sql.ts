@@ -1,6 +1,6 @@
-import type { Column } from 'drizzle-orm';
+import type { Column, SQL } from 'drizzle-orm';
 
-import { sql } from 'drizzle-orm';
+import { asc, desc, isNotNull, isNull, sql } from 'drizzle-orm';
 
 import type { KeysetList } from '../schemas/list.js';
 
@@ -26,6 +26,31 @@ export function escapeLike(value: string): string {
  */
 export const timestamptzCursor = (column: Column) =>
   sql<string>`to_char(${column}, 'YYYY-MM-DD"T"HH24:MI:SS.USOF')`;
+
+/**
+ * Builds the shared `WHERE` conditions of the admin list services. The
+ * soft-delete predicate is always first, followed by the caller's `extra`
+ * filters and finally the keyset `cursor` when one is present. Keeping this
+ * order makes the generated SQL identical to the hand-written scaffolding.
+ * A fresh array is returned; `extra` is never mutated.
+ * @param deletedAt - the table's soft-delete (`deleted_at`) column
+ * @param onlyDeleted - select only soft-deleted rows instead of only live rows
+ * @param cursor - keyset comparator from `keysetWhere`, or undefined on the first page
+ * @param extra - additional domain filters such as equality or ILIKE predicates
+ * @returns the ordered conditions to spread into `and(...)`
+ */
+export function buildListConditions(
+  deletedAt: Column,
+  onlyDeleted: boolean,
+  cursor: SQL | undefined,
+  extra: SQL[],
+): SQL[] {
+  return [
+    onlyDeleted ? isNotNull(deletedAt) : isNull(deletedAt),
+    ...extra,
+    ...(cursor ? [cursor] : []),
+  ];
+}
 
 /**
  * Shared tail of the keyset-paginated list services. Callers pass the
@@ -76,4 +101,17 @@ export function keysetWhere(
   return orderBy === 'asc'
     ? sql`(${column}, ${id}) > (${lastCreatedAt}::timestamptz, ${lastId}::uuid)`
     : sql`(${column}, ${id}) < (${lastCreatedAt}::timestamptz, ${lastId}::uuid)`;
+}
+
+/**
+ * Builds the `ORDER BY` expressions shared by the keyset-paginated lists:
+ * `createdAt` first and `id` as the unique tie-break, both in the requested
+ * direction.
+ * @param createdAt - the table's `created_at` column
+ * @param id - the table's unique `id` column used as the tie-break
+ * @param orderBy - direction of the ordering
+ * @returns the `[createdAt, id]` ordering pair to spread into `.orderBy(...)`
+ */
+export function orderByColumns(createdAt: Column, id: Column, orderBy: 'asc' | 'desc'): [SQL, SQL] {
+  return orderBy === 'asc' ? [asc(createdAt), asc(id)] : [desc(createdAt), desc(id)];
 }

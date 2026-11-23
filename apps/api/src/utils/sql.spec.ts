@@ -1,7 +1,21 @@
+import type { SQL } from 'drizzle-orm';
+
+import { eq } from 'drizzle-orm';
+import { PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
 
 import { languages } from '../db/schema.js';
-import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from './sql.js';
+import {
+  buildListConditions,
+  escapeLike,
+  keysetPage,
+  keysetWhere,
+  orderByColumns,
+  timestamptzCursor,
+} from './sql.js';
+
+const dialect = new PgDialect();
+const render = (fragment: SQL): string => dialect.sqlToQuery(fragment).sql;
 
 describe('escapeLike', () => {
   it('escapes %, _ and backslash itself', () => {
@@ -82,5 +96,58 @@ describe('keysetPage', () => {
     const page = keysetPage([], 10, (row: { createdAtCursor: string; id: string }) => row.id);
     expect(page.items).toEqual([]);
     expect(page.next).toBeNull();
+  });
+});
+
+describe('buildListConditions', () => {
+  const deletedAt = languages.deletedAt;
+  const cursorAt = '2026-11-18T00:00:00.000000+00:00';
+  const cursorId = '123e4567-e89b-42d3-a456-426655440000';
+
+  it('selects live rows, appends extra filters and skips an absent cursor', () => {
+    const extra = [eq(languages.id, cursorId)];
+    const conditions = buildListConditions(deletedAt, false, undefined, extra);
+
+    expect(conditions).toHaveLength(2);
+    const [softDelete = '', filter = ''] = conditions.map(render);
+    expect(softDelete).toContain('"deleted_at" is null');
+    expect(softDelete).not.toContain('is not null');
+    expect(filter).toContain('"id" = $1');
+    expect(extra).toHaveLength(1);
+  });
+
+  it('selects soft-deleted rows and appends a descending keyset cursor', () => {
+    const cursor = keysetWhere(languages.createdAt, languages.id, 'desc', cursorAt, cursorId);
+    const conditions = buildListConditions(deletedAt, true, cursor, []);
+
+    expect(conditions).toHaveLength(2);
+    const [softDelete = '', tail = ''] = conditions.map(render);
+    expect(softDelete).toContain('"deleted_at" is not null');
+    expect(tail).toContain(' < (');
+    expect(tail).toContain('::timestamptz');
+    expect(tail).toContain('::uuid');
+  });
+
+  it('appends an ascending cursor after the extra filters', () => {
+    const cursor = keysetWhere(languages.createdAt, languages.id, 'asc', cursorAt, cursorId);
+    const conditions = buildListConditions(deletedAt, false, cursor, [eq(languages.id, cursorId)]);
+
+    expect(conditions).toHaveLength(3);
+    const [softDelete = '', filter = '', tail = ''] = conditions.map(render);
+    expect(softDelete).toContain('"deleted_at" is null');
+    expect(filter).toContain('"id" = $1');
+    expect(tail).toContain(' > (');
+  });
+});
+
+describe('orderByColumns', () => {
+  it('orders by createdAt then id ascending', () => {
+    const columns = orderByColumns(languages.createdAt, languages.id, 'asc');
+    expect(columns.map(render)).toEqual(['"languages"."created_at" asc', '"languages"."id" asc']);
+  });
+
+  it('orders by createdAt then id descending', () => {
+    const columns = orderByColumns(languages.createdAt, languages.id, 'desc');
+    expect(columns.map(render)).toEqual(['"languages"."created_at" desc', '"languages"."id" desc']);
   });
 });

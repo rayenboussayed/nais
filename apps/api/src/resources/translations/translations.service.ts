@@ -7,7 +7,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, desc, eq, getTableColumns, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, isNull, sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/drizzle.module.js';
 import type { TranslationsListQuery } from '../../schemas/list-query.js';
@@ -23,7 +23,14 @@ import { translations } from '../../db/schema.js';
 import { changedFields } from '../../utils/changed-fields.js';
 import { isUniqueViolation } from '../../utils/db-error.js';
 import { translationKeyFor } from '../../utils/key.js';
-import { escapeLike, keysetPage, keysetWhere, timestamptzCursor } from '../../utils/sql.js';
+import {
+  buildListConditions,
+  escapeLike,
+  keysetPage,
+  keysetWhere,
+  orderByColumns,
+  timestamptzCursor,
+} from '../../utils/sql.js';
 
 /** Row shape of the translations table; mirrors `translations` in drizzle/schema.ts. */
 type TranslationRow = typeof translations.$inferSelect;
@@ -121,15 +128,12 @@ export class TranslationsService {
   async findPage(params: TranslationsListQuery): Promise<KeysetList<Translation>> {
     const { languageId, lastCreatedAt, lastId, namespace, onlyDeleted, orderBy, pageSize, q } =
       params;
-    const conditions: SQL[] = [
-      onlyDeleted ? isNotNull(translations.deletedAt) : isNull(translations.deletedAt),
-    ];
-
-    if (languageId) conditions.push(eq(translations.languageId, languageId));
-    if (namespace) conditions.push(eq(translations.namespace, namespace));
+    const extra: SQL[] = [];
+    if (languageId) extra.push(eq(translations.languageId, languageId));
+    if (namespace) extra.push(eq(translations.namespace, namespace));
     if (q) {
       const pattern = `%${escapeLike(q)}%`;
-      conditions.push(
+      extra.push(
         sql`(${translations.key} ilike ${pattern} or ${translations.text} ilike ${pattern})`,
       );
     }
@@ -141,11 +145,7 @@ export class TranslationsService {
       lastCreatedAt,
       lastId,
     );
-    if (cursor) conditions.push(cursor);
-
-    const orderColumn =
-      orderBy === 'asc' ? asc(translations.createdAt) : desc(translations.createdAt);
-    const orderId = orderBy === 'asc' ? asc(translations.id) : desc(translations.id);
+    const conditions = buildListConditions(translations.deletedAt, onlyDeleted, cursor, extra);
 
     const rows = await this.db
       .select({
@@ -154,7 +154,7 @@ export class TranslationsService {
       })
       .from(translations)
       .where(and(...conditions))
-      .orderBy(orderColumn, orderId)
+      .orderBy(...orderByColumns(translations.createdAt, translations.id, orderBy))
       .limit(pageSize + 1);
 
     return keysetPage(rows, pageSize, rowToTranslation);
