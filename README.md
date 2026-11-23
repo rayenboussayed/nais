@@ -136,6 +136,8 @@ Coverage is measured with **Istanbul** over every authored source file in both w
 
 Repo-wide history lives in [CHANGELOG.md](CHANGELOG.md); per-workspace guidance in each workspace's `AGENTS.md`.
 
+The admin list services share `buildListConditions` and `orderByColumns` from `apps/api/src/utils/sql.ts`, so soft-delete, cursor and ordering rules stay in one place. The languages admin form is a presentational component in `apps/web/src/routes/admin/languages-form.tsx`; its draft state and submit logic stay in the route.
+
 ## Dependencies & security
 
 - `npm audit --omit=dev` is clean (zero vulnerabilities) as of this writing; it runs in the pre-commit hook and in CI.

@@ -3,6 +3,13 @@
 All notable changes to trainslator are documented here. The project has no
 tagged releases yet. Dates are UTC, taken from the commit history.
 
+## Unreleased - 2026-11-23
+
+### Changed
+
+- Refactor pass across the two apps. One helper in `apps/api/src/utils/error-name.ts` now formats error names for logs, two pure helpers in `apps/api/src/utils/sql.ts` build the shared keyset list conditions and ordering, and `apps/web/src/routes/admin/languages-form.tsx` holds the presentational markup extracted from the languages admin route. Wire contracts, generated artifacts, SQL and log strings are unchanged.
+- Added characterization assertions for log fallbacks that had no test, SQL-text assertions for the new query helpers, and direct component tests for the extracted admin form. Coverage stays at 100 percent on all four counters.
+
 ## Unreleased - 2026-11-21
 
 ### Added

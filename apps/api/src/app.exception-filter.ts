@@ -10,7 +10,7 @@ import { errorName } from './utils/error-name.js';
 /**
  * Maps every thrown value to the shared `ApiError` wire shape. Nest HTTP
  * exceptions keep their status and message; anything else answers 500 with a
- * constant message and is logged with its stack. Internal details never
+ * constant message and is logged with its name. Internal details never
  * leave the process in the response body.
  */
 export class AllExceptionsFilter implements ExceptionFilter {
