@@ -39,7 +39,7 @@ jobs:
             echo "release requires a tag ref, got: $REF_TYPE" >&2
             exit 1
           fi
-          semver='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+          semver='^v[0-9]+\.[0-9]+\.[0-9]+$'
           if ! [[ "$TAG" =~ $semver ]]; then
             echo "tag is not strict semver: $TAG" >&2
             exit 1
@@ -114,6 +114,9 @@ jobs:
           test "$user" = node
           printf '%s' "$inspect" | jq -e '.[0].Config.Healthcheck.Test | length > 0' > /dev/null
           printf '%s' "$inspect" | jq -e '.[0].Config.ExposedPorts | has("3000/tcp") and has("8888/tcp")' > /dev/null
+          dev_inspect=$(docker image inspect "$DEV")
+          printf '%s' "$dev_inspect" | jq -e '.[0].Config.Cmd == ["npm","run","start:dev","-w","@trainslator/api"]' > /dev/null
+          printf '%s' "$dev_inspect" | jq -e '.[0].Config.ExposedPorts | has("3000/tcp") and has("8888/tcp")' > /dev/null
       - name: save images and write checksums
         shell: bash
         run: |
@@ -130,7 +133,7 @@ jobs:
           for asset in "trainslator-api-${TAG}-latest.tar.gz" "trainslator-api-${TAG}-dev.tar.gz" SHA256SUMS; do
             size=$(stat -c %s "$asset")
             if [ "$size" -ge "$limit" ]; then
-              echo "asset $asset is $size bytes, at or above the 2 GiB release limit" >&2
+              echo "asset $asset is $size bytes, at or above the 2 GB release limit" >&2
               exit 1
             fi
             echo "$asset: $size bytes"

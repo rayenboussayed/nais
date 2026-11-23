@@ -4,7 +4,7 @@ All notable changes to trainslator are documented here. Tagged releases are
 published as GitHub Releases with attached image archives. Dates are UTC, taken
 from the commit history.
 
-## Unreleased - 2026-11-23
+## 0.1.0 - 2026-11-23
 
 ### Added
 
