@@ -2,10 +2,11 @@ import {
   ArgumentsHost,
   BadRequestException,
   HttpException,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AllExceptionsFilter } from './app.exception-filter.js';
 
@@ -34,6 +35,10 @@ function makeHost() {
 }
 
 describe('AllExceptionsFilter', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('attaches the realm header on 401s and only on 401s', () => {
     const filter = new AllExceptionsFilter();
 
@@ -114,5 +119,28 @@ describe('AllExceptionsFilter', () => {
     // eslint-disable-next-line promise/valid-params -- Nest ExceptionFilter.catch(error, host), not Promise#catch
     new AllExceptionsFilter().catch('weird string failure', host);
     expect(sent).toHaveBeenCalledWith({ message: 'Internal server error', statusCode: 500 });
+  });
+
+  it('logs typeof as the message and the filter name as context on a non-HTTP context', () => {
+    const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const host: ArgumentsHost = {
+      getType: () => 'ws',
+      switchToHttp: () => ({ getResponse: () => ({}) }),
+    } as unknown as ArgumentsHost;
+
+    // eslint-disable-next-line promise/valid-params -- Nest ExceptionFilter.catch(error, host), not Promise#catch
+    new AllExceptionsFilter().catch('plain string failure', host);
+
+    expect(log).toHaveBeenCalledWith('string', 'AllExceptionsFilter');
+  });
+
+  it('logs typeof for a non-Error HTTP exception with no extra context argument', () => {
+    const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const { host } = makeHost();
+
+    // eslint-disable-next-line promise/valid-params -- Nest ExceptionFilter.catch(error, host), not Promise#catch
+    new AllExceptionsFilter().catch('weird string failure', host);
+
+    expect(log).toHaveBeenCalledWith('string');
   });
 });

@@ -34,6 +34,7 @@ import { aiRequestSchemas } from '../../schemas/ai.js';
 import { aiTaskJobSchema } from '../../schemas/queue.js';
 import { wsTranslateMessageSchema } from '../../schemas/translations.js';
 import { wsAiMessageSchema } from '../../schemas/ws.js';
+import { errorName } from '../../utils/error-name.js';
 import { translationKeyFor } from '../../utils/key.js';
 import { RateLimiter } from '../../utils/rate-limit.js';
 import { AiService } from '../ai/ai.service.js';
@@ -329,9 +330,7 @@ export class TranslateGateway implements OnGatewayInit {
       }
       return peeked;
     } catch (error) {
-      this.logger.error(
-        `${request.handlerName}: ${error instanceof Error ? error.name : 'unknown error'}`,
-      );
+      this.logger.error(`${request.handlerName}: ${errorName(error)}`);
       return { kind: 'failed' };
     }
   }

@@ -5,6 +5,8 @@ import { HttpException, HttpStatus, Logger } from '@nestjs/common';
 
 import type { ApiError } from './schemas/errors.js';
 
+import { errorName } from './utils/error-name.js';
+
 /**
  * Maps every thrown value to the shared `ApiError` wire shape. Nest HTTP
  * exceptions keep their status and message; anything else answers 500 with a
@@ -21,10 +23,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
    */
   catch(exception: unknown, host: ArgumentsHost): void {
     if (host.getType() !== 'http') {
-      this.logger.error(
-        exception instanceof Error ? exception.name : typeof exception,
-        AllExceptionsFilter.name,
-      );
+      this.logger.error(errorName(exception, typeof exception), AllExceptionsFilter.name);
       return;
     }
     const reply = host.switchToHttp().getResponse<FastifyReply>();
@@ -61,7 +60,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // Never log the exception body or stack here: error messages can carry
     // connection strings. The 500 response is a constant by design.
-    this.logger.error(exception instanceof Error ? exception.name : typeof exception);
+    this.logger.error(errorName(exception, typeof exception));
     return {
       message: 'Internal server error',
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,

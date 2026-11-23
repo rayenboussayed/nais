@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { Database } from '../db/drizzle.module.js';
 
 import { aiMessages } from '../db/schema.js';
+import { errorName } from './error-name.js';
 
 /**
  * Marks an audit row as failed on a best-effort basis.
@@ -24,10 +25,6 @@ export async function markAuditFailed(
     .where(eq(aiMessages.id, messageId))
     .catch((secondaryError: unknown) => {
       // Best-effort audit; never mask the original failure with a database error.
-      report(
-        `audit row ${messageId} could not be marked failed: ${
-          secondaryError instanceof Error ? secondaryError.name : 'unknown error'
-        }`,
-      );
+      report(`audit row ${messageId} could not be marked failed: ${errorName(secondaryError)}`);
     });
 }

@@ -1,7 +1,12 @@
 import type { ConfigService } from '@nestjs/config';
 
-import { BadGatewayException, GatewayTimeoutException, NotFoundException } from '@nestjs/common';
-import { describe, expect, it, vi } from 'vitest';
+import {
+  BadGatewayException,
+  GatewayTimeoutException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Database } from '../../db/drizzle.module.js';
 import type { Env } from '../../environment.js';
@@ -151,6 +156,10 @@ function transactionStub({
 }
 
 describe('AiService.run', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('rejects an unknown task with 404', async () => {
     const service = new AiService(
       dbStub(),
@@ -542,6 +551,31 @@ describe('AiService.run', () => {
       configStub(),
     );
     await expect(broken.onModuleInit()).resolves.toBeUndefined();
+  });
+
+  it('logs the unknown-error fallback when the stale reaper throws a non-Error', async () => {
+    const brokenDb = {
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            returning: async () => {
+              throw 'not an error';
+            },
+          }),
+        }),
+      }),
+    } as unknown as Database;
+    const service = new AiService(
+      brokenDb,
+      {} as unknown as TranslateService,
+      pipelineLoader([]),
+      configStub(),
+    );
+    const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+
+    expect(log).toHaveBeenCalledWith('stale audit reaper skipped: unknown error');
   });
 
   it('aligns the response and audit row with the cache winner when the insert loses a race', async () => {

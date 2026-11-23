@@ -231,4 +231,29 @@ describe('TranslateGateway ai handler', () => {
     ]);
     expect(log).toHaveBeenCalledWith('ai handler failed: Error');
   });
+
+  it('logs the unknown-error fallback for a non-Error failure with the ai prefix', async () => {
+    const { gateway, languages } = makeGateway({ peek: null });
+    languages.findByIso.mockRejectedValueOnce('db on fire');
+    const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const { ack, calls } = ackCollector();
+    await gateway.onAiMessage(
+      {
+        input: { targetLanguage: 'fr', text: 'hello' },
+        requestId: '123e4567-e89b-42d3-a456-426655440000',
+        task: 'translate',
+      },
+      socket,
+      ack,
+    );
+    expect(calls).toEqual([
+      {
+        cached: null,
+        requestId: '123e4567-e89b-42d3-a456-426655440000',
+        result: null,
+        statusCode: 500,
+      },
+    ]);
+    expect(log).toHaveBeenCalledWith('ai handler failed: unknown error');
+  });
 });

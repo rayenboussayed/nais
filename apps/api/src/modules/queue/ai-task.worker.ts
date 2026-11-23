@@ -9,6 +9,7 @@ import { AI_TASK_QUEUE } from '../../constants/ai-task.js';
 import { AiService } from '../../resources/ai/ai.service.js';
 import { TranslateGateway } from '../../resources/translate/translate.gateway.js';
 import { aiTaskJobSchema } from '../../schemas/queue.js';
+import { errorName } from '../../utils/error-name.js';
 
 /**
  * pg-boss worker consuming `ai-task` jobs with batchSize 1: one model call at
@@ -66,11 +67,7 @@ export class AiTaskWorker extends Logger {
         });
       }
     } catch (error) {
-      this.error(
-        `ai task failed task=${task} requestId=${requestId}: ${
-          error instanceof Error ? error.name : 'unknown error'
-        }`,
-      );
+      this.error(`ai task failed task=${task} requestId=${requestId}: ${errorName(error)}`);
       if (!socketId) throw error; // no requester: still mark the job failed
 
       if (task === 'translate') {

@@ -285,6 +285,16 @@ describe('TranslateGateway translate handler ack contract', () => {
     expect(calls).toEqual([{ data: null, requestId, statusCode: 500 }]);
     expect(log).toHaveBeenCalledWith('translate handler failed: Error');
   });
+
+  it('logs the unknown-error fallback for a non-Error failure with the translate prefix', async () => {
+    const { gateway, languages } = makeHandlerGateway();
+    languages.findByIso.mockRejectedValueOnce('db on fire');
+    const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const { ack, calls } = ackCollector();
+    await gateway.translate({ requestId, targetLanguage: 'fr', text: 'hello' }, handlerSocket, ack);
+    expect(calls).toEqual([{ data: null, requestId, statusCode: 500 }]);
+    expect(log).toHaveBeenCalledWith('translate handler failed: unknown error');
+  });
 });
 
 describe('TranslateGateway.emitTo', () => {

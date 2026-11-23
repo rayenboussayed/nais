@@ -19,6 +19,7 @@ import { aiCache, aiMessages } from '../../db/schema.js';
 import { AI_TASKS, aiRequestSchemas, aiTaskSchema } from '../../schemas/ai.js';
 import { normalizeResult } from '../../utils/ai-result.js';
 import { markAuditFailed } from '../../utils/audit.js';
+import { errorName } from '../../utils/error-name.js';
 import { Inflight } from '../../utils/inflight.js';
 import { inputHashFor, taskKeyFor } from '../../utils/key.js';
 import { Semaphore } from '../../utils/semaphore.js';
@@ -113,9 +114,7 @@ export class AiService implements OnModuleInit {
         this.logger.warn(`reaped ${rows.length} stale audit row(s)`);
       }
     } catch (error) {
-      this.logger.error(
-        `stale audit reaper skipped: ${error instanceof Error ? error.name : 'unknown error'}`,
-      );
+      this.logger.error(`stale audit reaper skipped: ${errorName(error)}`);
     }
   }
 

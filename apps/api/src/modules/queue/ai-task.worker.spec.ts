@@ -185,6 +185,31 @@ describe('AiTaskWorker.onAiTask', () => {
     ).rejects.toBe('string failure');
   });
 
+  it('logs the unknown-error fallback for a non-Error rejection', async () => {
+    const emitTo = vi.fn();
+    const run = vi.fn(async () => Promise.reject('string failure'));
+    const worker = new AiTaskWorker(
+      { run } as unknown as AiService,
+      { emitTo } as unknown as TranslateGateway,
+    );
+    const errorSpy = vi.spyOn(worker, 'error').mockImplementation(() => worker);
+
+    await expect(
+      worker.onAiTask([
+        makeJob({
+          input: { text: 'hello' },
+          requestId: '123e4567-e89b-42d3-a456-426655440000',
+          socketId: 'socket-1',
+          task: 'sentiment',
+        }),
+      ]),
+    ).rejects.toBe('string failure');
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      'ai task failed task=sentiment requestId=123e4567-e89b-42d3-a456-426655440000: unknown error',
+    );
+  });
+
   it('does not emit when the requester has gone away, and a job without socketId survives', async () => {
     const emitTo = vi.fn();
     const run = vi.fn(async () => translateEnvelope);
