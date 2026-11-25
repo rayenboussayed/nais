@@ -94,16 +94,17 @@ native Standard Schema and generates the types used by the web app.
     glob had silently excluded all `.tsx` tests. With them running, jsdom
     behavior tests assert playground/studio/admin rendering.
 
-19. **The strict flat config never gets a global rule disable.** eslint.config.mjs
-    layers js/recommended, n, deslint, de-morgan, sonarjs, security, regexp,
-    promise and perfectionist (recommended-natural) over the TS sources plus
-    json/markdown checks; unicorn/depend/stylistic/vitest are registered with
-    zero rules. Suppressions are only ever inline (`eslint-disable-next-line
-<rule> -- <reason>`) or via justified config (e.g. browser globals for
-    apps/web, `settings.node.version`, `tryExtensions`). Generated files keep
+19. **Lint comes from one shared config.** eslint.config.mjs calls
+    `createConfig` from `@stackrb/eslint-config` with `target: node`,
+    `nodeVersion` at 24, and `extraIgnores` for generated files. A small
+    `off()` helper keeps unicorn, stylistic, Vitest and Playwright presets
+    unopinionated as they were before. The shared config reports unused
+    disable directives, so stale suppressions must be removed. New
+    suppressions stay inline with a reason. Browser globals apply only to
+    apps/web, and `tryExtensions` is set for code files. Generated files keep
     the generator's formatting: drizzle snapshots are in .prettierignore. The
-    prompt templates are `.txt` because `[Tr.: …]` is model-facing DSL, not
-    markdown — never HTML-comment-suppress lint inside a prompt file.
+    prompt templates are `.txt` because `[Tr.: …]` is model-facing DSL, so
+    never HTML-comment-suppress lint inside a prompt file.
 
 20. **Speech to text is a third provider family.** `POST /api/audio/stt` runs
     node-av 7.1.0 WhisperTranscriber, separate from Ollama and the ONNX
