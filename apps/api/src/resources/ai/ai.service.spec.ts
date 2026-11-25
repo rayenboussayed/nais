@@ -126,7 +126,6 @@ function transactionStub({
 }: {
   auditSets: Array<Record<string, unknown>>;
   txInsertReturning: Array<{ id: string }>;
-  // eslint-disable-next-line sonarjs/no-redundant-optional -- exactOptionalPropertyTypes: callers pass explicit undefined
   txWinnerRow?: undefined | { result: Record<string, unknown> };
 }) {
   return {

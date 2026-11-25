@@ -122,9 +122,7 @@ function transactionStub({
   finalRow,
   updateSets,
 }: {
-  // eslint-disable-next-line sonarjs/no-redundant-optional -- exactOptionalPropertyTypes: callers pass explicit undefined
   finalRow?: undefined | { text: string };
-  // eslint-disable-next-line sonarjs/no-redundant-optional -- exactOptionalPropertyTypes: callers pass explicit undefined
   updateSets?: Array<Record<string, unknown>> | undefined;
 }) {
   return {

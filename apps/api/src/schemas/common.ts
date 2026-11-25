@@ -57,7 +57,6 @@ export const paginationBaseSchema = z.object({
  * @param ctx - the zod refinement context
  */
 export const cursorPairRefine = (
-  // eslint-disable-next-line sonarjs/no-redundant-optional -- exactOptionalPropertyTypes requires explicit `| undefined` when callers spread z.infer output into this object
   value: { lastCreatedAt?: string | undefined; lastId?: string | undefined },
   ctx: z.RefinementCtx,
 ): void => {
