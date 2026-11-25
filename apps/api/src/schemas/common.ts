@@ -57,7 +57,7 @@ export const paginationBaseSchema = z.object({
  * @param ctx - the zod refinement context
  */
 export const cursorPairRefine = (
-  value: { lastCreatedAt?: string | undefined; lastId?: string | undefined },
+  value: Pick<z.infer<typeof paginationBaseSchema>, 'lastCreatedAt' | 'lastId'>,
   ctx: z.RefinementCtx,
 ): void => {
   const hasId = value.lastId !== undefined;

@@ -122,8 +122,8 @@ function transactionStub({
   finalRow,
   updateSets,
 }: {
-  finalRow?: undefined | { text: string };
-  updateSets?: Array<Record<string, unknown>> | undefined;
+  finalRow: undefined | { text: string };
+  updateSets: Array<Record<string, unknown>> | undefined;
 }) {
   return {
     insert: () => ({

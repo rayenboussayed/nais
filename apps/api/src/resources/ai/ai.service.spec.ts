@@ -126,7 +126,7 @@ function transactionStub({
 }: {
   auditSets: Array<Record<string, unknown>>;
   txInsertReturning: Array<{ id: string }>;
-  txWinnerRow?: undefined | { result: Record<string, unknown> };
+  txWinnerRow: undefined | { result: Record<string, unknown> };
 }) {
   return {
     insert: () => ({
