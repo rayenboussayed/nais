@@ -16,6 +16,13 @@ describe('validateEnv', () => {
     expect(env.OLLAMA_TEXT_MODEL).toBe('bonsai-2:2b');
   });
 
+  it('accepts optional AUTH_* values and rejects empty strings', () => {
+    const env = validateEnv({ ...baseEnv, AUTH_NAME: 'admin', AUTH_PASS: 'pw' });
+    expect(env.AUTH_PASS).toBe('pw');
+    expect(() => validateEnv({ ...baseEnv, AUTH_NAME: '' })).toThrow(/AUTH_NAME/);
+    expect(() => validateEnv({ ...baseEnv, AUTH_PASS: '' })).toThrow(/AUTH_PASS/);
+  });
+
   it('requires DATABASE_URL in every environment (even development)', () => {
     expect(() => validateEnv({ NODE_ENV: 'development' })).toThrow(/DATABASE_URL/);
     expect(() => validateEnv({})).toThrow(/DATABASE_URL/);

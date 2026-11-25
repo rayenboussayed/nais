@@ -41,7 +41,10 @@ function httpContext(
 ): ExecutionContext {
   return {
     getType: () => 'http',
-    switchToHttp: () => ({ getRequest: () => ({ headers, url }) }),
+    switchToHttp: () => ({
+      getRequest: () => ({ headers, url }),
+      getResponse: () => ({ header: () => undefined }),
+    }),
   } as unknown as ExecutionContext;
 }
 
@@ -118,6 +121,13 @@ describe('HttpAuthGuard', () => {
     const guard = new HttpAuthGuard(configStub());
     const hostile = {} as unknown as ExecutionContext;
     await expect(guard.canActivate(hostile)).rejects.toThrow();
+  });
+
+  it('ignores the x-auth credential headers', async () => {
+    const guard = new HttpAuthGuard(configStub());
+    await expect(
+      guard.canActivate(httpContext({ 'x-auth-name': 'admin', 'x-auth-pass': 'admin-password' })),
+    ).rejects.toThrow('Unauthorized');
   });
 
   it('passes websocket contexts through without credentials', async () => {

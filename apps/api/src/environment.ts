@@ -42,6 +42,10 @@ const envSchema = z
     AI_SUMMARIZE_MODEL: z.string().trim().min(1).optional(),
     AI_TOKEN_CLASSIFICATION_MODEL: z.string().trim().min(1).optional(),
     AI_ZERO_SHOT_CLASSIFICATION_MODEL: z.string().trim().min(1).optional(),
+    /** Basic-auth username accepted by nest-basic-auth. */
+    AUTH_NAME: z.string().trim().min(1).optional(),
+    /** Plaintext Basic-auth password; the package digests it with SHA-256. */
+    AUTH_PASS: z.string().trim().min(1).optional(),
     /** scrypt hash, format `scrypt$N$r$p$saltHex$hashHex`; required in production. */
     BASIC_AUTH_PASSWORD_HASH: z.string().trim().min(1).optional(),
     BASIC_AUTH_USERNAME: z.string().trim().min(1).default('admin'),

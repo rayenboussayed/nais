@@ -16,7 +16,7 @@ import { startTempCluster, type TempCluster } from '../pg-temp.js';
  * transcriber or any model download can start. Requires `npm run build` first.
  */
 
-const ADMIN_PASSWORD = 'e2e-audio-password';
+const ADMIN_PASSWORD = 'e2e-password';
 const API_DIR = path.join(__dirname, '..', '..');
 const STT_URL = '/api/audio/stt';
 

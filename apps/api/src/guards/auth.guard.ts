@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../environment.js';
 
 import { authenticateHeaders } from '../modules/auth/authenticate.js';
+import { BasicAuth, isBasicHeader } from '../modules/auth/basic.js';
 import { HEALTH_PATH, LOGIN_PATH, normalizePath } from '../modules/auth/public-path.js';
 
 /** Routes that answer without credentials (liveness probe, login). */
@@ -19,7 +20,11 @@ const AUTH_ALLOWLIST: ReadonlySet<string> = new Set([HEALTH_PATH, LOGIN_PATH]);
  */
 @Injectable()
 export class HttpAuthGuard implements CanActivate {
-  constructor(private readonly config: ConfigService<Env, true>) {}
+  private readonly basic: BasicAuth;
+
+  constructor(private readonly config: ConfigService<Env, true>) {
+    this.basic = new BasicAuth(config);
+  }
 
   /**
    * @param context - the execution context; only the `http` type is guarded
@@ -32,6 +37,11 @@ export class HttpAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
     const path = normalizePath(request.url);
     if (AUTH_ALLOWLIST.has(path)) return true;
+
+    if (isBasicHeader(request.headers.authorization)) {
+      this.basic.verify(context);
+      return true;
+    }
 
     const auth = await authenticateHeaders(request.headers, this.config);
     if (!auth) {

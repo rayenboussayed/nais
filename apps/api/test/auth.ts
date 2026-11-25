@@ -12,6 +12,8 @@ const HASH = `scrypt$1024$8$1$${SALT}$${scryptSync(PASSWORD, Buffer.from(SALT, '
 
 /** Env values pinning the test credential. Set in beforeAll of every integration spec. */
 export const TEST_BASIC_AUTH_ENV: Record<string, string> = {
+  AUTH_NAME: 'admin',
+  AUTH_PASS: PASSWORD,
   BASIC_AUTH_PASSWORD_HASH: HASH,
   BASIC_AUTH_USERNAME: 'admin',
   SESSION_SECRET: 'a'.repeat(64),
