@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiResponse } from '@nestjs/swagger';
+import { SkipBasicAuth } from 'nest-basic-auth';
 
 import type { Env } from '../../environment.js';
 import type { LoginRequest } from '../../schemas/auth.js';
@@ -51,6 +52,7 @@ export class AuthController {
   @ApiResponseSchema(loginResponseSchema, HttpStatus.OK)
   @HttpCode(HttpStatus.OK)
   @Post('login')
+  @SkipBasicAuth()
   async login(
     @Body({ schema: loginRequestSchema }) body: LoginRequest,
     @Ip() ip: string,

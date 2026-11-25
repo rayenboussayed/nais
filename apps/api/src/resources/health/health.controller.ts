@@ -2,6 +2,7 @@ import type { HealthCheckResult } from '@nestjs/terminus';
 
 import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
+import { SkipBasicAuth } from 'nest-basic-auth';
 
 import { DatabaseHealthIndicator } from '../../db/database-health.indicator.js';
 import { ApiErrorResponses } from '../../swagger.js';
@@ -23,6 +24,7 @@ export class HealthController {
    */
   @Get()
   @HealthCheck()
+  @SkipBasicAuth()
   check(): Promise<HealthCheckResult> {
     return this.health.check([this.database.isHealthy('database')]);
   }

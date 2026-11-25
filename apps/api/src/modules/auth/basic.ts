@@ -51,7 +51,9 @@ export class BasicAuth {
   isPublic(context: ExecutionContext): boolean {
     const handler = typeof context.getHandler === 'function' ? context.getHandler() : undefined;
     const controller = typeof context.getClass === 'function' ? context.getClass() : undefined;
-    const targets = [handler, controller].filter((target) => target !== undefined);
+    const targets = [handler, controller].filter(
+      (target) => target !== undefined && target !== null,
+    );
     return this.reflector.getAllAndOverride(SKIP_BASIC_AUTH_KEY, targets) === true;
   }
 

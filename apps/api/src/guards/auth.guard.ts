@@ -7,16 +7,12 @@ import type { Env } from '../environment.js';
 
 import { authenticateHeaders } from '../modules/auth/authenticate.js';
 import { BasicAuth, isBasicHeader } from '../modules/auth/basic.js';
-import { HEALTH_PATH, LOGIN_PATH, normalizePath } from '../modules/auth/public-path.js';
-
-/** Routes that answer without credentials (liveness probe, login). */
-const AUTH_ALLOWLIST: ReadonlySet<string> = new Set([HEALTH_PATH, LOGIN_PATH]);
 
 /**
  * HTTP Basic-or-cookie authentication as a Nest guard, registered AFTER the
- * ThrottlerGuard so unauthenticated floods are 429'd before any scrypt work
- * happens. WebSocket contexts pass through (the WS handshake enforces auth
- * itself); the paths in AUTH_ALLOWLIST are public by design.
+ * ThrottlerGuard so unauthenticated floods are 429'd before any credential
+ * work happens. WebSocket contexts pass through (the WS handshake enforces
+ * auth itself); routes marked `@SkipBasicAuth()` are public.
  */
 @Injectable()
 export class HttpAuthGuard implements CanActivate {
@@ -34,10 +30,9 @@ export class HttpAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (context.getType() !== 'http') return true;
 
-    const request = context.switchToHttp().getRequest<FastifyRequest>();
-    const path = normalizePath(request.url);
-    if (AUTH_ALLOWLIST.has(path)) return true;
+    if (this.basic.isPublic(context)) return true;
 
+    const request = context.switchToHttp().getRequest<FastifyRequest>();
     if (isBasicHeader(request.headers.authorization)) {
       this.basic.verify(context);
       return true;

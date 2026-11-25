@@ -221,5 +221,7 @@ describe('HTTP boundary (integration, throwaway cluster)', () => {
   it('still answers 200 on /api/health without credentials', async () => {
     const response = await app.inject({ method: 'GET', url: '/api/health' });
     expect(response.statusCode).toBe(200);
+    const withQuery = await app.inject({ method: 'GET', url: '/api/health?probe=1' });
+    expect(withQuery.statusCode).toBe(200);
   });
 });

@@ -161,9 +161,10 @@ describe('BasicAuth', () => {
     expect(auth.isPublic(handlerPublic)).toBe(true);
   });
 
-  it('treats contexts without metadata methods as protected', () => {
+  it('treats contexts without usable metadata targets as protected', () => {
     const auth = new BasicAuth(configStub());
     const hostile = {} as unknown as ExecutionContext;
     expect(auth.isPublic(hostile)).toBe(false);
+    expect(auth.isPublic(new ExecutionContextHost([{}, {}], null, null))).toBe(false);
   });
 });

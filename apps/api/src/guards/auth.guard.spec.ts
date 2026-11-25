@@ -1,6 +1,9 @@
 import type { ExecutionContext } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 
+import { SetMetadata } from '@nestjs/common';
+import { ExecutionContextHost } from '@nestjs/core/internal';
+import { SKIP_BASIC_AUTH_KEY } from 'nest-basic-auth';
 import { describe, expect, it } from 'vitest';
 
 import type { Env } from '../environment.js';
@@ -8,6 +11,20 @@ import type { Env } from '../environment.js';
 import { basicAuthHeaders, TEST_BASIC_AUTH_ENV } from '../../test/auth.js';
 import { SESSION_COOKIE_NAME, signSession } from '../modules/auth/session.js';
 import { HttpAuthGuard } from './auth.guard.js';
+
+class ProtectedController {
+  route(): void {}
+}
+
+@SetMetadata(SKIP_BASIC_AUTH_KEY, true)
+class PublicController {
+  check(): void {}
+
+  @SetMetadata(SKIP_BASIC_AUTH_KEY, false)
+  protectedRoute(): void {}
+
+  route(): void {}
+}
 
 /**
  * Stubs ConfigService with the keys the unit under test reads.
@@ -24,67 +41,74 @@ function configStub(overrides: Partial<Record<keyof Env, string | undefined>> = 
     ...overrides,
   };
   return {
-    // eslint-disable-next-line security/detect-object-injection -- test stub: config keys are compile-time constants of the stub
+    // eslint-disable-next-line security/detect-object-injection -- test stub: config keys are compile-time constants
     get: (key: string) => base[key],
   } as unknown as ConfigService<Env, true>;
 }
 
 /**
- * Builds an ExecutionContext for the http path.
+ * Builds an HTTP execution context with metadata targets for the auth guard.
  * @param headers - the request headers
  * @param url - the request path
- * @returns the context double
+ * @param controller - the controller class used for skip metadata
+ * @param handler - the handler function used for skip metadata
+ * @returns the execution context double
  */
 function httpContext(
   headers: Record<string, string | string[] | undefined>,
   url = '/api/languages',
-): ExecutionContext {
-  return {
-    getType: () => 'http',
-    switchToHttp: () => ({
-      getRequest: () => ({ headers, url }),
-      getResponse: () => ({ header: () => undefined }),
-    }),
-  } as unknown as ExecutionContext;
+  controller = ProtectedController,
+  handler: () => void = ProtectedController.prototype.route,
+) {
+  const request = { headers, url };
+  const reply = { header: () => undefined };
+  return new ExecutionContextHost([request, reply], controller, handler);
 }
 
 /**
  * Builds an ExecutionContext for a websocket context.
  * @returns the context double
  */
-function wsContext(): ExecutionContext {
+function wsContext() {
   return { getType: () => 'ws' } as unknown as ExecutionContext;
 }
 
 describe('HttpAuthGuard', () => {
-  it('passes /api/health and /api/auth/login without credentials', async () => {
+  it('passes routes marked with SkipBasicAuth without credentials', async () => {
     const guard = new HttpAuthGuard(configStub());
-    await expect(guard.canActivate(httpContext({}, '/api/health'))).resolves.toBe(true);
-    await expect(guard.canActivate(httpContext({}, '/api/health/'))).resolves.toBe(true);
-    await expect(guard.canActivate(httpContext({}, '/api/auth/login'))).resolves.toBe(true);
-    await expect(guard.canActivate(httpContext({}, '/api/health?probe=1'))).resolves.toBe(true);
+    const publicContext = httpContext(
+      {},
+      '/api/health',
+      PublicController,
+      PublicController.prototype.check,
+    );
+    await expect(guard.canActivate(publicContext)).resolves.toBe(true);
   });
 
-  it('keeps exact-match allowlist semantics', async () => {
+  it('protects decorated routes when the handler opts back in', async () => {
     const guard = new HttpAuthGuard(configStub());
-    const call = (url: string) => guard.canActivate(httpContext({}, url));
-
-    // Shapes that normalize into the allowlist stay public.
-    await expect(call('/api/health///')).resolves.toBe(true);
-    await expect(call('/api/auth/login/')).resolves.toBe(true);
-    await expect(call('/api/auth/login?next=%2Fadmin')).resolves.toBe(true);
-    await expect(call('/api/health?probe=1&verbose')).resolves.toBe(true);
-
-    // Prefixes, suffixes and look-alikes are NOT public: membership is exact.
-    await expect(call('/api/health/foo')).rejects.toThrow(/Unauthorized/);
-    await expect(call('/api/healthfoo')).rejects.toThrow(/Unauthorized/);
-    await expect(call('/api/auth')).rejects.toThrow(/Unauthorized/);
-    await expect(call('/api/auth/login/extra')).rejects.toThrow(/Unauthorized/);
+    const context = httpContext(
+      {},
+      '/api/health/foo',
+      PublicController,
+      PublicController.prototype.protectedRoute,
+    );
+    await expect(guard.canActivate(context)).rejects.toThrow('Unauthorized');
   });
 
   it('rejects unauthenticated requests to protected routes', async () => {
     const guard = new HttpAuthGuard(configStub());
     await expect(guard.canActivate(httpContext({}))).rejects.toThrow('Unauthorized');
+    await expect(guard.canActivate(httpContext({}, '/api/health'))).rejects.toThrow('Unauthorized');
+    await expect(guard.canActivate(httpContext({}, '/api/auth/login'))).rejects.toThrow(
+      'Unauthorized',
+    );
+    await expect(guard.canActivate(httpContext({}, '/api/health/foo'))).rejects.toThrow(
+      'Unauthorized',
+    );
+    await expect(guard.canActivate(httpContext({}, '/api/auth/login/extra'))).rejects.toThrow(
+      'Unauthorized',
+    );
   });
 
   it('accepts a valid basic auth header', async () => {
