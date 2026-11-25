@@ -65,7 +65,7 @@
     "@nestjs/schematics": "^12.0.13",
     "@nestjs/testing": "^12.5.1",
     "@types/pg": "^8.23.1",
-    "drizzle-kit": "^1.0.0-rc.5",
+    "drizzle-kit": "^1.0.0-rc.6",
     "socket.io": "^4.8.4",
     "socket.io-client": "^4.8.4",
     "typescript": "~6.0.3"
