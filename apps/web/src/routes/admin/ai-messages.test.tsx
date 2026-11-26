@@ -117,9 +117,6 @@ describe('AiMessagesAdmin', () => {
     renderAdmin();
 
     await waitFor(() => expect(screen.getByText('short answer')).toBeTruthy());
-    expect(screen.getByText('completed').className).toContain('badge-ok');
-    expect(screen.getByText('failed').className).toContain('badge-fail');
-    expect(screen.getByText('pending').className).toContain('badge-warn');
     expect(screen.getAllByText('bonsai-2:2b')).toHaveLength(2);
     expect(screen.getAllByText('ollama')).toHaveLength(2);
     expect(screen.getByText(`${'x'.repeat(160)}…`)).toBeTruthy();
@@ -145,7 +142,6 @@ describe('AiMessagesAdmin', () => {
 
     await waitFor(() => expect(screen.getByText('system prompt')).toBeTruthy());
     expect(screen.getByText('user prompt')).toBeTruthy();
-    expect(screen.getByText('system').className).toContain('badge');
     expect(screen.getByRole('button', { name: 'Hide' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Hide' }));

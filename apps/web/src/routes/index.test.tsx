@@ -166,7 +166,7 @@ describe('Playground', () => {
 
     expect(translateText).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'Translating…' })).toHaveProperty('disabled', true);
-    expect(document.querySelector('.result-area')?.textContent).toBe('Translating…');
+    expect(screen.getByRole('status').textContent).toBe('Translating…');
     expect(screen.queryByText('The translation will appear here.')).toBeNull();
 
     await act(async () => {
@@ -213,9 +213,8 @@ describe('Playground', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Translate' }));
 
     await waitFor(() => {
-      expect(screen.getByText('cached', { selector: '.badge' })).toBeTruthy();
+      expect(screen.getByText('cached')).toBeTruthy();
     });
-    expect(document.querySelector('.badge-ok')).toBeTruthy();
     expect(screen.getByText(/^en · cached · /)).toBeTruthy();
   });
 

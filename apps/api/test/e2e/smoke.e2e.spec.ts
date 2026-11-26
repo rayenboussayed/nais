@@ -195,7 +195,7 @@ describe('e2e smoke (real child process, throwaway PostgreSQL)', () => {
 
   afterAll(async () => {
     for (const spawned of extraChildren) {
-      if (spawned.exitCode === null) {
+      if (spawned.exitCode === null && spawned.signalCode === null) {
         spawned.kill('SIGTERM');
         await once(spawned, 'exit');
       }

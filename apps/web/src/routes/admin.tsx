@@ -19,18 +19,21 @@ function AdminLayout() {
     <div className="stack">
       <nav aria-label="Admin sections" className="admin-nav">
         <Link
+          aria-current={pathname.startsWith('/admin/translations') ? 'page' : undefined}
           className={pathname.startsWith('/admin/translations') ? 'active' : ''}
           to="/admin/translations"
         >
           Translations
         </Link>
         <Link
+          aria-current={pathname.startsWith('/admin/languages') ? 'page' : undefined}
           className={pathname.startsWith('/admin/languages') ? 'active' : ''}
           to="/admin/languages"
         >
           Languages
         </Link>
         <Link
+          aria-current={pathname.startsWith('/admin/ai-messages') ? 'page' : undefined}
           className={pathname.startsWith('/admin/ai-messages') ? 'active' : ''}
           to="/admin/ai-messages"
         >

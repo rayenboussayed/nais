@@ -140,7 +140,7 @@ export function Playground() {
               {error}
             </div>
           )}
-          <div aria-live="polite" className="result-area" dir={targetDir}>
+          <div aria-live="polite" className="result-area" dir={targetDir} role="status">
             {busy && <span className="muted">Translating…</span>}
             {!busy && result === null && (
               <span className="muted">The translation will appear here.</span>

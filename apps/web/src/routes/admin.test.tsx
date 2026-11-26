@@ -10,15 +10,17 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   return {
     ...original,
     Link: ({
+      'aria-current': ariaCurrent,
       children,
       className,
       to,
     }: {
+      'aria-current'?: 'page';
       children: ReactNode;
       className?: string;
       to: string;
     }) => (
-      <a className={className} href={to}>
+      <a aria-current={ariaCurrent} className={className} href={to}>
         {children}
       </a>
     ),
@@ -68,32 +70,46 @@ describe('admin layout', () => {
   it('marks only the translations section active', () => {
     pathname = '/admin/translations';
 
-    const links = renderLayout();
+    renderLayout();
 
     expect(screen.getByRole('navigation', { name: 'Admin sections' })).toBeTruthy();
-    expect(links.translations.className).toBe('active');
-    expect(links.languages.className).toBe('');
-    expect(links.aiMessages.className).toBe('');
+    expect(screen.getByRole('link', { name: 'Translations' }).getAttribute('aria-current')).toBe(
+      'page',
+    );
+    expect(screen.getByRole('link', { name: 'Languages' }).getAttribute('aria-current')).toBeNull();
+    expect(
+      screen.getByRole('link', { name: 'AI messages' }).getAttribute('aria-current'),
+    ).toBeNull();
     expect(screen.getByTestId('admin-outlet')).toBeTruthy();
   });
 
   it('marks only the languages section active', () => {
     pathname = '/admin/languages';
 
-    const links = renderLayout();
+    renderLayout();
 
-    expect(links.translations.className).toBe('');
-    expect(links.languages.className).toBe('active');
-    expect(links.aiMessages.className).toBe('');
+    expect(
+      screen.getByRole('link', { name: 'Translations' }).getAttribute('aria-current'),
+    ).toBeNull();
+    expect(screen.getByRole('link', { name: 'Languages' }).getAttribute('aria-current')).toBe(
+      'page',
+    );
+    expect(
+      screen.getByRole('link', { name: 'AI messages' }).getAttribute('aria-current'),
+    ).toBeNull();
   });
 
   it('marks only the AI messages section active', () => {
     pathname = '/admin/ai-messages';
 
-    const links = renderLayout();
+    renderLayout();
 
-    expect(links.translations.className).toBe('');
-    expect(links.languages.className).toBe('');
-    expect(links.aiMessages.className).toBe('active');
+    expect(
+      screen.getByRole('link', { name: 'Translations' }).getAttribute('aria-current'),
+    ).toBeNull();
+    expect(screen.getByRole('link', { name: 'Languages' }).getAttribute('aria-current')).toBeNull();
+    expect(screen.getByRole('link', { name: 'AI messages' }).getAttribute('aria-current')).toBe(
+      'page',
+    );
   });
 });
